@@ -8,7 +8,7 @@
 #include "../utils/lock.h"
 #include <stdio.h>
 typedef s32 cme_lsis;
-typedef u32 cmh;
+typedef u32 cmh;//cmh从1开始发放，不准放0
 struct cmh_init{
     cmh cmh;
     struct list_head list;

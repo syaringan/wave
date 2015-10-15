@@ -5,8 +5,8 @@
 #include"../data/data.h"
 #include"pssme_db.h"
 #include"../cme/cme_db.h"
-#include"../sec/sec.h"
 
+struct sec_db;
 typedef enum action{
     ADD = 1,
     DELETE = 2,
@@ -15,7 +15,7 @@ typedef enum action{
 
 typedef struct serviceinfo{
     pssme_lsis lsis;
-    string psid;
+    psid psid;
     priority max_priority;
     string ssp;
 }serviceinfo;
@@ -34,10 +34,11 @@ typedef struct lsis_array{
  * 释放serviceinfo_array内部的指针
  */
 void serviceinfo_array_free(serviceinfo_array* point);
+void lsis_array_free(lsis_array* lsises);
 /**
  * 申请一个pssme lsis;
  */
-result pssme_lsis_request(struct pssme_db* pdb,pssme_lsis* lsis);
+result pssme_lsis_request(struct sec_db* sdb,pssme_lsis* lsis);
 /**
  * 向pssme注册或者撤销一个服务相关的东西;
  * @lsis：该实体标示。
@@ -47,14 +48,14 @@ result pssme_lsis_request(struct pssme_db* pdb,pssme_lsis* lsis);
  * @ssp：该实体的ssp；
  * return 成功或者失败
  */
-result pssme_secure_provider_serviceinfo(struct pssme_db* pdb,pssme_lsis lsis,action action,
+result pssme_secure_provider_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,action action,
                    string* psid,priority priority,string* ssp);
 /**
  *获取该lsis实体的服务信息
  *@lsis：该实体的表示，如果为-1 表示获取所有实体的。
  *@se_array:如果成功，把相关的信息填写进去;
  */
-result pssme_get_serviceinfo(struct pssme_db* pdb,
+result pssme_get_serviceinfo(struct sec_db* sdb,
                     cme_lsis lsis,serviceinfo_array* se_array);
 
 /**
@@ -73,7 +74,7 @@ result pssme_cryptimaterial_handle_delete(struct sec_db* sdb,
  * @generation_time:wsa受到的时间。
  * @cert：对应的证书.
  */
-result pssme_outoforder(struct pssme_db* pdb,
+result pssme_outoforder(struct sec_db* sdb,
                 u64 generation_time,certificate* cert);
 
 
@@ -96,6 +97,6 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
                     cmh* cmh,
                     struct certificate_chain* cert_chain);
 
-void pssme_init_pdb(struct pssme_db* pdb);
+void pssme_init_pdb(struct sec_db* sdb);
 #endif
 

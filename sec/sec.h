@@ -3,6 +3,7 @@
 #include"../pssme/pssme_db.h"
 #include"../cme/cme_db.h"
 #include"../cme/cme.h"
+#include"../pssme/pssme.h"
 
 struct sec_db{
     struct cme_db cme_db;
@@ -37,7 +38,7 @@ enum sign_with_fast_verification{
  * @signed_data:填写好了数据，编码,输入到signed_data.
  * @len_of_cert_chain:该证书连的长度。
  */
-result sec_signed_data(struct cme_db* cdb,
+result sec_signed_data(struct sec_db* sdb,
                 content_type type,string* data,
                 string* exter_data,psid psid,
                 string* ssp,
@@ -62,7 +63,7 @@ result sec_signed_data(struct cme_db* cdb,
 /*
  * 加密数据，参数参考协议
  */
-result sec_encrypted_data(struct cme_db* cdb,
+result sec_encrypted_data(struct sec_db* sdb,
                 content_type type,
                 string* data,
                 struct certificate_chain* certs,
@@ -73,7 +74,7 @@ result sec_encrypted_data(struct cme_db* cdb,
                 struct certificate_chain* failed_certs);
 
 
-result sec_secure_data_content_extration(struct cme_db* cdb,cmh cmh,
+result sec_secure_data_content_extration(struct sec_db* sdb,cmh cmh,
                 
                 content_type *type,
                 content_type *inner_type,
@@ -93,7 +94,7 @@ result sec_secure_data_content_extration(struct cme_db* cdb,cmh cmh,
  * 验证数据的签名，
  * 参数参考协议.
  */
-result sec_signed_data_verification(struct cme_db* cdb,
+result sec_signed_data_verification(struct sec_db* sdb,
                 cme_lsis lsis,
                 psid psid,
                 content_type type,
@@ -116,12 +117,12 @@ result sec_signed_data_verification(struct cme_db* cdb,
                 three_d_location* generation_location,
                 time64 overdue_crl_tolerance);
 /**
- * crl的签名验证
+ * crl的签名验证  时间单位秒
  */
-result sec_crl_verification(struct cme_db* cdb,string* crl,time64 overdue_crl_tolerance,
+result sec_crl_verification(struct sec_db* sdb,string* crl,time32 overdue_crl_tolerance,
                         
-                time64* last_crl_time,
-                time64* next_crl_time,
+                time32* last_crl_time,
+                time32* next_crl_time,
                 certificate* cert);
 
 enum transfer_type{
@@ -132,7 +133,7 @@ enum transfer_type{
  * 生成一个证书请求报,时间单位是秒
  * 参数请看协议
  */
-result sec_get_certificate_request(struct cme_db* cdb,signer_identifier_type type,
+result sec_get_certificate_request(struct sec_db* sdb,signer_identifier_type type,
                 cmh cmh,
                 holder_type cert_type,
                 enum transfer_type transfer_type,
@@ -151,7 +152,7 @@ result sec_get_certificate_request(struct cme_db* cdb,signer_identifier_type typ
                 string* cert_request,
                 certid10* request_hash);
 
-result sec_certficate_response_processing(struct cme_db* cdb,
+result sec_certificate_response_processing(struct sec_db* sdb,
                 cmh cmh,
                 string* data,
                 
@@ -160,7 +161,7 @@ result sec_certficate_response_processing(struct cme_db* cdb,
                 certificate_request_error_code* error,
                 certificate* certificate,
                 string* rec_value,
-                bool ack_request
+                bool* ack_request
                 );
 
 result sec_signed_wsa(struct sec_db* sdb,

@@ -8,3 +8,10 @@ void serviceinfo_array_free(serviceinfo_array* point){
     point->len = 0;
 };
 
+void lsis_array_free(lsis_array* lsises){
+    if(lsises->lsis == NULL)
+        return ;
+    free(lsises->lsis);
+    lsises->len = 0;
+    lsises->lsis = NULL;
+}
