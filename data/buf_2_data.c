@@ -260,7 +260,7 @@ static u32 buf_2_elliptic_curve_point(const u8* buf, const u32 len,
 		bitnum = head_bit_num(mbuf);
 		elliptic_curve_point->u.y.len = variablelength_data_num(mbuf, bitnum);
 		mbuf += bitnum;
-		if(size < bitnum + elliptic_curve_point->u.y.len*sizeof(u8)
+		if(size < bitnum + elliptic_curve_point->u.y.len*sizeof(u8))
 			return 0;
 		elliptic_curve_point->u.y.buf = (u8*)malloc(sizeof(u8)* elliptic_curve_point->u.y.len);
 		fill_buf8(elliptic_curve_point->u.y.buf, mbuf, elliptic_curve_point->u.y.len);

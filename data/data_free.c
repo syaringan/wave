@@ -513,8 +513,7 @@ static void tobe_encrypted_certificate_response_free(tobe_encrypted_certificate_
  *YGH 30
  */
 static void tobesigned_certificate_request_free(tobesigned_certificate_request* 
-		_
-				tobesigned_certificate_request){
+		tobesigned_certificate_request){
 
 	cert_specific_data_free(&tobesigned_certificate_request->type_specific_data,
 			tobesigned_certificate_request->holder_type);
