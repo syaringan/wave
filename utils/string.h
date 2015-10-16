@@ -6,11 +6,13 @@ typedef struct string{
     u16 len;
 }string;
 /**
- * 分配一个string的指针，并且buf分配指定长度
- */
-string * string_malloc(u16 len);
-/**
  * 释放一个string的指针
  */
-void string_free(string *str);
+static inline void string_free(string *str){
+    if(str->buf == NULL)
+        return;
+    free(str->buf);
+    str->buf = NULL;
+    str->len = 0;
+}
 #endif /*STRING_H*/

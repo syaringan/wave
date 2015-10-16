@@ -43,7 +43,7 @@ typedef enum certificate_request_error_code{
     FUTURE_CA_CERT = 7,
     CA_CERT_EXPIERD = 8,
     CA_CEAT_REVOKED = 9,
-}ertificate_request_error_code;
+}certificate_request_error_code;
 
 typedef enum region_type{
     FROM_ISSUER = 0,
