@@ -204,7 +204,7 @@ static int lsis_array_2_file(struct cmp_db* cmdb,int fd){
 
     pthread_mutex_lock(&cmdb->lock);
     needlen = cmdb->req_cert_lsises.len;
-    needlen = sizeof(struct pssme_lsis) * needlen;
+    needlen = sizeof(*cmdb->req_cert_lsises.lsis) * needlen;
     buf = (u8*)malloc(needlen+4);
     if(buf == NULL){
         pthread_mutex_unlcok(&cmdb->lock);
@@ -331,60 +331,6 @@ static int inline file_2_len(u32* len,int fd){
     *len = be_to_host32(*len);
     return 0;
 }
-static int file_2_others(struct cmp_db* cmdb,int fd){
-    u32 len;
-    geographic_region region;
-    if( read(fd,&len,4) != 4  ){
-        wave_error_printf("读取失败");
-        return -1;
-    }
-    ptr_be_to_host(&len,len);
-    pthread_mutex_lock(&cmdb->lock);
-    cmdb->identifier.len = len;
-    cmdb->identifier.buf = (u8*)malloc(len);
-    if(cmdb->identifier.buf == NULL){
-        wave_error_printf("分配失败");
-        pthread_mutex_unlock(&cmdb->lock);
-        return -1;
-    }
-    if( read(fd,cmdb->identifier.buf,len) != len){
-        wave_error_printf("读取文件失败");
-        pthread_mutex_unlock(&cmdb->lock);
-        return -1;
-    }
-
-    //还有region没写
-    pthread_mutex_unlock(&cmdb->lock);
-}
-static int file_2_lsis_array(struct cmp_db* cmdb,int fd){
-    u32 len;
-    int i;
-    if(read(fd,&len,4) != 4){
-        wave_error_printf("读取失败");
-        return -1;
-    }
-    ptr_be_to_host(&len,len);
-    pthread_mutex_lock(&cmdb->lock);
-    cmdb->req_cert_lsises.len = len;
-    cmdb->req_cert_lsises.lsis = (struct pssme_lsis*)malloc(sizeof(struct pssme_lsis) * len);
-    if(cmdb->req_cert_lsises.lsis == NULL){
-        pthread_mutex_unlock(&cmdb->lock);
-        wave_error_printf("分配空间失败");
-        return -1;
-    }
-    for(i=0;i<len;i++){
-        if(read(fd,cmdb->req_cert_lsises.lsis+i,sizeof(struct pssme_lsis)) != 
-                sizeof(struct pssme_lsis) ){
-            wave_error_printf("读取文件失败");
-            free(cmdb->req_cert_lsises.lsis);
-            pthread_mutex_unlock(&cmdb->lock);
-            return -1;
-        }
-        ptr_be_to_host(cmdb->req_cert_lsises.lsis+i,*(cmdb->req_cert_lsises.lsis+i));
-    }
-    pthread_mutex_unlock(&cmdb->lock);
-    return 0;
-}
 static int file_2_crl_cert(struct cmp_db* cmdb,int fd){
     time32 crl_req_issue_date;
     hashedid8 crl_request_issuer;
@@ -408,11 +354,8 @@ static int file_2_crl_cert(struct cmp_db* cmdb,int fd){
     cmdb->crl_request_crl_series = crl_request_crl_series;
     cmdb->req_cert_cmh = req_cert_cmh;
     cmdb->req_cert_enc_cmh = req_cert_enc_cmh;
-    hashedid8_cpy(&cmdb->crl_request_issuer,&crl_request_issuer);
+    hashedid8_cpy(cmdb->crl_request_issuer,crl_request_issuer);
     pthread_mutex_unlock(&cmdb->lock);
-    return 0;
-fail:
-    return -1;
 }
 static struct crl_req_time* file_2_crl_req_time(int fd){
     struct crl_req_time* crt =NULL;
