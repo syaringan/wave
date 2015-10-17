@@ -478,18 +478,14 @@ static void tobe_encrypted_certificate_request_error_free(tobe_encrypted_certifi
 
 /**
  *YGH 29
- *@version_and_type外部数据结构传入参数
+ *@version_and_type由证书链中最后一个证书得到
  */
 static void tobe_encrypted_certificate_response_free(tobe_encrypted_certificate_response* 
-				tobe_encrypted_certificate_response, u8 version_and_type){
+				tobe_encrypted_certificate_response){
 	int i;
-	if(NULL != tobe_encrypted_certificate_response->certificate_chain.buf){
-		for(i = 0;i<tobe_encrypted_certificate_response->certificate_chain.len;i++){
-			certificate_free(tobe_encrypted_certificate_response->certificate_chain.buf + i);
-		}
-		ARRAY_FREE(&tobe_encrypted_certificate_response->certificate_chain);
-	}
-	switch(version_and_type){
+	int n = tobe_encrypted_certificate_response->certificate_chain.len - 1;
+
+	switch((tobe_encrypted_certificate_response->certificate_chain.buf + n)->version_and_type){
 		case 2:
 			break;
 		case 3:
@@ -507,6 +503,15 @@ static void tobe_encrypted_certificate_response_free(tobe_encrypted_certificate_
 		}
 		ARRAY_FREE(&tobe_encrypted_certificate_response->crl_path);
 	}
+
+	if(NULL != tobe_encrypted_certificate_response->certificate_chain.buf){
+		for(i = 0;i<tobe_encrypted_certificate_response->certificate_chain.len;i++){
+			certificate_free(tobe_encrypted_certificate_response->certificate_chain.buf + i);
+		}
+		ARRAY_FREE(&tobe_encrypted_certificate_response->certificate_chain);
+	}
+
+
 }
 
 /**
@@ -637,13 +642,13 @@ static void tobe_encrypted_free(tobe_encrypted* tobe_encrypted){
 			certificate_request_free(&tobe_encrypted->u.request);
 			break;
 		case CERTIFICATE_RESPONSE:
-			tobe_encrypted_anonymous_cert_response_free(&tobe_encrypted->u.response);
+			tobe_encrypted_certificate_response_free(&tobe_encrypted->u.response);
 		case ANOYMOUS_CERTIFICATE_RESPONSE:
 			break;
 		case CERTIFICATE_REQUSET_ERROR:
 			tobe_encrypted_certificate_request_error_free(&tobe_encrypted->u.request_error);
 			break;
-		case CRL_REQUEST:
+		case CONTENT_TYPE_CRL_REQUEST:
 			crl_request_free(&tobe_encrypted->u.crl_request);
 			break;
 		case CRL:

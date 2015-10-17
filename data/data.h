@@ -386,7 +386,7 @@ typedef struct root_ca_scope{
     struct{
         psid_array secure_data_permissions;
         psid_priority_array wsa_permissions;
-        ARRAY(u8,other_permissons);
+        ARRAY(u8,other_permissions);
     }flags_content;
     geographic_region region;
 }root_ca_scope;
