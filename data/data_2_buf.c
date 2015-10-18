@@ -8,7 +8,11 @@
 #
 # Filename: data_2_buf.c
 #
-# Description: 
+# Description:1.命名格式为struct_2_buf,struct为结构体名字
+#			  2.变长ARRAY的编码格式(length + data),针对其编码定义了几个变量：
+#				mbuf_beg为变长ARRAY的起始位置
+#				mbuf_end为变长ARRAY的结束位置
+#				min_len为变长ARRAY中length的最小字节数
 #
 =============================================================================*/
 #include"data_handle.h"
@@ -69,7 +73,7 @@ static void varible_len4_encoding(u8* buf,u32 len){//同上 小于28次方
     tobuf32(buf,size);
 }
 static void varible_len5_encoding(u8* buf,u64 len){//同上 小于35次方
-    u64 size = 0x000000f000000000;
+    u64 size = 0x000000f000000000ull;
     size = size | len;
     size = host_to_be64(size);
     *buf++ = getchar4(size);
@@ -79,7 +83,7 @@ static void varible_len5_encoding(u8* buf,u64 len){//同上 小于35次方
     *buf++ = getchar8(size);
 }
 static void varible_len6_encoding(u8* buf,u64 len){//同上 小于42次方
-    u64 size = 0x0000f80000000000;
+    u64 size = 0x0000f80000000000ull;
     size = size | len;
     size = host_to_be64(size);
     *buf++ = getchar3(size);
@@ -90,7 +94,7 @@ static void varible_len6_encoding(u8* buf,u64 len){//同上 小于42次方
     *buf++ = getchar8(size);
 }
 static void varible_len7_encoding(u8* buf,u64 len){//同上，小于49次方
-    u64 size = 0x00fc000000000000;
+    u64 size = 0x00fc000000000000ull;
     size = size | len;
     size = host_to_be64(size);
     *buf++ = getchar2(size);
@@ -102,44 +106,44 @@ static void varible_len7_encoding(u8* buf,u64 len){//同上，小于49次方
     *buf++ = getchar8(size);
 }
 static void varible_len8_encoding(u8* buf,u64 len){//同上 小于56次方
-    u64 size = 0xfe00000000000000;
+    u64 size = 0xfe00000000000000ull;
     size = size | len;
     tobuf64(buf,size);
 }
 static void  varible_len_encoding(u8* buf,u64 len){//对Variable length的length进行编码 
     if(len < 2<<7){
-        varible_len1_encoding(u8* buf,(u8)len);
+        varible_len1_encoding(buf,(u8)len);
         return ;
     }
     if(len < 2<<14){
-        varible_len2_encoding(u8* buf,(u16)len);
+        varible_len2_encoding(buf,(u16)len);
         return ;
     }
     if(len < 2<<21){
-        varible_len3_encoding(u8* buf,(u32)len);
+        varible_len3_encoding(buf,(u32)len);
         return ;
     }
     if(len < 2<<28){
-        varible_len4_encoding(u8* buf,(u32)len);
+        varible_len4_encoding(buf,(u32)len);
         return ;
     }
-    if(len < 2<<35){
-        varible_len5_encoding(u8* buf,(u64)len);
+    if(len < 2ull<<35){  //默认为4字节，后加ull表示为8字节
+        varible_len5_encoding(buf,(u64)len);
         return ;
     }
-    if(len < 2<<42){
-        varible_len6_encoding(u8* buf,(u64)len);
+    if(len < 2ull<<42){
+        varible_len6_encoding(buf,(u64)len);
         return ;
     }
-    if(len < 2<<49){
-        varible_len7_encoding(u8* buf,(u64)len);
+    if(len < 2ull<<49){
+        varible_len7_encoding(buf,(u64)len);
         return ;
     }
-    varible_len8_encoding(u8* buf,(u64)len);
+    varible_len8_encoding(buf,(u64)len);
     return ;
         
 }
-static u32 varible_len_calculate(u64 len){ //  
+static u32 varible_len_calculate(u64 len){  
     if(len < 2<<7){
         return 1;
     }
@@ -152,40 +156,16 @@ static u32 varible_len_calculate(u64 len){ //
     if(len < 2<<28){
         return 4;
     }
-    if(len < 2<<35){
+    if(len < 2ull<<35){
         return 5;
     }
-    if(len < 2<<42){
+    if(len < 2ull<<42){
         return 6;
     }
-    if(len < 2<<49){
+    if(len < 2ull<<49){
         return 7;
     }
     return 8;
-}
-
-/**
- * @array8_tobuf 将元素类型为u8的ARRAY编码到buf中
- */
-
-static u32 array8_tobuf(ARRAY* array,u8* buf,u32 len){////////?????
-	u8* mbuf = buf;
-	u32 size =len;
-	u32 res = 0;
-
-	int i;
-
-	u32 encode_len = varible_len_calculate(array->len);
-	if(size < encode_len + array->len)
-		return NOT_ENOUGHT;
-	mbuf += encode_len;
-
-	for(i=0;i<array->len;i++){
-		*mbuf++ = *(array->buf + i);
-	}
-	size = size - encode_len - array->len;
-	res = res + encode_len + array->len;
-	return res;
 }
 
 /**
@@ -221,6 +201,7 @@ u32 tbsdata_extension_2_buf(const tbsdata_extension *tbsdata_extension,
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
+	int i;
 	if(len < 2)
 		return NOT_ENOUGHT;
 
@@ -229,24 +210,19 @@ u32 tbsdata_extension_2_buf(const tbsdata_extension *tbsdata_extension,
 	size--;
 	res++;
 
-	u32 encode_len = array8_tobuf(&tbsdata_extension->value,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
-	return encode_len + res;
-/*
 	u32 encode_len = varible_len_calculate(tbsdata_extension->value.len);
 	if (size < encode_len + tbsdata_extension->value.len)
 		return NOT_ENOUGHT;
 	varible_len_encoding(mbuf,tbsdata_extension->value.len);
 	mbuf += encode_len;
 
-	for(int i=0;i < tbsdata_extension->value.len;i++){
+	for(i=0;i < tbsdata_extension->value.len;i++){
 		*mbuf++ = *(tbsdata_extension->value.buf + i);
 	}
 	size = size - encode_len - tbsdata_extension->value.len;
 	res = res + encode_len + tbsdata_extension->value.len;
 	return res;
-*/
+
 }
 
 /**
@@ -258,10 +234,9 @@ u32 three_d_location_2_buf(const three_d_location *three_d_location,
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
+	int i;
 	if(len < 10)
 		return NOT_ENOUGHT;
-
-	int i;
 
 	tobuf32(mbuf,three_d_location->latitude);
 	mbuf += 4;
@@ -274,7 +249,7 @@ u32 three_d_location_2_buf(const three_d_location *three_d_location,
 	res +=4;
 
 	for(i=0;i<2;i++){
-		*mbuf++ = *(three_d_location->elevation + i);///////c语言数组？？
+		*mbuf++ = *(three_d_location->elevation + i);
 	}
 	size -= 2;
 	res += 2;
@@ -289,10 +264,9 @@ u32 hashedid8_2_buf(const hashedid8 *hashedid8,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
+	int i;
 	if(len < 8)
 		return NOT_ENOUGHT;
-
-	int i;
 
 	for(i=0;i<8;i++){
 		*mbuf++ = *(hashedid8->hashedid8 + i);
@@ -311,6 +285,8 @@ u32 elliptic_curve_point_2_buf(const elliptic_curve_point *elliptic_curve_point,
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
+	u32 encode_len;
+	int i;
 	if(len < 3)
 		return NOT_ENOUGHT;
 
@@ -319,20 +295,30 @@ u32 elliptic_curve_point_2_buf(const elliptic_curve_point *elliptic_curve_point,
 	size--;
 	res++;
 
-	u32 encode_len = array8_tobuf(&elliptic_curve_point->x,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
+	encode_len = varible_len_calculate(elliptic_curve_point->x.len);
+	if (size < encode_len + elliptic_curve_point->x.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,elliptic_curve_point->x.len);
 	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
+
+	for(i=0;i < elliptic_curve_point->x.len;i++){
+		*mbuf++ = *(elliptic_curve_point->x.buf + i);
+	}
+	size = size - encode_len - elliptic_curve_point->x.len;
+	res = res + encode_len + elliptic_curve_point->x.len;
 
 	if(elliptic_curve_point->type == UNCOMPRESSED){
-		u32 encode_len = array8_tobuf(&elliptic_curve_point->u.y,mbuf,size);
-		if(encode_len < 0)
-			return encode_len;
+		encode_len = varible_len_calculate(elliptic_curve_point->u.y.len);
+		if (size < encode_len + elliptic_curve_point->u.y.len)
+			return NOT_ENOUGHT;
+		varible_len_encoding(mbuf,elliptic_curve_point->u.y.len);
 		mbuf += encode_len;
-		size -= encode_len;
-		res += encode_len;
+
+		for(i=0;i < elliptic_curve_point->u.y.len;i++){
+			*mbuf++ = *(elliptic_curve_point->u.y.buf + i);
+		}
+		size = size - encode_len - elliptic_curve_point->u.y.len;
+		res = res + encode_len + elliptic_curve_point->u.y.len;
 	}
 	return res;
 }
@@ -346,6 +332,7 @@ u32 ecdsa_signature_2_buf(const ecdsa_signature *ecdsa_signature,u8* buf,u32 len
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
 
 	if(len < 4)
 		return NOT_ENOUGHT;
@@ -357,10 +344,18 @@ u32 ecdsa_signature_2_buf(const ecdsa_signature *ecdsa_signature,u8* buf,u32 len
 	size -= encode_len;
 	res += encode_len;
 
-	encode_len = array8_tobuf(&ecdsa_signature->s,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
-	return encode_len + res;
+	encode_len = varible_len_calculate(ecdsa_signature->s.len);
+	if (size < encode_len + ecdsa_signature->s.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,ecdsa_signature->s.len);
+	mbuf += encode_len;
+
+	for(i=0;i < ecdsa_signature->s.len;i++){
+		*mbuf++ = *(ecdsa_signature->s.buf + i);
+	}
+	size = size - encode_len - ecdsa_signature->s.len;
+	res = res + encode_len + ecdsa_signature->s.len;
+	return res;
 }
 
 
@@ -373,6 +368,7 @@ u32 signature_2_buf(const signature *signature,u8* buf,u32 len,pk_algorithm algo
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
 
 	if(len < 1)
 		return NOT_ENOUGHT;
@@ -383,8 +379,18 @@ u32 signature_2_buf(const signature *signature,u8* buf,u32 len,pk_algorithm algo
 			encode_len = ecdsa_signature_2_buf(&signature->u.ecdsa_signature,mbuf,size);
 			return encode_len;
 		default:
-			encode_len = array8_tobuf(&signature->u.signature,mbuf,size);
-			return encode_len;
+			encode_len = varible_len_calculate(signature->u.signature.len);
+			if (size < encode_len + signature->u.signature.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,signature->u.signature.len);
+			mbuf += encode_len;
+
+			for(i=0;i < signature->u.signature.len;i++){
+				*mbuf++ = *(signature->u.signature.buf + i);
+			}
+			size = size - encode_len - signature->u.signature.len;
+			res = res + encode_len + signature->u.signature.len;
+			return res;
 	}
 }
 
@@ -397,6 +403,8 @@ u32 public_key_2_buf(const public_key *public_key,u8* buf,u32 len){
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 2)
 		return NOT_ENOUGHT;
 
@@ -422,12 +430,19 @@ u32 public_key_2_buf(const public_key *public_key,u8* buf,u32 len){
 				 return encode_len;
 			 return encode_len + res;
 		 default:
-			 encode_len = array8_tobuf(&public_key->u.other_key,mbuf,size);
-			 if(encode_len < 0)
-				 return encode_len;
-			 return encode_len + res;
-	 }
+			 encode_len = varible_len_calculate(public_key->u.other_key.len);
+			 if (size < encode_len + public_key->u.other_key.len)
+				 return NOT_ENOUGHT;
+			 varible_len_encoding(mbuf,public_key->u.other_key.len);
+			 mbuf += encode_len;
 
+			 for(i=0;i < public_key->u.other_key.len;i++){
+				 *mbuf++ = *(public_key->u.other_key.buf + i);
+			 }
+			 size = size - encode_len - public_key->u.other_key.len;
+			 res = res + encode_len + public_key->u.other_key.len;
+			 return res;
+	 }
 }
 
 /**
@@ -519,10 +534,10 @@ u32 geographic_region_2_buf(const geographic_region *geographic_region,u8* buf,u
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 2)
 		return NOT_ENOUGHT;
-
-	int i;
 
 	*mbuf = geographic_region->region_type;
 	mbuf++;
@@ -564,10 +579,18 @@ u32 geographic_region_2_buf(const geographic_region *geographic_region,u8* buf,u
 		case NONE:
 			return res;
 		default:
-			encode_len = array8_tobuf(&geographic_region->u.other_region,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			return encode_len + res;
+			encode_len = varible_len_calculate(geographic_region->u.other_region.len);
+			if (size < encode_len + geographic_region->u.other_region.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,geographic_region->u.other_region.len);
+			mbuf += encode_len;
+
+			for(i=0;i < geographic_region->u.other_region.len;i++){
+				*mbuf++ = *(geographic_region->u.other_region.buf + i);
+			}
+			size = size - encode_len - geographic_region->u.other_region.len;
+			res = res + encode_len + geographic_region->u.other_region.len;
+			return res;
 	}
 }
 
@@ -604,10 +627,10 @@ u32 psid_priority_array_2_buf(const psid_priority_array *psid_priority_array,
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 2)
 		return NOT_ENOUGHT;
-
-	int i;
 
 	*mbuf = psid_priority_array->type;
 	mbuf++;
@@ -636,10 +659,18 @@ u32 psid_priority_array_2_buf(const psid_priority_array *psid_priority_array,
 		case ARRAY_TYPE_FROM_ISSUER:
 			return res;
 		default:
-			encode_len = array8_tobuf(&psid_priority_array->u.other_permissions,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			return encode_len + res;
+			encode_len = varible_len_calculate(psid_priority_array->u.other_permissions.len);
+			if (size < encode_len + psid_priority_array->u.other_permissions.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,psid_priority_array->u.other_permissions.len);
+			mbuf += encode_len;
+
+			for(i=0;i < psid_priority_array->u.other_permissions.len;i++){
+				*mbuf++ = *(psid_priority_array->u.other_permissions.buf + i);
+			}
+			size = size - encode_len - psid_priority_array->u.other_permissions.len;
+			res = res + encode_len + psid_priority_array->u.other_permissions.len;
+			return res;
 	}
 }
 
@@ -652,10 +683,10 @@ u32 psid_array_2_buf(const psid_array *psid_array,u8* buf,u32 len){
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 2)
 		return NOT_ENOUGHT;
-
-	int i;
 
 	*mbuf = psid_array->type;
 	mbuf++;
@@ -673,7 +704,7 @@ u32 psid_array_2_buf(const psid_array *psid_array,u8* buf,u32 len){
 			res += encode_len;
 
 			for(i=0;i < psid_array->u.permissions_list.len;i++){
-				tobuf64(mbuf,*(psid_array->u.permissions_list.buf + i)); //??
+				tobuf64(mbuf,*(psid_array->u.permissions_list.buf + i));
 				mbuf += 8;
 				size -= 8;
 				res += 8;
@@ -682,10 +713,18 @@ u32 psid_array_2_buf(const psid_array *psid_array,u8* buf,u32 len){
 		case ARRAY_TYPE_FROM_ISSUER:
 			return res;
 		default:
-			encode_len = array8_tobuf(&psid_array->u.other_permissions,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			return encode_len + res;
+			encode_len = varible_len_calculate(psid_array->u.other_permissions.len);
+			if (size < encode_len + psid_array->u.other_permissions.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,psid_array->u.other_permissions.len);
+			mbuf += encode_len;
+
+			for(i=0;i < psid_array->u.other_permissions.len;i++){
+				*mbuf++ = *(psid_array->u.other_permissions.buf + i);
+			}
+			size = size - encode_len - psid_array->u.other_permissions.len;
+			res = res + encode_len + psid_array->u.other_permissions.len;
+			return res;
 	}
 }
 
@@ -697,6 +736,9 @@ u32 psid_ssp_2_buf(const psid_ssp *psid_ssp,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
+	u32 encode_len;
+	int i;
+
 	if(len < 9)
 		return NOT_ENOUGHT;
 
@@ -705,18 +747,25 @@ u32 psid_ssp_2_buf(const psid_ssp *psid_ssp,u8* buf,u32 len){
 	size -= 8;
 	res += 8;
 
-	u32 encode_len = array8_tobuf(&psid_ssp->service_specific_permissions,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
-	return encode_len + res;
+	encode_len = varible_len_calculate(psid_ssp->service_specific_permissions.len);
+	if (size < encode_len + psid_ssp->service_specific_permissions.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,psid_ssp->service_specific_permissions.len);
+	mbuf += encode_len;
+
+	for(i=0;i < psid_ssp->service_specific_permissions.len;i++){
+		*mbuf++ = *(psid_ssp->service_specific_permissions.buf + i);
+	}
+	size = size - encode_len - psid_ssp->service_specific_permissions.len;
+	res = res + encode_len + psid_ssp->service_specific_permissions.len;
+
+	return res;
 }
 
 /**
  *   data_2  17
  *
- *   mbuf_beg为变长ARRAY的起始位置
- *   mbuf_end为变长ARRAY的结束位置
- *   min_len为变长ARRAY中length的最小字节数
+ *  
  */
 
 u32 psid_ssp_array_2_buf(const psid_ssp_array *psid_ssp_array,u8* buf,u32 len){
@@ -739,9 +788,6 @@ u32 psid_ssp_array_2_buf(const psid_ssp_array *psid_ssp_array,u8* buf,u32 len){
 
 	switch(psid_ssp_array->type){
 		case ARRAY_TYPE_SPECIFIED:
-			
-			//每个psid_ssp长度至少为2
-			
 			min_len = varible_len_calculate(psid_ssp_array->u.permissions_list.len*2);
 			if (size < min_len + psid_ssp_array->u.permissions_list.len*2)
 				return NOT_ENOUGHT;
@@ -763,7 +809,7 @@ u32 psid_ssp_array_2_buf(const psid_ssp_array *psid_ssp_array,u8* buf,u32 len){
 			if(size < encode_len)
 				return NOT_ENOUGHT;
 
-			mbuf = mbuf_end + encode_len;    /////  len  ????
+			mbuf = mbuf_end + encode_len;
 			while(mbuf_beg != mbuf_end){
 				mbuf_end--;
 				*(mbuf_end + encode_len) = *mbuf_end;
@@ -773,15 +819,21 @@ u32 psid_ssp_array_2_buf(const psid_ssp_array *psid_ssp_array,u8* buf,u32 len){
 
 			return encode_len + res;
 
-			///////////////////////////////////////////////////////////////////////////////////////////////////  
-
 		case ARRAY_TYPE_FROM_ISSUER:
 			return res;
 		default:
-			encode_len = array8_tobuf(&psid_ssp_array->u.other_permissions,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			return encode_len + res;
+			encode_len = varible_len_calculate(psid_ssp_array->u.other_permissions.len);
+			if (size < encode_len + psid_ssp_array->u.other_permissions.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,psid_ssp_array->u.other_permissions.len);
+			mbuf += encode_len;
+	
+			for(i=0;i < psid_ssp_array->u.other_permissions.len;i++){
+				*mbuf++ = *(psid_ssp_array->u.other_permissions.buf + i);
+			}
+			size = size - encode_len - psid_ssp_array->u.other_permissions.len;
+			res = res + psid_ssp_array->u.other_permissions.len;
+			return res;
 	}
 }
 
@@ -794,6 +846,8 @@ u32 psid_priority_ssp_2_buf(const psid_priority_ssp *psid_priority_ssp,u8* buf,u
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 10)
 		return NOT_ENOUGHT;
 
@@ -807,10 +861,18 @@ u32 psid_priority_ssp_2_buf(const psid_priority_ssp *psid_priority_ssp,u8* buf,u
 	size--;
 	res++;
 
-	encode_len = array8_tobuf(&psid_priority_ssp->service_specific_permissions,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
-	return encode_len + res;
+	encode_len = varible_len_calculate(psid_priority_ssp->service_specific_permissions.len);
+	if (size < encode_len + psid_priority_ssp->service_specific_permissions.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,psid_priority_ssp->service_specific_permissions.len);
+	mbuf += encode_len;
+
+	for(i=0;i < psid_priority_ssp->service_specific_permissions.len;i++){
+		*mbuf++ = *(psid_priority_ssp->service_specific_permissions.buf + i);
+	}
+	size = size - encode_len - psid_priority_ssp->service_specific_permissions.len;
+	res = res + encode_len + psid_priority_ssp->service_specific_permissions.len;
+	return res;
 }
 
 /**
@@ -859,7 +921,7 @@ u32 psid_priority_ssp_array_2_buf(const psid_priority_ssp_array *psid_priority_s
 			if(size < encode_len)
 				return NOT_ENOUGHT;
 
-			mbuf = mbuf_end + encode_len;    /////  len  ????
+			mbuf = mbuf_end + encode_len;
 			while(mbuf_beg != mbuf_end){
 				mbuf_end--;
 				*(mbuf_end + encode_len) = *mbuf_end;
@@ -869,14 +931,21 @@ u32 psid_priority_ssp_array_2_buf(const psid_priority_ssp_array *psid_priority_s
 
 			return encode_len + res;
 
-			///////////////////////////////////////////////////////////////////////////////////////////////////  
 		case ARRAY_TYPE_FROM_ISSUER:
 			return res;
 		default:
-			encode_len = array8_tobuf(&psid_priority_ssp_array->u.other_permissions,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			return encode_len + res;
+			encode_len = varible_len_calculate(psid_priority_ssp_array->u.other_permissions.len);
+			if (size < encode_len + psid_priority_ssp_array->u.other_permissions.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,psid_priority_ssp_array->u.other_permissions.len);
+			mbuf += encode_len;
+
+			for(i=0;i < psid_priority_ssp_array->u.other_permissions.len;i++){
+				*mbuf++ = *(psid_priority_ssp_array->u.other_permissions.buf + i);
+			}
+			size = size - encode_len - psid_priority_ssp_array->u.other_permissions.len;
+			res = res + encode_len + psid_priority_ssp_array->u.other_permissions.len;
+			return res;
 	}
 }
 
@@ -892,7 +961,7 @@ u32 wsa_scope_2_buf(const wsa_scope *wsa_scope,u8* buf,u32 len){
 	if(len < 5)
 		return NOT_ENOUGHT;
 
-	*mbuf = wsa_scope->name;  ////////////?????????
+	*mbuf = *wsa_scope->name;
 	mbuf++;
 	size--;
 	res++;
@@ -922,15 +991,22 @@ u32 anonymous_scope_2_buf(const anonymous_scope *anonymous_scope,u8* buf,u32 len
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 5)
 		return NOT_ENOUGHT;
 
-	encode_len = array8_tobuf(&anonymous_scope->additionla_data,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
+	encode_len = varible_len_calculate(anonymous_scope->additionla_data.len);
+	if (size < encode_len + anonymous_scope->additionla_data.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,anonymous_scope->additionla_data.len);
 	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
+
+	for(i=0;i < anonymous_scope->additionla_data.len;i++){
+		*mbuf++ = *(anonymous_scope->additionla_data.buf + i);
+	}
+	size = size - encode_len - anonymous_scope->additionla_data.len;
+	res = res + encode_len + anonymous_scope->additionla_data.len;
 	
 	encode_len = psid_ssp_array_2_buf(&anonymous_scope->permissions,mbuf,size);
 	if(encode_len < 0)
@@ -960,7 +1036,7 @@ u32 identified_scope_2_buf(const identified_scope *identified_scope,u8* buf,u32 
 	if(len < 5)
 		return NOT_ENOUGHT;
 
-	*mbuf = identified_scope->name;
+	*mbuf = *identified_scope->name;
 	mbuf++;
 	size--;
 	res++;
@@ -994,7 +1070,7 @@ u32 identified_not_localized_scope_2_buf(const identified_not_localized_scope *i
 	if(len < 3)
 		return NOT_ENOUGHT;
 
-	*mbuf = identified_not_localized_scope->name;
+	*mbuf = *identified_not_localized_scope->name;
 	mbuf++;
 	size--;
 	res++;
@@ -1017,15 +1093,22 @@ u32 wsa_ca_scope_2_buf(const wsa_ca_scope *wsa_ca_scope,u8* buf,u32 len){
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 5)
 		return NOT_ENOUGHT;
 
-	encode_len = array8_tobuf(&wsa_ca_scope->name,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
+	encode_len = varible_len_calculate(wsa_ca_scope->name.len);
+	if (size < encode_len + wsa_ca_scope->name.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,wsa_ca_scope->name.len);
 	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
+
+	for(i=0;i < wsa_ca_scope->name.len;i++){
+		*mbuf++ = *(wsa_ca_scope->name.buf + i);
+	}
+	size = size - encode_len - wsa_ca_scope->name.len;
+	res = res + encode_len + wsa_ca_scope->name.len;
 	
 	encode_len = psid_priority_array_2_buf(&wsa_ca_scope->permissions,mbuf,size);
 	if(encode_len < 0)
@@ -1053,20 +1136,35 @@ u32 sec_data_exch_ca_scope_2_buf(const sec_data_exch_ca_scope *sec_data_exch_ca_
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 6)
 		return NOT_ENOUGHT;
 
-	encode_len = array8_tobuf(&sec_data_exch_ca_scope->name,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
+	encode_len = varible_len_calculate(sec_data_exch_ca_scope->name.len);
+	if (size < encode_len + sec_data_exch_ca_scope->name.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,sec_data_exch_ca_scope->name.len);
 	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
+
+	for(i=0;i < sec_data_exch_ca_scope->name.len;i++){
+		*mbuf++ = *(sec_data_exch_ca_scope->name.buf + i);
+	}
+	size = size - encode_len - sec_data_exch_ca_scope->name.len;
+	res = res + encode_len + sec_data_exch_ca_scope->name.len;
 	
-	*mbuf = sec_data_exch_ca_scope->permitted_holder_types;
-	mbuf++;
-	size--;
-	res++;
+	if(sec_data_exch_ca_scope->permitted_holder_types < 1<<7){
+		*mbuf = sec_data_exch_ca_scope->permitted_holder_types;
+		mbuf++;
+		size--;
+		res++;
+	}
+	else if(sec_data_exch_ca_scope->permitted_holder_types < 1<<14){
+		*mbuf = sec_data_exch_ca_scope->permitted_holder_types | 0x8000;
+		mbuf += 2;
+		size -= 2;
+		res += 2;
+	}
 
 	encode_len = psid_array_2_buf(&sec_data_exch_ca_scope->permissions,mbuf,size);
 	if(encode_len < 0)
@@ -1093,20 +1191,35 @@ u32 root_ca_scope_2_buf(const root_ca_scope *root_ca_scope,u8* buf,u32 len){
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 9)
 		return NOT_ENOUGHT;
 
-	encode_len = array8_tobuf(&root_ca_scope->name,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
+	encode_len = varible_len_calculate(root_ca_scope->name.len);
+	if (size < encode_len + root_ca_scope->name.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,root_ca_scope->name.len);
 	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
+
+	for(i=0;i < root_ca_scope->name.len;i++){
+		*mbuf++ = *(root_ca_scope->name.buf + i);
+	}
+	size = size - encode_len - root_ca_scope->name.len;
+	res = res + encode_len + root_ca_scope->name.len;
 	
-	*mbuf = root_ca_scope->permitted_holder_types;
-	mbuf++;
-	size--;
-	res++;
+	if(root_ca_scope->permitted_holder_types < 1<<7){
+		*mbuf = root_ca_scope->permitted_holder_types;
+		mbuf++;
+		size--;
+		res++;
+	}
+	else if(root_ca_scope->permitted_holder_types < 1<<14){
+		*mbuf = root_ca_scope->permitted_holder_types | 0x8000;
+		mbuf += 2;
+		size -= 2;
+		res += 2;
+	}
 
 	encode_len = psid_array_2_buf(&root_ca_scope->flags_content.secure_data_permissions,mbuf,size);
 	if(encode_len < 0)
@@ -1122,12 +1235,17 @@ u32 root_ca_scope_2_buf(const root_ca_scope *root_ca_scope,u8* buf,u32 len){
 	size -= encode_len;
 	res += encode_len;
 
-	encode_len = array8_tobuf(&root_ca_scope->flags_content.other_permissions,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
+	encode_len = varible_len_calculate(root_ca_scope->flags_content.other_permissions.len);
+	if (size < encode_len + root_ca_scope->flags_content.other_permissions.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,root_ca_scope->flags_content.other_permissions.len);
 	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
+
+	for(i=0;i < root_ca_scope->flags_content.other_permissions.len;i++){
+		*mbuf++ = *(root_ca_scope->flags_content.other_permissions.buf + i);
+	}
+	size = size - encode_len - root_ca_scope->flags_content.other_permissions.len;
+	res = res + encode_len + root_ca_scope->flags_content.other_permissions.len;
 	
 	encode_len = geographic_region_2_buf(&root_ca_scope->region,mbuf,size);
 	if(encode_len <0)
@@ -1148,6 +1266,8 @@ u32 cert_specific_data_2_buf(const cert_specific_data *cert_specific_data,
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 1)
 		return NOT_ENOUGHT;
 
@@ -1164,7 +1284,7 @@ u32 cert_specific_data_2_buf(const cert_specific_data *cert_specific_data,
 			encode_len = wsa_ca_scope_2_buf(&cert_specific_data->u.wsa_ca_scope,mbuf,size);
 			return encode_len;
 		case CRL_SIGNER:
-			tobuf32(mbuf,*cert_specific_data->u.responsible_series);  //???
+			tobuf32(mbuf,*cert_specific_data->u.responsible_series);
 			res += 4;
 			return res;
 		case SDE_IDENTIFIED_NOT_LOCALIZED:
@@ -1180,8 +1300,18 @@ u32 cert_specific_data_2_buf(const cert_specific_data *cert_specific_data,
 			encode_len = wsa_scope_2_buf(&cert_specific_data->u.wsa_scope,mbuf,size);
 			return encode_len;
 		default:
-			encode_len = array8_tobuf(&cert_specific_data->u.other_scope,mbuf,size);
-			return encode_len;
+			encode_len = varible_len_calculate(cert_specific_data->u.other_scope.len);
+			if (size < encode_len + cert_specific_data->u.other_scope.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,cert_specific_data->u.other_scope.len);
+			mbuf += encode_len;
+
+			for(i=0;i < cert_specific_data->u.other_scope.len;i++){
+				*mbuf++ = *(cert_specific_data->u.other_scope.buf + i);
+			}
+			size = size - encode_len - cert_specific_data->u.other_scope.len;
+			res = res + encode_len + cert_specific_data->u.other_scope.len;
+			return res;
 	}
 }
 
@@ -1195,6 +1325,8 @@ u32 tobesigned_certificate_2_buf(const tobesigned_certificate *tobesigned_certif
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 20)		
 		return NOT_ENOUGHT;
 
@@ -1255,12 +1387,17 @@ u32 tobesigned_certificate_2_buf(const tobesigned_certificate *tobesigned_certif
 		case 3:
 			break;
 		default:
-			encode_len = array8_tobuf(&tobesigned_certificate->version_and_type.other_key_material,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
+			encode_len = varible_len_calculate(tobesigned_certificate->version_and_type.other_key_material.len);
+			if (size < encode_len + tobesigned_certificate->version_and_type.other_key_material.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,tobesigned_certificate->version_and_type.other_key_material.len);
 			mbuf += encode_len;
-			size -= encode_len;
-			res += encode_len;
+
+			for(i=0;i < tobesigned_certificate->version_and_type.other_key_material.len;i++){
+				*mbuf++ = *(tobesigned_certificate->version_and_type.other_key_material.buf + i);
+			}
+			size = size - encode_len - tobesigned_certificate->version_and_type.other_key_material.len;
+			res = res + encode_len + tobesigned_certificate->version_and_type.other_key_material.len;
 			break;
 	}
 
@@ -1281,12 +1418,17 @@ u32 tobesigned_certificate_2_buf(const tobesigned_certificate *tobesigned_certif
 	size -= encode_len;
 	res += encode_len;
 
-	encode_len = array8_tobuf(&tobesigned_certificate->flags_content.other_cert_content,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
+	encode_len = varible_len_calculate(tobesigned_certificate->flags_content.other_cert_content.len);
+	if (size < encode_len + tobesigned_certificate->flags_content.other_cert_content.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,tobesigned_certificate->flags_content.other_cert_content.len);
 	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
+
+	for(i=0;i < tobesigned_certificate->flags_content.other_cert_content.len;i++){
+		*mbuf++ = *(tobesigned_certificate->flags_content.other_cert_content.buf + i);
+	}
+	size = size - encode_len - tobesigned_certificate->flags_content.other_cert_content.len;
+	res = res + encode_len + tobesigned_certificate->flags_content.other_cert_content.len;
 	
 	return res;
 }
@@ -1300,6 +1442,8 @@ u32 certificate_2_buf(const certificate *certificate,u8* buf,u32 len){
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 22)
 		return NOT_ENOUGHT;
 
@@ -1335,12 +1479,19 @@ u32 certificate_2_buf(const certificate *certificate,u8* buf,u32 len){
 				return encode_len;
 			return encode_len + res;
 		default:
-			encode_len = array8_tobuf(&certificate->u.signature_material,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			return encode_len + res;
+			encode_len = varible_len_calculate(certificate->u.signature_material.len);
+			if (size < encode_len + certificate->u.signature_material.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,certificate->u.signature_material.len);
+			mbuf += encode_len;
+		
+			for(i=0;i < certificate->u.signature_material.len;i++){
+				*mbuf++ = *(certificate->u.signature_material.buf + i);
+			}
+			size = size - encode_len - certificate->u.signature_material.len;
+			res = res + encode_len + certificate->u.signature_material.len;
+			return res;
 	}
-
 }
 
 /**
@@ -1380,8 +1531,6 @@ u32 signer_identifier_2_buf(const signer_identifier *signer_identifier,u8* buf,u
 				return encode_len;
 			return encode_len + res;
 		case CERTIFICATE_CHAIN:
-			///////////////////////// array_chain
-
 			min_len = varible_len_calculate(signer_identifier->u.certificates.len*22);
 			if (size < min_len + signer_identifier->u.certificates.len*22)
 				return NOT_ENOUGHT;
@@ -1403,7 +1552,7 @@ u32 signer_identifier_2_buf(const signer_identifier *signer_identifier,u8* buf,u
 			if(size < encode_len)
 				return NOT_ENOUGHT;
 
-			mbuf = mbuf_end + encode_len;    /////  len  ????
+			mbuf = mbuf_end + encode_len;
 			while(mbuf_beg != mbuf_end){
 				mbuf_end--;
 				*(mbuf_end + encode_len) = *mbuf_end;
@@ -1413,7 +1562,6 @@ u32 signer_identifier_2_buf(const signer_identifier *signer_identifier,u8* buf,u
 
 			return encode_len + res;
 
-			///////////////////////////////////////////////////////////////////////////////////////////////////  
 		case CERTIFICATE_DIGETS_WITH_OTHER_ALGORITHM:
 			*mbuf = signer_identifier->u.other_algorithm.algorithm;
 			mbuf++;
@@ -1425,12 +1573,19 @@ u32 signer_identifier_2_buf(const signer_identifier *signer_identifier,u8* buf,u
 				return encode_len;
 			return encode_len + res;
 		default:
-			encode_len = array8_tobuf(&signer_identifier->u.id,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			return encode_len + res;
+			encode_len = varible_len_calculate(signer_identifier->u.id.len);
+			if (size < encode_len + signer_identifier->u.id.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,signer_identifier->u.id.len);
+			mbuf += encode_len;
+		
+			for(i=0;i < signer_identifier->u.id.len;i++){
+				*mbuf++ = *(signer_identifier->u.id.buf + i);
+			}
+			size = size - encode_len - signer_identifier->u.id.len;
+			res = res + encode_len + signer_identifier->u.id.len;
+			return res;
 	}
-
 }
 
 /**
@@ -1472,10 +1627,10 @@ u32 certid10_2_buf(const certid10 *certid10,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
+	int i;
+
 	if(len < 10)
 		return NOT_ENOUGHT;
-
-	int i;
 
 	for(i=0;i<10;i++){
 		*mbuf++ = *(certid10->certid10 + i);
@@ -1521,10 +1676,10 @@ u32 tobesigned_crl_2_buf(const tobesigned_crl *tobesigned_crl,u8* buf,u32 len){
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 30)
 		return NOT_ENOUGHT;
-
-	int i;
 
 	*mbuf = tobesigned_crl->type;
 	mbuf++;
@@ -1601,10 +1756,18 @@ u32 tobesigned_crl_2_buf(const tobesigned_crl *tobesigned_crl,u8* buf,u32 len){
 			}
 			return res;
 		default:
-			encode_len = array8_tobuf(&tobesigned_crl->u.other_entries,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			return encode_len + res;
+			encode_len = varible_len_calculate(tobesigned_crl->u.other_entries.len);
+			if (size < encode_len + tobesigned_crl->u.other_entries.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,tobesigned_crl->u.other_entries.len);
+			mbuf += encode_len;
+
+			for(i=0;i < tobesigned_crl->u.other_entries.len;i++){
+				*mbuf++ = *(tobesigned_crl->u.other_entries.buf + i);
+			}
+			size = size - encode_len - tobesigned_crl->u.other_entries.len;
+			res = res + encode_len + tobesigned_crl->u.other_entries.len;
+			return res;
 	}
 }
 
@@ -1696,10 +1859,10 @@ u32 tobe_encrypted_certificate_response_acknowledgment_2_buf(const tobe_encrypte
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
+	int i;
+
 	if(len < 10)
 		return NOT_ENOUGHT;
-
-	int i;
 
 	for(i=0;i<10;i++){
 		*mbuf++ = *(tobe_encrypted_certificate_response_acknowledgment->response_hash + i);
@@ -1779,8 +1942,6 @@ u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certificate_r
 
 	if(len < 4)
 		return NOT_ENOUGHT;
-
-	/////////////////////   array_chain
 	
 	min_len = varible_len_calculate(tobe_encrypted_certificate_response->certificate_chain.len*22);
 	if (size < min_len + tobe_encrypted_certificate_response->certificate_chain.len*22)
@@ -1803,7 +1964,7 @@ u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certificate_r
 	if(size < encode_len)
 		return NOT_ENOUGHT;
 
-	mbuf = mbuf_end + encode_len;    /////  len  ????
+	mbuf = mbuf_end + encode_len;
 	while(mbuf_beg != mbuf_end){
 		mbuf_end--;
 		*(mbuf_end + encode_len) = *mbuf_end;
@@ -1813,30 +1974,37 @@ u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certificate_r
 
 	size -= encode_len;
 	res += encode_len;
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////  
 	
 	switch((tobe_encrypted_certificate_response->certificate_chain.buf + n)->version_and_type){
 		case 2:
 			break;
 		case 3:
-			encode_len = array8_tobuf(&tobe_encrypted_certificate_response->u.recon_priv,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
+			encode_len = varible_len_calculate(tobe_encrypted_certificate_response->u.recon_priv.len);
+			if (size < encode_len + tobe_encrypted_certificate_response->u.recon_priv.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,tobe_encrypted_certificate_response->u.recon_priv.len);
 			mbuf += encode_len;
-			size -= encode_len;
-			res += encode_len;
+
+			for(i=0;i < tobe_encrypted_certificate_response->u.recon_priv.len;i++){
+				*mbuf++ = *(tobe_encrypted_certificate_response->u.recon_priv.buf + i);
+			}
+			size = size - encode_len - tobe_encrypted_certificate_response->u.recon_priv.len;
+			res = res + encode_len + tobe_encrypted_certificate_response->u.recon_priv.len;
 			break;
 		default:
-			encode_len = array8_tobuf(&tobe_encrypted_certificate_response->u.other_material,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
+			encode_len = varible_len_calculate(tobe_encrypted_certificate_response->u.other_material.len);
+			if (size < encode_len + tobe_encrypted_certificate_response->u.other_material.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,tobe_encrypted_certificate_response->u.other_material.len);
 			mbuf += encode_len;
-			size -= encode_len;
-			res += encode_len;
+
+			for(i=0;i < tobe_encrypted_certificate_response->u.other_material.len;i++){
+				*mbuf++ = *(tobe_encrypted_certificate_response->u.other_material.buf + i);
+			}
+			size = size - encode_len - tobe_encrypted_certificate_response->u.other_material.len;
+			res = res + encode_len + tobe_encrypted_certificate_response->u.other_material.len;
 			break;
 	}
-	///////////////////  array
 	
 	min_len = varible_len_calculate(tobe_encrypted_certificate_response->crl_path.len*34);
 	if (size < min_len + tobe_encrypted_certificate_response->crl_path.len*34)
@@ -1859,7 +2027,7 @@ u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certificate_r
 	if(size < encode_len)
 		return NOT_ENOUGHT;
 
-	mbuf = mbuf_end + encode_len;    /////  len  ????
+	mbuf = mbuf_end + encode_len;
 	while(mbuf_beg != mbuf_end){
 		mbuf_end--;
 		*(mbuf_end + encode_len) = *mbuf_end;
@@ -1869,8 +2037,6 @@ u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certificate_r
 
 	size -= encode_len;
 	res += encode_len;
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////  
 	
 	return res;
 }
@@ -1885,6 +2051,8 @@ u32 tobesigned_certificate_request_2_buf(const tobesigned_certificate_request*
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 25)
 		return NOT_ENOUGHT;
 
@@ -1908,7 +2076,8 @@ u32 tobesigned_certificate_request_2_buf(const tobesigned_certificate_request*
 	size--;
 	res++;
 
-	encode_len = cert_specific_data_2_buf(&tobesigned_certificate_request->type_specific_data,mbuf,size,tobesigned_certificate_request->holder_type);
+	encode_len = cert_specific_data_2_buf(&tobesigned_certificate_request->type_specific_data,
+			mbuf,size,tobesigned_certificate_request->holder_type);
 	if(encode_len < 0)
 		return encode_len;
 	mbuf += encode_len;
@@ -1937,12 +2106,17 @@ u32 tobesigned_certificate_request_2_buf(const tobesigned_certificate_request*
 	size -= encode_len;
 	res += encode_len;
 
-	encode_len = array8_tobuf(&tobesigned_certificate_request->flags_content.other_cert,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
+	encode_len = varible_len_calculate(tobesigned_certificate_request->flags_content.other_cert.len);
+	if (size < encode_len + tobesigned_certificate_request->flags_content.other_cert.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,tobesigned_certificate_request->flags_content.other_cert.len);
 	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
+
+	for(i=0;i < tobesigned_certificate_request->flags_content.other_cert.len;i++){
+		*mbuf++ = *(tobesigned_certificate_request->flags_content.other_cert.buf + i);
+	}
+	size = size - encode_len - tobesigned_certificate_request->flags_content.other_cert.len;
+	res = res + encode_len + tobesigned_certificate_request->flags_content.other_cert.len;
 	
 	encode_len = public_key_2_buf(&tobesigned_certificate_request->verification_key,mbuf,size);
 	if(encode_len < 0)
@@ -2043,14 +2217,18 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 			mbuf += 8;
 			size -= 8;
 			res += 8;
-
-			encode_len = array8_tobuf(&tobesigned_data->u.type_signed.data,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			mbuf += encode_len;
-			size -= encode_len;
-			res += encode_len;
 			
+			encode_len = varible_len_calculate(tobesigned_data->u.type_signed.data.len);
+			if (size < encode_len + tobesigned_data->u.type_signed.data.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,tobesigned_data->u.type_signed.data.len);
+			mbuf += encode_len;
+
+			for(i=0;i < tobesigned_data->u.type_signed.data.len;i++){
+				*mbuf++ = *(tobesigned_data->u.type_signed.data.buf + i);
+			}
+			size = size - encode_len - tobesigned_data->u.type_signed.data.len;
+			res = res + encode_len + tobesigned_data->u.type_signed.data.len;
 			break;
 		case SIGNED_EXTERNAL_PAYLOAD:
 			tobuf64(mbuf,tobesigned_data->u.psid);
@@ -2059,12 +2237,17 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 			res += 8;
 			break;
 		default:
-			encode_len = array8_tobuf(&tobesigned_data->u.data,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
+			encode_len = varible_len_calculate(tobesigned_data->u.data.len);
+			if (size < encode_len + tobesigned_data->u.data.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,tobesigned_data->u.data.len);
 			mbuf += encode_len;
-			size -= encode_len;
-			res += encode_len;
+
+			for(i=0;i < tobesigned_data->u.data.len;i++){
+				*mbuf++ = *(tobesigned_data->u.data.buf + i);
+			}
+			size = size - encode_len - tobesigned_data->u.data.len;
+			res = res + encode_len + tobesigned_data->u.data.len;
 			break;
 	}
 	
@@ -2086,8 +2269,6 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 	mbuf += encode_len;
 	size -= encode_len;
 	res += encode_len;
-
-	///////////////////////  array
 	
 	min_len = varible_len_calculate(tobesigned_data->flags_content.extensions.len*2);
 	if (size < min_len + tobesigned_data->flags_content.extensions.len*2)
@@ -2110,7 +2291,7 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 	if(size < encode_len)
 		return NOT_ENOUGHT;
 
-	mbuf = mbuf_end + encode_len;    /////  len  ????
+	mbuf = mbuf_end + encode_len;
 	while(mbuf_beg != mbuf_end){
 		mbuf_end--;
 		*(mbuf_end + encode_len) = *mbuf_end;
@@ -2120,18 +2301,20 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 
 	size -= encode_len;
 	res += encode_len;
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////  
 	
-	encode_len = array8_tobuf(&tobesigned_data->flags_content.other_data,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
+	encode_len = varible_len_calculate(tobesigned_data->flags_content.other_data.len);
+	if (size < encode_len + tobesigned_data->flags_content.other_data.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,tobesigned_data->flags_content.other_data.len);
 	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
+
+	for(i=0;i < tobesigned_data->flags_content.other_data.len;i++){
+		*mbuf++ = *(tobesigned_data->flags_content.other_data.buf + i);
+	}
+	size = size - encode_len - tobesigned_data->flags_content.other_data.len;
+	res = res + encode_len + tobesigned_data->flags_content.other_data.len;
 	
 	return res;
-
 }
 
 /**
@@ -2143,10 +2326,10 @@ u32 signed_data_2_buf(const signed_data *signed_data,u8* buf,u32 len,content_typ
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int n = signed_data->signer.u.certificates.len - 1;
+
 	if(len < 34)
 		return NOT_ENOUGHT;
-
-	int n = signed_data->signer.u.certificates.len - 1;
 
 	encode_len = signer_identifier_2_buf(&signed_data->signer,mbuf,size);
 	if(encode_len < 0)
@@ -2221,6 +2404,8 @@ u32 tobe_encrypted_2_buf(const tobe_encrypted *tobe_encrypted,u8* buf,u32 len){
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 2)
 		return NOT_ENOUGHT;
 
@@ -2231,10 +2416,18 @@ u32 tobe_encrypted_2_buf(const tobe_encrypted *tobe_encrypted,u8* buf,u32 len){
 
 	switch(tobe_encrypted->type){
 		case UNSECURED:
-			encode_len = array8_tobuf(&tobe_encrypted->u.plain_text,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			return encode_len + res;
+			encode_len = varible_len_calculate(tobe_encrypted->u.plain_text.len);
+			if (size < encode_len + tobe_encrypted->u.plain_text.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,tobe_encrypted->u.plain_text.len);
+			mbuf += encode_len;
+
+			for(i=0;i < tobe_encrypted->u.plain_text.len;i++){
+				*mbuf++ = *(tobe_encrypted->u.plain_text.buf + i);
+			}
+			size = size - encode_len - tobe_encrypted->u.plain_text.len;
+			res = res + encode_len + tobe_encrypted->u.plain_text.len;
+			return res;
 		case SIGNED:
 		case SIGNED_EXTERNAL_PAYLOAD:
 		case SIGNED_PARTIAL_PAYLOAD:
@@ -2276,10 +2469,18 @@ u32 tobe_encrypted_2_buf(const tobe_encrypted *tobe_encrypted,u8* buf,u32 len){
 				return encode_len;
 			return encode_len + res;
 		default:
-			encode_len = array8_tobuf(&tobe_encrypted->u.data,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			return encode_len + res;
+			encode_len = varible_len_calculate(tobe_encrypted->u.data.len);
+			if (size < encode_len + tobe_encrypted->u.data.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,tobe_encrypted->u.data.len);
+			mbuf += encode_len;
+
+			for(i=0;i < tobe_encrypted->u.data.len;i++){
+				*mbuf++ = *(tobe_encrypted->u.data.buf + i);
+			}
+			size = size - encode_len - tobe_encrypted->u.data.len;
+			res = res + encode_len + tobe_encrypted->u.data.len;
+			return res;
 	}
 }
 
@@ -2292,10 +2493,10 @@ u32 aes_ccm_ciphertext_2_buf(const aes_ccm_ciphertext *aes_ccm_ciphertext,u8* bu
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 13)
 		return NOT_ENOUGHT;
-
-	int i;
 
 	for(i=0;i<12;i++){
 		*mbuf++ = *(aes_ccm_ciphertext->nonce + i);
@@ -2303,10 +2504,19 @@ u32 aes_ccm_ciphertext_2_buf(const aes_ccm_ciphertext *aes_ccm_ciphertext,u8* bu
 	size -= 12;
 	res += 12;
 
-	encode_len = array8_tobuf(&aes_ccm_ciphertext->ccm_ciphertext,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
-	return encode_len + res;
+	encode_len = varible_len_calculate(aes_ccm_ciphertext->ccm_ciphertext.len);
+	if (size < encode_len + aes_ccm_ciphertext->ccm_ciphertext.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,aes_ccm_ciphertext->ccm_ciphertext.len);
+	mbuf += encode_len;
+
+	for(i=0;i < aes_ccm_ciphertext->ccm_ciphertext.len;i++){
+		*mbuf++ = *(aes_ccm_ciphertext->ccm_ciphertext.buf + i);
+	}
+	size = size - encode_len - aes_ccm_ciphertext->ccm_ciphertext.len;
+	res = res + encode_len + aes_ccm_ciphertext->ccm_ciphertext.len;
+
+	return res;
 }
 
 /**
@@ -2319,10 +2529,10 @@ u32 ecies_nist_p256_encrypted_key_2_buf(const ecies_nist_p256_encrypted_key *eci
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 24)
 		return NOT_ENOUGHT;
-
-	int i;
 
 	encode_len = elliptic_curve_point_2_buf(&ecies_nist_p256_encrypted_key->v,mbuf,size);
 	if(encode_len < 0)
@@ -2331,14 +2541,18 @@ u32 ecies_nist_p256_encrypted_key_2_buf(const ecies_nist_p256_encrypted_key *eci
 	size -= encode_len;
 	res += encode_len;
 
-	encode_len = array8_tobuf(&ecies_nist_p256_encrypted_key->c,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
+	encode_len = varible_len_calculate(ecies_nist_p256_encrypted_key->c.len);
+	if (size < encode_len + ecies_nist_p256_encrypted_key->c.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,ecies_nist_p256_encrypted_key->c.len);
 	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
-	
 
+	for(i=0;i < ecies_nist_p256_encrypted_key->c.len;i++){
+		*mbuf++ = *(ecies_nist_p256_encrypted_key->c.buf + i);
+	}
+	size = size - encode_len - ecies_nist_p256_encrypted_key->c.len;
+	res = res + encode_len + ecies_nist_p256_encrypted_key->c.len;
+	
 	for(i=0;i<20;i++){
 		*mbuf++ = *(ecies_nist_p256_encrypted_key->t + i);
 	}
@@ -2356,6 +2570,8 @@ u32 recipient_info_2_buf(const recipient_info *recipient_info,u8* buf,u32 len,pk
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	int i;
+
 	if(len < 9)
 		return NOT_ENOUGHT;
 
@@ -2373,10 +2589,18 @@ u32 recipient_info_2_buf(const recipient_info *recipient_info,u8* buf,u32 len,pk
 				return encode_len;
 			return encode_len + res;
 		default:
-			encode_len = array8_tobuf(&recipient_info->u.other_enc_key,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			return encode_len + res;
+			encode_len = varible_len_calculate(recipient_info->u.other_enc_key.len);
+			if (size < encode_len + recipient_info->u.other_enc_key.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,recipient_info->u.other_enc_key.len);
+			mbuf += encode_len;
+
+			for(i=0;i < recipient_info->u.other_enc_key.len;i++){
+				*mbuf++ = *(recipient_info->u.other_enc_key.buf + i);
+			}
+			size = size - encode_len - recipient_info->u.other_enc_key.len;
+			res = res + encode_len + recipient_info->u.other_enc_key.len;
+			return res;
 	}
 }
 
@@ -2402,8 +2626,6 @@ u32 encrypted_data_2_buf(const encrypted_data *encrypted_data,u8* buf,u32 len){
 	mbuf++;
 	size--;
 	res++;
-
-	///////////////  array
 	
 	min_len = varible_len_calculate(encrypted_data->recipients.len*9);
 	if (size < min_len + encrypted_data->recipients.len*9)
@@ -2426,7 +2648,7 @@ u32 encrypted_data_2_buf(const encrypted_data *encrypted_data,u8* buf,u32 len){
 	if(size < encode_len)
 		return NOT_ENOUGHT;
 
-	mbuf = mbuf_end + encode_len;    /////  len  ????
+	mbuf = mbuf_end + encode_len;
 	while(mbuf_beg != mbuf_end){
 		mbuf_end--;
 		*(mbuf_end + encode_len) = *mbuf_end;
@@ -2436,8 +2658,6 @@ u32 encrypted_data_2_buf(const encrypted_data *encrypted_data,u8* buf,u32 len){
 
 	size -= encode_len;
 	res += encode_len;
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////  
 	
 	switch(encrypted_data->symm_algorithm){
 		case AES_128_CCM:
@@ -2446,10 +2666,18 @@ u32 encrypted_data_2_buf(const encrypted_data *encrypted_data,u8* buf,u32 len){
 				return encode_len;
 			return encode_len + res;
 		default:
-			encode_len = array8_tobuf(&encrypted_data->u.other_ciphertext,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			return encode_len + res;
+			encode_len = varible_len_calculate(encrypted_data->u.other_ciphertext.len);
+			if (size < encode_len + encrypted_data->u.other_ciphertext.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,encrypted_data->u.other_ciphertext.len);
+			mbuf += encode_len;
+
+			for(i=0;i < encrypted_data->u.other_ciphertext.len;i++){
+				*mbuf++ = *(encrypted_data->u.other_ciphertext.buf + i);
+			}
+			size = size - encode_len - encrypted_data->u.other_ciphertext.len;
+			res = res + encode_len + encrypted_data->u.other_ciphertext.len;
+			return res;
 	}
 }
 
@@ -2470,25 +2698,35 @@ u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32 len){
 	if(len < 32)
 		return NOT_ENOUGHT;
 
-	encode_len = array8_tobuf(&tobesigned_wsa->permission_indices,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
+	encode_len = varible_len_calculate(tobesigned_wsa->permission_indices.len);
+	if (size < encode_len + tobesigned_wsa->permission_indices.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,tobesigned_wsa->permission_indices.len);
 	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
+
+	for(i=0;i < tobesigned_wsa->permission_indices.len;i++){
+		*mbuf++ = *(tobesigned_wsa->permission_indices.buf + i);
+	}
+	size = size - encode_len - tobesigned_wsa->permission_indices.len;
+	res = res + encode_len + tobesigned_wsa->permission_indices.len;
 	
 	*mbuf = tobesigned_wsa->tf;
 	mbuf++;
 	size--;
 	res++;
 
-	encode_len = array8_tobuf(&tobesigned_wsa->data,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
+	encode_len = varible_len_calculate(tobesigned_wsa->data.len);
+	if (size < encode_len + tobesigned_wsa->data.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,tobesigned_wsa->data.len);
 	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
-	
+
+	for(i=0;i < tobesigned_wsa->data.len;i++){
+		*mbuf++ = *(tobesigned_wsa->data.buf + i);
+	}
+	size = size - encode_len - tobesigned_wsa->data.len;
+	res = res + encode_len + tobesigned_wsa->data.len;
+
 	encode_len = time64_with_standard_deviation_2_buf(&tobesigned_wsa->generation_time,mbuf,size);
 	if(encode_len < 0)
 		return encode_len;
@@ -2507,8 +2745,6 @@ u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32 len){
 	mbuf += encode_len;
 	size -= encode_len;
 	res += encode_len;
-
-	////////////////  array
 	
 	min_len = varible_len_calculate(tobesigned_wsa->flags_content.extension.len*2);
 	if (size < min_len + tobesigned_wsa->flags_content.extension.len*2)
@@ -2531,7 +2767,7 @@ u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32 len){
 	if(size < encode_len)
 		return NOT_ENOUGHT;
 
-	mbuf = mbuf_end + encode_len;    /////  len  ????
+	mbuf = mbuf_end + encode_len;
 	while(mbuf_beg != mbuf_end){
 		mbuf_end--;
 		*(mbuf_end + encode_len) = *mbuf_end;
@@ -2540,17 +2776,20 @@ u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32 len){
 	varible_len_encoding(mbuf_beg,data_len);
 
 	size -= encode_len;
-	res += encode_len;
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////  
+	res += encode_len; 
 	
-	encode_len = array8_tobuf(&tobesigned_wsa->flags_content.other_data,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
+	encode_len = varible_len_calculate(tobesigned_wsa->flags_content.other_data.len);
+	if (size < encode_len + tobesigned_wsa->flags_content.other_data.len)
+		return NOT_ENOUGHT;
+	varible_len_encoding(mbuf,tobesigned_wsa->flags_content.other_data.len);
 	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
-	
+
+	for(i=0;i < tobesigned_wsa->flags_content.other_data.len;i++){
+		*mbuf++ = *(tobesigned_wsa->flags_content.other_data.buf + i);
+	}
+	size = size - encode_len - tobesigned_wsa->flags_content.other_data.len;
+	res = res + encode_len + tobesigned_wsa->flags_content.other_data.len;
+
 	return res;
 }
 
@@ -2564,6 +2803,7 @@ u32 signed_wsa_2_buf(const signed_wsa *signed_wsa,u8* buf,u32 len){
 	u32 res = 0;
 	u32 encode_len;
 	int n = signed_wsa->signer.u.certificates.len - 1;
+
 	if(len < 35)
 		return NOT_ENOUGHT;
 
@@ -2601,6 +2841,8 @@ u32 sec_data_2_buf(const sec_data *sec_data,u8* buf,u32 len){
     u32 size = len;
     u32 res = 0;
 	u32 encode_len;
+	int i;
+
     if(len < 4)
         return NOT_ENOUGHT;
 
@@ -2615,25 +2857,19 @@ u32 sec_data_2_buf(const sec_data *sec_data,u8* buf,u32 len){
     res  = res + 2;
     switch(sec_data->type){
         case UNSECURED:
-			encode_len = array8_tobuf(&sec_data->u.data,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			return encode_len + res;
-
-/*
-            u32 encode_len = varible_len_calculate(sec_data->u.data.len);
+            encode_len = varible_len_calculate(sec_data->u.data.len);
             if(encode_len + sec_data->u.data.len > size)
                 return NOT_ENOUGHT;
             varible_len_encoding(mbuf,sec_data->u.data.len);
             mbuf += encode_len;
             
-            for(int i=0;i<sec_data->u.data.len;i++){
+            for(i=0;i<sec_data->u.data.len;i++){
                 *mbuf++ = *(sec_data->u.data.buf +i);
             }
             size = size - encode_len - sec_data->u.data.len;
             res = res + encode_len + sec_data->u.data.len;
             return res;
-*/
+
         case SIGNED:
         case SIGNED_EXTERNAL_PAYLOAD:
 		case SIGNED_PARTIAL_PAYLOAD:
@@ -2663,24 +2899,17 @@ u32 sec_data_2_buf(const sec_data *sec_data,u8* buf,u32 len){
                 return encode_len;
             return encode_len + res;
         default:
-			encode_len = array8_tobuf(&sec_data->u.other_data,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			return encode_len + res;
-
-/*
-            u32 encode_len = varible_len_calculate(sec_data->u.other_data.len);
+            encode_len = varible_len_calculate(sec_data->u.other_data.len);
             if(encode_len + sec_data->u.other_data.len > size)
                 return NOT_ENOUGHT;
             varible_len_encoding(mbuf,sec_data->u.other_data.len);
             mbuf += encode_len;
             
-            for(int i=0;i<sec_data->u.other_data.len;i++){
+            for(i=0;i<sec_data->u.other_data.len;i++){
                 *mbuf++ = *(sec_data->u.other_data.buf +i);
             }
             size = size - encode_len - sec_data->u.other_data.len;
             res = res + encode_len + sec_data->u.other_data.len;
             return res;
-*/
     }   
 }
