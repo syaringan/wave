@@ -52,19 +52,27 @@ struct cme_lsis_db{
     struct cme_alloced_lsis alloced_lsis;
     struct cme_lsis_chain lsises;
 };
-struct crl_head{
+struct crl_serial_number{
     struct list_head list;
-    crl_series crl_series;
-    string* ca_id;
     u32 serial_number;
     time32 start_period;
     time32 issue_date;
     time32 next_crl_time;
     crl_type type;
 };
+struct crl_ca_id{
+    struct list_head list;
+    hashedid8 ca_id;
+    struct crl_serial_number crl_info_list;
+};
+struct crl_head{
+    struct list_head list;
+    crl_series crl_series;
+    struct crl_ca_id ca_id_list;
+};
 struct revocation{
     time64 expriry;
-    u8 ca_id[8];
+    hashedid8 ca_id;
 };
 struct cert_head{
   certificate cert;

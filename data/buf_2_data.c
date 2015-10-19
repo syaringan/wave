@@ -23,7 +23,6 @@
 #define get32(addr) *( (u32*)addr )
 #define get64(addr) *( (u64*)addr )
 
-#define CURRETN_VERSION 2
 
 /**	向array 中 buf所指向的内存填充
  *	@array_buf  array_buf指向需要被填充的内存的首地址，

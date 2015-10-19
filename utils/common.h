@@ -2,6 +2,7 @@
 #define COMMON_H
 #include <endian.h>
 
+#define CURRETN_VERSION 2
 typedef enum result{
     SUCCESS = 0,
     FAILURE = 1,

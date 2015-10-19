@@ -10,12 +10,19 @@
 #include <signal.h>
 #include <unistd.h>
 #include <string.h>
-#define forward 60  //单位是s
-#define overdue 60*10 // 单位是s
+#include "../data/data_handle.h"
+#define FORWARD 60  //单位是s
+#define OVERDUE 60*10 // 单位是s
+#define NETWORK_DELAY 60*2 // 单位是s
+#define CRL_REQUSET_LEN 100 //单位字节
+#define RECIEVE_DATA_MAXLEN 1000
 #define INIT(m) memset(&m,0,sizeof(m))
 struct crl_req_time{
     struct list_head list;
     time32 time;//单位s
+    hashedid8 issuer;
+    crl_series crl_series;
+    time32 issue_date;
 };
 struct wsa_cert_db{
     struct list_head list;
@@ -28,12 +35,15 @@ struct cmp_db{
     struct wsa_cert_db certs;
     cmh req_cert_cmh;
     cmh req_cert_enc_cmh;
-    struct lsis_array req_lsises;
+    struct lsis_array req_cert_lsises;
     cmh ca_cmh;
     certificate ca_cert;
     string identifier;
     geographic_region geographic_region;
     u32 life_time;//单位day
+    time32 crl_request_issue_date;
+    hashedid8 crl_request_issuer;
+    crl_series crl_request_crl_series;
     u32 pending;
     pthread_mutex_t lock;
 };
@@ -46,6 +56,23 @@ enum pending_flags{
 
 pthread_cond_t pending_cond = PTHREAD_COND_INITIALIZER;
 struct cmp_db* cmdb = NULL;
+
+
+static void crl_req_time_insert(struct cmp_db* cmdb,struct crl_req_time* new){
+    struct crl_req_time *head,*ptr;
+    pthread_mutex_lock(&cmdb->lock);
+    head = &cmdb->crl_time;    
+    //插入,按照时间排序
+    list_for_each_entry(ptr,&head->list,list){
+        if(ptr->time > new->time){
+            list_add_tail(&new->list,&ptr->list);
+            break;
+        }
+    }
+    if(&ptr->list == &head->list)
+        list_add_tail(&new->list,&head->list);
+    pthread_mutex_unlock(&cmdb->lock);
+}
 
 static void pending_crl_request(struct cmp_db* cmdb){
     pthread_mutex_lock(&cmdb->lock);
@@ -68,13 +95,23 @@ static void set_crl_request_alarm(struct cmp_db* cmdb){
             return;
         }
         first = list_entry(head->list.next,struct crl_req_time,list);
+        next_time = first->time;
         list_del(&first->list);
-        free(first);
-    }while(next_time -forward < now );
-    pthread_mutex_unlokc(&cmdb->lock);
+        if(next_time - FORWARD < now){
+            first->time += first->crl_series;
+            crl_req_time_insert(cmdb,first);
+        }
+        else{
+            cmdb->crl_request_crl_series = first->crl_series;
+            hashedid8_cpy(&cmdb->crl_request_issuer,&first->issuer);
+            cmdb->crl_request_issue_date = first->issue_date;
+            free(first);
+        }
+    }while(next_time -FORWARD < now );
+    pthread_mutex_unlock(&cmdb->lock);
 
     signal(SIGALRM,crl_alarm_handle);
-    alarm(now - next_time + forward);
+    alarm(now - next_time + FORWARD);
 }
 static void crl_alarm_handle(int signo){
     if(signo == SIGALRM){
@@ -165,15 +202,15 @@ static int generate_cert_request(struct sec_db* sdb,struct cmp_db* cmdb,cme_lsis
         goto fail;
     }
 
-    lsis_array_free(&cmdb->req_lsises);
-    cmdb->req_lsises.lsis = (pssme_lsis*)malloc(sizeof(pssme_lsis) * serviceinfos.len);
-    if(cmdb->req_lsises.lsis == NULL){
+    lsis_array_free(&cmdb->req_cert_lsises);
+    cmdb->req_cert_lsises.lsis = (pssme_lsis*)malloc(sizeof(pssme_lsis) * serviceinfos.len);
+    if(cmdb->req_cert_lsises.lsis == NULL){
         pthread_mutex_unlock(&cmdb->lock);
         goto fail;
     }
-    cmdb->req_lsises.len = serviceinfos.len;
+    cmdb->req_cert_lsises.len = serviceinfos.len;
     for(i=0;i<serviceinfos.len;i++){
-        *(cmdb->req_lsises.lsis+i) = (serviceinfos.serviceinfos + i)->lsis;
+        *(cmdb->req_cert_lsises.lsis+i) = (serviceinfos.serviceinfos + i)->lsis;
     }
     pthread_mutex_lock(&cmdb->lock);
     cme_permissions_free(&permissions);
@@ -225,22 +262,79 @@ fail:
     
 }
 static void crl_request_progress(struct cmp_db* cmdb){
+    sec_data sdata;
+    crl_request* crl_req;
+    u8* buf = NULL;
+    u32 len = CRL_REQUSET_LEN;
+    u32 larger = 1;
+    u32 data_len;
+    INIT(sdata);
+    
+    sdata.protocol_version = CURRETN_VERSION;
+    sdata.type = CRL_REQUEST;
+    crl_req = &sdata.u.crl_request;
+    pthread_mutex_lock(&cmdb->lock);
+    crl_req->crl_series = cmdb->crl_request_crl_series;
+    crl_req->issue_date = cmdb->crl_request_issue_date;
+    hashedid8_cpy(&crl_req->issuer,&cmdb->crl_request_issuer);
+    pthread_mutex_unlock(&cmdb->lock);
+    
+    do{ 
+        len = len*larger;
+        if(buf != NULL)
+            free(buf);
+        buf = (u8*)malloc(len);
+        if(buf == NULL)
+            goto fail;
+        larger++;
+        data_len = crl_req_2_buf(buf,len,&crl_req);
+    }while( data_len == NOT_ENOUGHT);
 
+    ca_write(buf,data_len);
+    sec_data_free(&sdata);
+    free(buf);
+fail:
+    sec_data_free(&sdata); 
 }
-static void crl_recieve_progress(struct sec_db* sdb,string* data){
-    crl crl;
+static void crl_recieve_progress(struct sec_db* sdb,struct cmp_db* cmdb,string* data){
+    sec_data sdata;
     tobesigned_crl* unsigned_crl;
+    struct crl_req_time *head,*ptr,*new;
     int i;
 
-    INIT(crl);
+    INIT(sdata);
 
-    if(sec_crl_verification(sdb,data,overdue,NULL,
+    if(sec_crl_verification(sdb,data,OVERDUE,NULL,
                 NULL,NULL))
         goto fail;
-    if( buf_2_crl(data->buf,data->len,&crl))
+    if( buf_2_sec_data(data->buf,data->len,&sdata))
         goto fail;
     
-    unsigned_crl  = &crl.unsigned_crl;
+    unsigned_crl  = &sdata.u.crl.unsigned_crl;
+
+    pthread_mutex_lock(&cmdb->lock);
+    head = &cmdb->crl_time;
+    list_for_each_entry(ptr,&head->list,list){
+        if(ptr->crl_series == unsigned_crl->crl_series && 
+                hashedid8_compare(&ptr->issuer,&unsigned_crl->ca_id) == 0)
+            break;
+    }
+    if(&ptr->list == &head->list){
+        new = (struct crl_req_time*)malloc(sizeof(struct crl_req_time));
+        if(ptr == NULL)
+            goto fail;
+        new->crl_series = unsigned_crl->crl_series;
+        new->time = unsigned_crl->next_crl;
+        new->issue_date = unsigned_crl->issue_date;
+        hashedid8_cpy(&new->issuer,&unsigned_crl->ca_id);
+        crl_req_time_insert(cmdb,new); 
+    }
+    else{
+        ptr->issue_date = unsigned_crl->issue_date;
+        ptr->time = unsigned_crl->next_crl;
+    }
+    pthread_mutex_unlock(&cmdb->lock);
+
     if(unsigned_crl->type == ID_ONLY){
         for(i=0;i<unsigned_crl->u.entries.len;i++){
             cme_add_certificate_revocation(sdb,unsigned_crl->u.entries.buf + i,
@@ -261,9 +355,9 @@ static void crl_recieve_progress(struct sec_db* sdb,string* data){
                 unsigned_crl->issue_date,
                 unsigned_crl->next_crl);
 
-    crl_free(&crl);
+    crl_free(&sdata);
 fail:
-    crl_free(&crl);
+    crl_free(&sdata);
 }
 static void cert_responce_recieve_progress(struct sec_db* sdb,struct cmp_db* cmdb,string* data){
     cmh cert_cmh,respon_cmh;
@@ -293,11 +387,11 @@ static void cert_responce_recieve_progress(struct sec_db* sdb,struct cmp_db* cmd
     if(cme_store_cert(sdb,cert_cmh,&certificate,&rec_value))
         goto fail;
     pthread_mutex_lock(&cmdb->lock);
-    if(pssme_cryptomaterial_handle_storage(sdb,cert_cmh,&cmdb->req_lsises)){
+    if(pssme_cryptomaterial_handle_storage(sdb,cert_cmh,&cmdb->req_cert_lsises)){
         pthread_mutex_unlock(&cmdb->lock);
         goto fail;
     }
-    lsis_array_free(&cmdb->req_lsises);
+    lsis_array_free(&cmdb->req_cert_lsises);
     cmdb->req_cert_cmh = 0;
     cmdb->req_cert_enc_cmh = 0;
     pthread_mutex_unlock(&cmdb->lock);
@@ -311,8 +405,59 @@ fail:
     string_free(&rec_value);
     return ;
 }
-static void data_recieve_progress(){
+static void data_recieve_progress(struct sec_db* sdb,struct cmp_db* cmdb){
+    sec_data sdata;
+    string rec_data;
+    int len =RECIEVE_DATA_MAXLEN;
+    content_type inner_type;
+    INIT(sdata);
+    INIT(rec_data);
+    
+    do{
+        if(rec_data.buf != NULL)
+            free(rec_data.buf);
+        rec_data.len = len;
+        rec_data.buf = (u8*)malloc(len);
+        if(rec_data.buf == NULL)
+            goto fail;
+        len = ca_try_read(rec_data.buf,rec_data.len);
+    }while(len > rec_data.len);
 
+    if(buf_2_sec_data(rec_data.buf,rec_data.len,&sdata))
+        goto fail;
+    if(sdata.protocol_version != CURRETN_VERSION)
+        goto fail;
+
+
+    pthread_mutext_lock(&cmdb->lock);
+
+    /**这个地方的逻辑不知道有没有出错，这里按照协议一共三种情况
+     * 1.1602dotdata的type 是encrtypted，tobeencrypted里面的type是certificate_response
+     * 2.1602dotdata的type 是encrtypted，tobeencryptted里面的type是crl。
+     * 3.1602dotdata的type是crl
+     *
+     * 可以看到情况考虑完，应该是上述三种情况分流出来 受到的数据是crl还是certificate_response
+     * 但是读协议d4，我感觉第二中情况不是我这里处理的，或者我根本没有办法处理，因为我这里不会存储那个加密的钥匙或者证书
+     */
+    switch(sdata.type){
+        case ENCRYPTED:
+            //certificate_response
+            if(!sec_secure_data_content_extration(sdb,&rec_data,cmdb->req_cert_enc_cmh,
+                        NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL)){
+                cert_responce_recieve_progress(sdb,cmdb,&rec_data);
+            }
+            break;
+        case CRL:
+            crl_recieve_progress(sdb,cmdb,&rec_data);
+            break;
+    }
+    pthread_mutext_unlock(&cmdb->lock);
+    
+    sec_data_free(&sdata);
+    string_free(&rec_data);
+fail:
+    sec_data_free(&sdata);
+    string_free(&rec_data);
 }
 void cmp_run(struct sec_db* sdb){
     while(1){
@@ -329,7 +474,7 @@ void cmp_run(struct sec_db* sdb){
             cmdb->pending &= ~CERTFICATE_REQUEST;
         }
         if(cmdb->pending & RECIEVE_DATA){
-            data_recieve_progress();
+            data_recieve_progress(sdb,cmdb);
             cmdb->pending &= ~RECIEVE_DATA;
         }
         pthread_mutex_unlock(&cmdb->lock);

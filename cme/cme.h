@@ -75,8 +75,8 @@ result cme_store_cert_key(struct sec_db* sdb,const certificate* cert,
  * 从cme中获取相关证书的信息
  * @type：证书索引的类型
  * @identifier：证书的索引标示。
- * @certificate:证书编码好的字节流。
  *
+ * @certificate:证书编码好的字节流。
  * @permissions：相关权限内容
  * @scope：地理位置权限。
  * @last_crl_time:上次收到crl的时间。
@@ -87,8 +87,8 @@ result cme_store_cert_key(struct sec_db* sdb,const certificate* cert,
 result cme_certificate_info_request(struct sec_db* sdb, 
                     enum identifier_type type,
                     string *identifier,
+                    
                     string *certificate,
-
                     struct cme_permissions* permissions,
                     geographic_region* scope,
                     time64* last_crl_time,time64* next_crl_time,
@@ -140,13 +140,13 @@ void cme_add_crlinfo(struct sec_db* sdb,
  */
 result cme_get_crlinfo(struct sec_db* sdb,
                         crl_series series,
-                        string* ca_id,
+                        hashedid8* ca_id,
                         u32 serial_numberi,
                         
                         crl_type *type,
-                        time64 *start_time,
-                        time64 *issue_data,
-                        time64 *next_crl_time);
+                        time32 *start_time,
+                        time32 *issue_data,
+                        time32 *next_crl_time);
 
 result cme_reply_detection(struct sec_db* sdb,
                 cme_lsis lsis,
