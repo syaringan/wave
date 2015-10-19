@@ -1,6 +1,7 @@
 #ifndef STRING_H
 #define STRING_H
 #include "common.h"
+#include "stdlib.h"
 typedef struct string{
     u8 *buf;
     u16 len;

@@ -216,7 +216,6 @@ typedef struct two_d_location{
     s32 longitude;
 }two_d_location;
 
-typedef two_d_location* polygonal_region;
 
 typedef struct rectangular_region{
     two_d_location north_west;
@@ -235,7 +234,7 @@ typedef struct geographic_region{
     union{
         circular_region circular_region;
         ARRAY(rectangular_region,rectangular_region);
-        polygonal_region polygonal_region;
+        ARRAY(two_d_location,polygonal_region);
         ARRAY(u8,other_region);
     }u;
 }geographic_region;

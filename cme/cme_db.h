@@ -24,12 +24,12 @@ struct cmh_key_cert{
     cmh cmh;
     struct rb_head rb;
     string private_key;
-    certificate cert;
+    certificate *cert;
 };
 struct alloced_cmhs{
    struct cmh_init cmh_init;
    struct cmh_keypaired cmh_keys;
-   struct cmh_key_cert cmh_key_cert;
+   struct cmh_key_cert* cmh_key_cert;
 };
 struct cmh_chain{
     cmh cmh;
@@ -75,7 +75,7 @@ struct revocation{
     hashedid8 ca_id;
 };
 struct cert_head{
-  certificate cert;
+  certificate *cert;
   certid10 certid10;
   bool verified;
   struct crl_head* crl;
