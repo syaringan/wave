@@ -31,12 +31,12 @@ struct pssme_lsis_db{
     struct pssme_lsis_chain lsises;
 };
 struct pssme_lsis_array{
-    struct list_head list;
-    pssme_lsis lsis;
+    pssme_lsis* lsis;
+    u32 len;
 };
 struct pssme_local_cert{
     struct list_head list;
-    certificate certificate;
+    cmh cmh;
     struct pssme_lsis_array lsis_array;
 };
 struct pssme_receive_cert{

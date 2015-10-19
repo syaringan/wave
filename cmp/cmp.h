@@ -6,4 +6,5 @@ void cmp_do_recieve_data();
 u32 cmp_init();
 void cmp_end();
 void cmp_run();
+void cmp_do_crl_req(crl_serial crl_serial);
 #endif
