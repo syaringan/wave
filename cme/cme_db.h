@@ -25,6 +25,8 @@ struct cmh_key_cert{
     struct rb_head rb;
     string private_key;
     certificate *cert;
+    cert_head* cert_info;
+
 };
 struct alloced_cmhs{
    struct cmh_init cmh_init;
