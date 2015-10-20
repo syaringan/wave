@@ -8,7 +8,7 @@
 #
 # Filename: data_2_buf.c
 #
-# Description: 
+# Description:  将buf转换成结构体
 #
 =============================================================================*/
 #include"data_handle.h"
@@ -162,7 +162,55 @@ static u32 varible_len_calculate(u8* buf,u64 len){ //
     }
     return 8;
 }
-        
+
+
+
+/**
+ *	to_buf 1
+ */
+static u32 time64_with_standard_deviation_2_buf(const time64_with_standard_deviation* 
+				time64_with_standard_deviation, u8* buf, u32 len){
+	u8* mbuf = buf;
+	u32 size = len;
+	tobuf64(mbuf, time64_with_standard_deviation->time);
+	if(size < 5)
+		return 0;
+	mbuf += 4;
+	size -= 4;
+	*mbuf = time64_with_standard_deviation->long_std_dev
+	mbuf += 1;
+	size -= 1;
+	return len - size;
+}
+/**
+ * to_buf 2
+ */
+static u32 tbsdata_extension_2_buf(const tbsdata_extension* tbsdata_extension,
+				u8* buf, u32 len){
+	u8* mbuf = buf;
+	u32 size = len;
+	*mbuf = (u8)tbsdata_extension->type;
+	mbuf++;
+	size--;
+	
+	u32 encode_length = varible_len_calculate(mbuf, tbsdata_extension->value.len);
+	if(size < encode_length + tbsdata_extension->value.len)
+		return NOT_ENOUTGHT;
+	varilbe_len_encoding(mbuf, tbsdata_extension->value.len);
+	mbuf += encode_length;
+	
+	
+		
+	
+	
+	
+}
+
+
+
+
+
+
 u32 sec_data_2_buf(const sec_data *sec_data,u8* buf,u32 len){
     u8* mbuf = buf;
     u32 size = len;
