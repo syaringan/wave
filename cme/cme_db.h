@@ -9,10 +9,6 @@
 #include <stdio.h>
 typedef s32 cme_lsis;
 typedef u32 cmh;//cmh从1开始发放，不准放0
-struct cmh_init{
-    cmh cmh;
-    struct list_head list;
-};
 struct cmh_keypaired{
     struct list_head list;
     cmh cmh;
@@ -29,9 +25,9 @@ struct cmh_key_cert{
 
 };
 struct alloced_cmhs{
-   struct cmh_init cmh_init;
+   struct cmh_chain cmh_init;
    struct cmh_keypaired cmh_keys;
-   struct cmh_key_cert* cmh_key_cert;
+   struct cmh_key_cert cmh_key_cert;
 };
 struct cmh_chain{
     cmh cmh;
@@ -72,10 +68,6 @@ struct crl_head{
     crl_series crl_series;
     struct crl_ca_id ca_id_list;
 };
-struct revocation{
-    time64 expriry;
-    hashedid8 ca_id;
-};
 struct cert_head{
   certificate *cert;
   certid10 certid10;
@@ -83,7 +75,8 @@ struct cert_head{
   struct crl_head* crl;
   bool trust_anchor;
   struct rb_head rb;
-  struct revocation revocation;
+  time64 expriry;
+  hashedid8 ca_id;
 };
 struct cme_db{
     struct cert_head certs;
