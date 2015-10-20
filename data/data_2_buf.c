@@ -1221,31 +1221,43 @@ u32 root_ca_scope_2_buf(const root_ca_scope *root_ca_scope,u8* buf,u32 len){
 		res += 2;
 	}
 
-	encode_len = psid_array_2_buf(&root_ca_scope->flags_content.secure_data_permissions,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
-	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
-
-	encode_len = psid_priority_array_2_buf(&root_ca_scope->flags_content.wsa_permissions,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
-	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
-
-	encode_len = varible_len_calculate(root_ca_scope->flags_content.other_permissions.len);
-	if (size < encode_len + root_ca_scope->flags_content.other_permissions.len)
-		return NOT_ENOUGHT;
-	varible_len_encoding(mbuf,root_ca_scope->flags_content.other_permissions.len);
-	mbuf += encode_len;
-
-	for(i=0;i < root_ca_scope->flags_content.other_permissions.len;i++){
-		*mbuf++ = *(root_ca_scope->flags_content.other_permissions.buf + i);
+	if((root_ca_scope->permitted_holder_types & 1<<0)!=0 ||
+		(root_ca_scope->permitted_holder_types & 1<<1)!=0 ||
+		(root_ca_scope->permitted_holder_types & 1<<2)!=0 ||
+		(root_ca_scope->permitted_holder_types & 1<<3)!=0 ||
+		(root_ca_scope->permitted_holder_types & 1<<6)!=0){
+		encode_len = psid_array_2_buf(&root_ca_scope->flags_content.secure_data_permissions,mbuf,size);
+		if(encode_len < 0)
+			return encode_len;
+		mbuf += encode_len;
+		size -= encode_len;
+		res += encode_len;
 	}
-	size = size - encode_len - root_ca_scope->flags_content.other_permissions.len;
-	res = res + encode_len + root_ca_scope->flags_content.other_permissions.len;
+
+	if((root_ca_scope->permitted_holder_types & 1<<4)!=0 ||
+		(root_ca_scope->permitted_holder_types & 1<<5)!=0 ||
+		((root_ca_scope->permitted_holder_types > 1<<6) && (root_ca_scope->permitted_holder_types & 1<<7)!=0)){
+		encode_len = psid_priority_array_2_buf(&root_ca_scope->flags_content.wsa_permissions,mbuf,size);
+		if(encode_len < 0)
+			return encode_len;
+		mbuf += encode_len;
+		size -= encode_len;
+		res += encode_len;
+	}
+
+	if((root_ca_scope->permitted_holder_types > 1<<6) && (root_ca_scope->permitted_holder_types & 1<<8)!=0){
+		encode_len = varible_len_calculate(root_ca_scope->flags_content.other_permissions.len);
+		if (size < encode_len + root_ca_scope->flags_content.other_permissions.len)
+			return NOT_ENOUGHT;
+		varible_len_encoding(mbuf,root_ca_scope->flags_content.other_permissions.len);
+		mbuf += encode_len;
+
+		for(i=0;i < root_ca_scope->flags_content.other_permissions.len;i++){
+			*mbuf++ = *(root_ca_scope->flags_content.other_permissions.buf + i);
+		}
+		size = size - encode_len - root_ca_scope->flags_content.other_permissions.len;
+		res = res + encode_len + root_ca_scope->flags_content.other_permissions.len;
+	}
 	
 	encode_len = geographic_region_2_buf(&root_ca_scope->region,mbuf,size);
 	if(encode_len <0)
@@ -1401,34 +1413,42 @@ u32 tobesigned_certificate_2_buf(const tobesigned_certificate *tobesigned_certif
 			break;
 	}
 
-	tobuf16(mbuf,tobesigned_certificate->flags_content.lifetime);
-	mbuf += 2;
-	size -= 2;
-	res += 2;
-
-	tobuf32(mbuf,tobesigned_certificate->flags_content.start_validity);
-	mbuf += 4;
-	size -= 4;
-	res += 4;
-
-	encode_len = public_key_2_buf(&tobesigned_certificate->flags_content.encryption_key,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
-	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
-
-	encode_len = varible_len_calculate(tobesigned_certificate->flags_content.other_cert_content.len);
-	if (size < encode_len + tobesigned_certificate->flags_content.other_cert_content.len)
-		return NOT_ENOUGHT;
-	varible_len_encoding(mbuf,tobesigned_certificate->flags_content.other_cert_content.len);
-	mbuf += encode_len;
-
-	for(i=0;i < tobesigned_certificate->flags_content.other_cert_content.len;i++){
-		*mbuf++ = *(tobesigned_certificate->flags_content.other_cert_content.buf + i);
+	if((tobesigned_certificate->cf & 1<<0)!=0){
+		if((tobesigned_certificate->cf & 1<<1)!=0){
+			tobuf16(mbuf,tobesigned_certificate->flags_content.lifetime);
+			mbuf += 2;
+			size -= 2;
+			res += 2;
+		}else{
+			tobuf32(mbuf,tobesigned_certificate->flags_content.start_validity);
+			mbuf += 4;
+			size -= 4;
+			res += 4;
+		}
 	}
-	size = size - encode_len - tobesigned_certificate->flags_content.other_cert_content.len;
-	res = res + encode_len + tobesigned_certificate->flags_content.other_cert_content.len;
+
+	if((tobesigned_certificate->cf & 1<<2)!=0){
+		encode_len = public_key_2_buf(&tobesigned_certificate->flags_content.encryption_key,mbuf,size);
+		if(encode_len < 0)
+			return encode_len;
+		mbuf += encode_len;
+		size -= encode_len;
+		res += encode_len;
+	}
+
+	if((tobesigned_certificate->cf & 0xf8)!=0){//本协议中cf为1字节
+		encode_len = varible_len_calculate(tobesigned_certificate->flags_content.other_cert_content.len);
+		if (size < encode_len + tobesigned_certificate->flags_content.other_cert_content.len)
+			return NOT_ENOUGHT;
+		varible_len_encoding(mbuf,tobesigned_certificate->flags_content.other_cert_content.len);
+		mbuf += encode_len;
+
+		for(i=0;i < tobesigned_certificate->flags_content.other_cert_content.len;i++){
+			*mbuf++ = *(tobesigned_certificate->flags_content.other_cert_content.buf + i);
+		}
+		size = size - encode_len - tobesigned_certificate->flags_content.other_cert_content.len;
+		res = res + encode_len + tobesigned_certificate->flags_content.other_cert_content.len;
+	}
 	
 	return res;
 }
@@ -2089,34 +2109,42 @@ u32 tobesigned_certificate_request_2_buf(const tobesigned_certificate_request*
 	size -= 4;
 	res += 4;
 
-	tobuf16(mbuf,tobesigned_certificate_request->flags_content.lifetime);
-	mbuf +=2;
-	size -=2;
-	res += 2;
-	
-	tobuf32(mbuf,tobesigned_certificate_request->flags_content.start_validity);
-	mbuf += 4;
-	size -= 4;
-	res += 4;
-
-	encode_len = public_key_2_buf(&tobesigned_certificate_request->flags_content.encryption_key,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
-	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
-
-	encode_len = varible_len_calculate(tobesigned_certificate_request->flags_content.other_cert.len);
-	if (size < encode_len + tobesigned_certificate_request->flags_content.other_cert.len)
-		return NOT_ENOUGHT;
-	varible_len_encoding(mbuf,tobesigned_certificate_request->flags_content.other_cert.len);
-	mbuf += encode_len;
-
-	for(i=0;i < tobesigned_certificate_request->flags_content.other_cert.len;i++){
-		*mbuf++ = *(tobesigned_certificate_request->flags_content.other_cert.buf + i);
+	if((tobesigned_certificate_request->cf & 1<<0)!=0){
+		if((tobesigned_certificate_request->cf & 1<<1)!=0){
+			tobuf16(mbuf,tobesigned_certificate_request->flags_content.lifetime);
+			mbuf +=2;
+			size -=2;
+			res += 2;
+		}else{
+			tobuf32(mbuf,tobesigned_certificate_request->flags_content.start_validity);
+			mbuf += 4;
+			size -= 4;
+			res += 4;
+		}
 	}
-	size = size - encode_len - tobesigned_certificate_request->flags_content.other_cert.len;
-	res = res + encode_len + tobesigned_certificate_request->flags_content.other_cert.len;
+
+	if((tobesigned_certificate_request->cf & 1<<2)!=0){
+		encode_len = public_key_2_buf(&tobesigned_certificate_request->flags_content.encryption_key,mbuf,size);
+		if(encode_len < 0)
+			return encode_len;
+		mbuf += encode_len;
+		size -= encode_len;
+		res += encode_len;
+	}
+
+	if((tobesigned_certificate_request->cf & 0xf8)!=0){
+		encode_len = varible_len_calculate(tobesigned_certificate_request->flags_content.other_cert.len);
+		if (size < encode_len + tobesigned_certificate_request->flags_content.other_cert.len)
+			return NOT_ENOUGHT;
+		varible_len_encoding(mbuf,tobesigned_certificate_request->flags_content.other_cert.len);
+		mbuf += encode_len;
+
+		for(i=0;i < tobesigned_certificate_request->flags_content.other_cert.len;i++){
+			*mbuf++ = *(tobesigned_certificate_request->flags_content.other_cert.buf + i);
+		}
+		size = size - encode_len - tobesigned_certificate_request->flags_content.other_cert.len;
+		res = res + encode_len + tobesigned_certificate_request->flags_content.other_cert.len;
+	}
 	
 	encode_len = public_key_2_buf(&tobesigned_certificate_request->verification_key,mbuf,size);
 	if(encode_len < 0)
@@ -2251,68 +2279,78 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 			break;
 	}
 	
-	encode_len = time64_with_standard_deviation_2_buf(&tobesigned_data->flags_content.generation_time,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
-	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
-
-	tobuf64(mbuf,tobesigned_data->flags_content.exipir_time);
-	mbuf += 8;
-	size -= 8;
-	res += 8;
-	
-	encode_len = three_d_location_2_buf(&tobesigned_data->flags_content.generation_location,mbuf,size);
-	if(encode_len < 0)
-		return encode_len;
-	mbuf += encode_len;
-	size -= encode_len;
-	res += encode_len;
-	
-	min_len = varible_len_calculate(tobesigned_data->flags_content.extensions.len*2);
-	if (size < min_len + tobesigned_data->flags_content.extensions.len*2)
-		return NOT_ENOUGHT;
-
-	mbuf_beg = mbuf;
-	u32 data_len = 0;
-	for(i=0;i < tobesigned_data->flags_content.extensions.len;i++){
-		encode_len = tbsdata_extension_2_buf(tobesigned_data->flags_content.extensions.buf + i,mbuf,size);
+	if((tobesigned_data->tf & 1<<0)!=0){
+		encode_len = time64_with_standard_deviation_2_buf(&tobesigned_data->flags_content.generation_time,mbuf,size);
 		if(encode_len < 0)
 			return encode_len;
 		mbuf += encode_len;
-		data_len += encode_len;
-	}
-	mbuf_end = mbuf;
-	size -= data_len;
-	res += data_len;
-
-	encode_len = varible_len_calculate(data_len);
-	if(size < encode_len)
-		return NOT_ENOUGHT;
-
-	mbuf = mbuf_end + encode_len;
-	while(mbuf_beg != mbuf_end){
-		mbuf_end--;
-		*(mbuf_end + encode_len) = *mbuf_end;
+		size -= encode_len;
+		res += encode_len;
 	}
 
-	varible_len_encoding(mbuf_beg,data_len);
-
-	size -= encode_len;
-	res += encode_len;
+	if((tobesigned_data->tf & 1<<1)!=0){
+		tobuf64(mbuf,tobesigned_data->flags_content.exipir_time);
+		mbuf += 8;
+		size -= 8;
+		res += 8;
+	}
 	
-	encode_len = varible_len_calculate(tobesigned_data->flags_content.other_data.len);
-	if (size < encode_len + tobesigned_data->flags_content.other_data.len)
-		return NOT_ENOUGHT;
-	varible_len_encoding(mbuf,tobesigned_data->flags_content.other_data.len);
-	mbuf += encode_len;
-
-	for(i=0;i < tobesigned_data->flags_content.other_data.len;i++){
-		*mbuf++ = *(tobesigned_data->flags_content.other_data.buf + i);
+	if((tobesigned_data->tf & 1<<2)!=0){
+		encode_len = three_d_location_2_buf(&tobesigned_data->flags_content.generation_location,mbuf,size);
+		if(encode_len < 0)
+			return encode_len;
+		mbuf += encode_len;
+		size -= encode_len;
+		res += encode_len;
 	}
-	size = size - encode_len - tobesigned_data->flags_content.other_data.len;
-	res = res + encode_len + tobesigned_data->flags_content.other_data.len;
+	
+	if((tobesigned_data->tf & 1<<3)!=0){
+		min_len = varible_len_calculate(tobesigned_data->flags_content.extensions.len*2);
+		if (size < min_len + tobesigned_data->flags_content.extensions.len*2)
+			return NOT_ENOUGHT;
+
+		mbuf_beg = mbuf;
+		u32 data_len = 0;
+		for(i=0;i < tobesigned_data->flags_content.extensions.len;i++){
+			encode_len = tbsdata_extension_2_buf(tobesigned_data->flags_content.extensions.buf + i,mbuf,size);
+			if(encode_len < 0)
+				return encode_len;
+			mbuf += encode_len;
+			data_len += encode_len;
+		}
+		mbuf_end = mbuf;
+		size -= data_len;
+		res += data_len;
+
+		encode_len = varible_len_calculate(data_len);
+		if(size < encode_len)
+			return NOT_ENOUGHT;
+
+		mbuf = mbuf_end + encode_len;
+		while(mbuf_beg != mbuf_end){
+			mbuf_end--;
+			*(mbuf_end + encode_len) = *mbuf_end;
+		}
+
+		varible_len_encoding(mbuf_beg,data_len);
+
+		size -= encode_len;
+		res += encode_len;	
+	}
+
+	if((tobesigned_data->tf & 0xf0)!=0){
+		encode_len = varible_len_calculate(tobesigned_data->flags_content.other_data.len);
+		if (size < encode_len + tobesigned_data->flags_content.other_data.len)
+			return NOT_ENOUGHT;
+		varible_len_encoding(mbuf,tobesigned_data->flags_content.other_data.len);
+		mbuf += encode_len;
+	
+		for(i=0;i < tobesigned_data->flags_content.other_data.len;i++){
+			*mbuf++ = *(tobesigned_data->flags_content.other_data.buf + i);
+		}
+		size = size - encode_len - tobesigned_data->flags_content.other_data.len;
+		res = res + encode_len + tobesigned_data->flags_content.other_data.len;
+	}
 	
 	return res;
 }
@@ -2746,49 +2784,53 @@ u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32 len){
 	size -= encode_len;
 	res += encode_len;
 	
-	min_len = varible_len_calculate(tobesigned_wsa->flags_content.extension.len*2);
-	if (size < min_len + tobesigned_wsa->flags_content.extension.len*2)
-		return NOT_ENOUGHT;
-
-	mbuf_beg = mbuf;
-	u32 data_len = 0;
-	for(i=0;i < tobesigned_wsa->flags_content.extension.len;i++){
-		encode_len = tbsdata_extension_2_buf(tobesigned_wsa->flags_content.extension.buf + i,mbuf,size);
-		if(encode_len < 0)
-			return encode_len;
-		mbuf += encode_len;
-		data_len += encode_len;
-	}
-	mbuf_end = mbuf;
-	size -= data_len;
-	res += data_len;
-
-	encode_len = varible_len_calculate(data_len);
-	if(size < encode_len)
-		return NOT_ENOUGHT;
-
-	mbuf = mbuf_end + encode_len;
-	while(mbuf_beg != mbuf_end){
-		mbuf_end--;
-		*(mbuf_end + encode_len) = *mbuf_end;
-	}
-
-	varible_len_encoding(mbuf_beg,data_len);
-
-	size -= encode_len;
-	res += encode_len; 
+	if((tobesigned_wsa->tf & 1<<3)!=0){
+		min_len = varible_len_calculate(tobesigned_wsa->flags_content.extension.len*2);
+		if (size < min_len + tobesigned_wsa->flags_content.extension.len*2)
+			return NOT_ENOUGHT;
 	
-	encode_len = varible_len_calculate(tobesigned_wsa->flags_content.other_data.len);
-	if (size < encode_len + tobesigned_wsa->flags_content.other_data.len)
-		return NOT_ENOUGHT;
-	varible_len_encoding(mbuf,tobesigned_wsa->flags_content.other_data.len);
-	mbuf += encode_len;
+		mbuf_beg = mbuf;
+		u32 data_len = 0;
+		for(i=0;i < tobesigned_wsa->flags_content.extension.len;i++){
+			encode_len = tbsdata_extension_2_buf(tobesigned_wsa->flags_content.extension.buf + i,mbuf,size);
+			if(encode_len < 0)
+				return encode_len;
+			mbuf += encode_len;
+			data_len += encode_len;
+		}
+		mbuf_end = mbuf;
+		size -= data_len;
+		res += data_len;
 
-	for(i=0;i < tobesigned_wsa->flags_content.other_data.len;i++){
-		*mbuf++ = *(tobesigned_wsa->flags_content.other_data.buf + i);
+		encode_len = varible_len_calculate(data_len);
+		if(size < encode_len)
+			return NOT_ENOUGHT;
+
+		mbuf = mbuf_end + encode_len;
+		while(mbuf_beg != mbuf_end){
+			mbuf_end--;
+			*(mbuf_end + encode_len) = *mbuf_end;
+		}
+
+		varible_len_encoding(mbuf_beg,data_len);
+
+		size -= encode_len;
+		res += encode_len; 
 	}
-	size = size - encode_len - tobesigned_wsa->flags_content.other_data.len;
-	res = res + encode_len + tobesigned_wsa->flags_content.other_data.len;
+	
+	if((tobesigned_wsa->tf & 0xf7)!=0){
+		encode_len = varible_len_calculate(tobesigned_wsa->flags_content.other_data.len);
+		if (size < encode_len + tobesigned_wsa->flags_content.other_data.len)
+			return NOT_ENOUGHT;
+		varible_len_encoding(mbuf,tobesigned_wsa->flags_content.other_data.len);
+		mbuf += encode_len;
+
+		for(i=0;i < tobesigned_wsa->flags_content.other_data.len;i++){
+			*mbuf++ = *(tobesigned_wsa->flags_content.other_data.buf + i);
+		}
+		size = size - encode_len - tobesigned_wsa->flags_content.other_data.len;
+		res = res + encode_len + tobesigned_wsa->flags_content.other_data.len;
+	}
 
 	return res;
 }
@@ -2878,7 +2920,7 @@ u32 sec_data_2_buf(const sec_data *sec_data,u8* buf,u32 len){
                 return encode_len;
             return encode_len + res;
         case SIGNED_WSA:
-            signed_wsa_free(&sec_data->u.signed_wsa);
+//			signed_wsa_free(&sec_data->u.signed_wsa);
             encode_len = signed_wsa_2_buf(&sec_data->u.signed_wsa,mbuf,size);
             if(encode_len < 0)
                  return encode_len;

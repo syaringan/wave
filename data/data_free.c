@@ -120,7 +120,7 @@ static void geographic_region_free(geographic_region* geographic_region){
  */
 
 static void psid_priority_free(psid_priority*  psid_priority){
-	free(psid_priority->psid);
+	free(&psid_priority->psid);
 }
 
 /**
@@ -162,7 +162,7 @@ static void psid_array_free(psid_array* psid_array){
  *YGH 11
  */
 static void psid_ssp_free(psid_ssp* psid_ssp){
-	  free(psid_ssp->psid);
+	  free(&psid_ssp->psid);
 	  if(NULL!=psid_ssp->service_specific_permissions.buf)
 		  ARRAY_FREE(&psid_ssp->service_specific_permissions);
 }
@@ -189,7 +189,7 @@ static void psid_ssp_array_free(psid_ssp_array* psid_ssp_array){
  */
 
 static void psid_priority_ssp_free(psid_priority_ssp* psid_priority_ssp){
-	 free(psid_priority_ssp->psid);
+	 free(&psid_priority_ssp->psid);
       if(NULL!=psid_priority_ssp->service_specific_permissions.buf)
 		  ARRAY_FREE(&psid_priority_ssp->service_specific_permissions);
 }
@@ -275,8 +275,8 @@ static void root_ca_scope_free(root_ca_scope* root_ca_scope){
 		  ARRAY_FREE(&root_ca_scope->name);
       psid_array_free(&root_ca_scope->flags_content.secure_data_permissions);
 	  psid_priority_array_free (&root_ca_scope->flags_content.wsa_permissions);
-	  if(NULL!=root_ca_scope->flags_content.other_permissons.buf)
-		  ARRAY_FREE(&root_ca_scope->flags_content.other_permissons);
+	  if(NULL!=root_ca_scope->flags_content.other_permissions.buf)
+		  ARRAY_FREE(&root_ca_scope->flags_content.other_permissions);
 	  geographic_region_free(&root_ca_scope->region);
 }
 /**
@@ -331,13 +331,13 @@ static void tobesigned_certificate_free(tobesigned_certificate* tobesigned_certi
 	cert_specific_data_free(&tobesigned_certificate->scope,tobesigned_certificate->holder_type);
 	switch(version_and_type){
 		case 2:
-	public_key_free(&tobesigned_certificate->verion_and_type.verification_key);
+	public_key_free(&tobesigned_certificate->version_and_type.verification_key);
 		   break;
 	    case 3:
 	   	 break;
 		default:
-		if(NULL!=tobesigned_certificate->verion_and_type.other_key_material.buf)
-			ARRAY_FREE(&tobesigned_certificate->verion_and_type.other_key_material);}
+		if(NULL!=tobesigned_certificate->version_and_type.other_key_material.buf)
+			ARRAY_FREE(&tobesigned_certificate->version_and_type.other_key_material);}
 	    public_key_free(&tobesigned_certificate->flags_content.encryption_key);
 		if(NULL!=tobesigned_certificate->flags_content.other_cert_content.buf)
 			ARRAY_FREE(&tobesigned_certificate->flags_content.other_cert_content);
@@ -346,15 +346,15 @@ static void tobesigned_certificate_free(tobesigned_certificate* tobesigned_certi
  *YGH 24
  */
 static void certificate_free(certificate* certificate){
-   tobesigned_certificate_free(&certificate->unsigend_certificate,certificate->version_and_type);
+   tobesigned_certificate_free(&certificate->unsigned_certificate,certificate->version_and_type);
    switch(certificate->version_and_type){
 	   case 2:
-         switch(certificate->unsigend_certificate.holder_type){
+         switch(certificate->unsigned_certificate.holder_type){
 			 case ROOT_CA:
-				 signature_free(&certificate->u.signature,certificate->unsigend_certificate.verion_and_type.verification_key.algorithm);
+				 signature_free(&certificate->u.signature,certificate->unsigned_certificate.version_and_type.verification_key.algorithm);
 				 break;
 			  default:
-				 signature_free(&certificate->u.signature,certificate->unsigend_certificate.u.no_root_ca.signature_alg);
+				 signature_free(&certificate->u.signature,certificate->unsigned_certificate.u.no_root_ca.signature_alg);
 		 }	;	 //  signature_free(&certificate->u.signature);
 		   break;
 		case 3:
@@ -564,12 +564,12 @@ static void tobesigned_data_free(tobesigned_data* tobesigned_data, content_type 
 	switch(type){
 		case SIGNED:
 		case SIGNED_PARTIAL_PAYLOAD:
-			free(tobesigned_data->u.type_signed.psid);
+			free(&tobesigned_data->u.type_signed.psid);
 			if(NULL != tobesigned_data->u.type_signed.data.buf)
 				ARRAY_FREE(&tobesigned_data->u.type_signed.data);
 			break;
 		case SIGNED_EXTERNAL_PAYLOAD:
-			free(tobesigned_data->u.psid);
+			free(&tobesigned_data->u.psid);
 			break;
 		default:
 			if(NULL != tobesigned_data->u.data.buf)
@@ -649,7 +649,7 @@ static void tobe_encrypted_free(tobe_encrypted* tobe_encrypted){
 			tobe_encrypted_certificate_request_error_free(&tobe_encrypted->u.request_error);
 			break;
 		case CONTENT_TYPE_CRL_REQUEST:
-			crl_request_free(&tobe_encrypted->u.crl_request);
+//			crl_request_free(&tobe_encrypted->u.crl_request);
 			break;
 		case CRL:
 			crl_free(&tobe_encrypted->u.crl);
@@ -772,7 +772,7 @@ void sec_data_free(sec_data* sec_data){
             encrypted_data_free(&sec_data->u.encrypted_data);
             break;
         case CONTENT_TYPE_CRL_REQUEST:
-            crl_request_free(&sec_data->u.crl_request);
+//			crl_request_free(&sec_data->u.crl_request);
             break;
         case CRL:
             ARRAY_FREE(&sec_data->u.crl);
