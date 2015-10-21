@@ -21,13 +21,13 @@ struct cmh_key_cert{
     struct rb_head rb;
     string private_key;
     certificate *cert;
-    cert_head* cert_info;
+    cert_info* cert_info;
 
 };
 struct alloced_cmhs{
    struct cmh_chain cmh_init;
    struct cmh_keypaired cmh_keys;
-   struct cmh_key_cert cmh_key_cert;
+   struct cmh_key_cert *cmh_key_cert;
 };
 struct cmh_chain{
     cmh cmh;
@@ -68,21 +68,34 @@ struct crl_head{
     crl_series crl_series;
     struct crl_ca_id ca_id_list;
 };
-struct cert_head{
-  certificate *cert;
-  certid10 certid10;
-  bool verified;
-  struct crl_head* crl;
-  bool trust_anchor;
-  struct rb_head rb;
-  time64 expriry;
-  hashedid8 ca_id;
+struct cert_info{
+    certificate *cert;
+    certid10 certid10;
+    bool verified;
+    time32 last_recieve_crl;
+    time32 next_recieve_crl;
+    bool trust_anchor;
+    struct rb_head rb;
+    time64 expriry;
+    hashedid8 ca_id;
 };
 struct cme_db{
-    struct cert_head certs;
+    struct cert_info *certs;
     struct crl_head crls;
     struct cme_lsis_db lsises;
     struct cmh_db cmhs;
     lock lock;
 };
+static void inline cmh_keypaired_free(struct cmh_keypaired* cmh_keys){
+    if(cmh_keys == NULL)
+        return ;
+    string_free(&cmh_keys->private_key);
+    string_free(&cmh_keys->public_key);
+}
+static void inline cert_info_free(struct cert_info* certinfo){
+    if(certinfo == NULL)
+        return ;
+    if(certinfo->cert != NULL)
+        certificate_free(certinfo->cert);
+}
 #endif

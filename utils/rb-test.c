@@ -10,6 +10,9 @@ struct goal{
     struct rb_head head;
     int value;
 };
+struct test{
+    struct goal* root;
+};
 int compare(struct rb_head* a,struct rb_head* b){
     struct goal *goal_a,*goal_b;
     goal_a = rb_entry(a,struct goal,head);
@@ -56,8 +59,9 @@ static inline struct goal* goal_delete(struct goal* root,struct goal* node){
     return rb_entry( rb,struct goal,head);
 }
 void main(){
-    struct goal *root,*node;
-    root = NULL;
+    struct test a;
+    a.root = NULL;
+    struct goal *node;
     int i=100;
     for(i=0;i<20;i++){
         if( (node = (struct goal*)malloc(sizeof(struct goal))) == NULL){
@@ -68,25 +72,25 @@ void main(){
             return ;
         }
         node->value = i;
-        root = goal_insert(root,node);
+        a.root = goal_insert(a.root,node);
     }
-    printf("%d \n",goal_find(root,&root->value)->value);
+    printf("%d \n",goal_find(a.root,&a.root->value)->value);
     for(i=0;i<20;i++){
         printf("%d  ",
-                goal_find(root,&i) == NULL ?-5:goal_find(root,&i)->value);
+                goal_find(a.root,&i) == NULL ?-5:goal_find(a.root,&i)->value);
     }
     printf("\n");
     for(i=0;i<10;i++){
-        node = goal_find(root,&i);
+        node = goal_find(a.root,&i);
         if(node == NULL){
             printf("delete %d",i);
             continue;
         }
-        root = goal_delete(root,node);
+        a.root = goal_delete(a.root,node);
     }
     for(i=0;i<20;i++){
         printf("%d  ",
-                goal_find(root,&i) == NULL ?-5:goal_find(root,&i)->value);
+                goal_find(a.root,&i) == NULL ?-5:goal_find(a.root,&i)->value);
     }
     printf("\n");
 }
