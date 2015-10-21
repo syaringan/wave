@@ -41,6 +41,16 @@ void certificate_chain_free(struct certificate_chain* certs_chain){
     certs_chain->certs = NULL;
     certs_chain->len = 0;
 }
+
+result cme_construct_certificate_chain(struct sec_db* sdb, enum identifier_type type,string* identifier,
+        struct certificate_chain* certificates,bool terminate_at_root,u32 max_chain_len,
+        
+        struct certificate_chain* certificate_chain,struct cme_permissions_array* permissions_array,
+        struct geographic_region_array* regions){
+
+
+}
+
 /**
  * alloced_lsis链表按照递增的顺序维护
  */
@@ -174,7 +184,6 @@ static struct cmh_key_cert* inline ckc_delete(struct cmh_key_cert* root,struct c
     return rb_entry(rb,struct cmh_key_cert,rb);
 }
 /***************cmh_key_cert 红黑树操作函数结束**************/
-
 
 result cme_lsis_request(struct sec_db* sdb,cme_lsis* lsis){
     struct cme_db* cdb;
