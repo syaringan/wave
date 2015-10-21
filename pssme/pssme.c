@@ -141,5 +141,24 @@ fail:
     geographic_region_free(&geo_permissions);
     string_free(&cert_encoded);
     certificate_chain_free(&chain);
+    certificate_free(&c);
     return ret;
+}
+
+result pssme_lsis_request(struct sec_db* sdb,pssme_lsis* lsis){
+    struct pssme_db* pdb;
+    struct list_head *head;
+    struct pssme_lsis_chain *node;
+    struct pssme_alloc_lsis *alloc_node;
+    pdb = &sdb->pssme_db;
+    alloc_node =(struct pssm,e)
+
+    lock_wrlock(&pdb->lock);
+    head = pdb->lsis_db.lsises;
+    
+    if(list_empty(head)){
+        lock_unlock(&pdb->lock);
+        return FAILURE;
+    }
+    node = list_entry(head->next,struct pssme_lsis_chain,list);
 }

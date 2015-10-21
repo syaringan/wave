@@ -1,5 +1,6 @@
 #include"rb.h"
-
+#include<stddef.h>
+#include<stdio.h>
 struct rb_head mynil={
     .father = NULL,
     .left = NULL,
@@ -8,7 +9,7 @@ struct rb_head mynil={
     .compare = NULL,
     .equal = NULL,
 };
-static void  rb_init(struct rb_head *rb,
+ void  rb_init(struct rb_head *rb,
                 int(*com)(struct rb_head*,struct rb_head*),
                 int(*equal)(struct rb_head*,void* )){
     if(rb == NULL)
@@ -299,4 +300,4 @@ struct rb_head* rb_delete(struct rb_head *tree,struct rb_head *x)
     if (color == BLACK)
 	    tree = rb_delete_fixup(tree,fix);
     return tree;
-
+}

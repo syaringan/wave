@@ -13,16 +13,18 @@ struct rb_head{
     int (*compare)(struct rb_head*,struct rb_head*);
     int (*equal)(struct rb_head*,void* value);
 };
+/*
 #ifndef container_of
 #define container_of(ptr,type,member) ({\
         const typeof(((type*)0)->member) *__mptr = ptr;\
         (type*)((char*)__mptr - offsetof(type,member) );})
 #endif
+*/
+#define rb_entry(ptr,type,member) ({\
+        const typeof(((type*)0)->member) *__mptr = ptr;\
+        (type*)((char*)__mptr - offsetof(type,member) );})
 
-#define rb_entry(ptr,type,member) \
-        container_of(ptr,type,member)
-
-static void  rb_init(struct rb_head *rb,
+ void  rb_init(struct rb_head *rb,
                 int(*com)(struct rb_head*,struct rb_head*),
                 int(*equal)(struct rb_head*,void* ));
 

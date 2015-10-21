@@ -314,7 +314,7 @@ typedef struct psid_priority_ssp_array{
  */
 
 typedef struct wsa_scope{
-    u8* name;
+    ARRAY(u8,name);
     psid_priority_ssp_array permissions;
     geographic_region region;
 }wsa_scope;

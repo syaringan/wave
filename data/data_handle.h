@@ -28,4 +28,9 @@ u32 buf_2_sec_data(const u8* buf,u32 len, sec_data* sec);
  * 释放这个sec_data，这里要递归的去释放。
  */
 void sec_data_free(sec_data* sec_data);
+
+/**
+ * 证书的复制
+ */
+void certificate_cpy(certificate *dst,certificate *src);
 #endif

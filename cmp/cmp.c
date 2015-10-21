@@ -14,6 +14,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <string.h>
+#include <fcntl.h>
 #include "../data/data_handle.h"
 #define FORWARD 60  //单位是s
 #define OVERDUE 60*10 // 单位是s
@@ -60,49 +61,51 @@ enum pending_flags{
 pthread_cond_t pending_cond = PTHREAD_COND_INITIALIZER;
 struct cmp_db* cmdb = NULL;
 
-#define ptr_host_to_be(ptr,n) {\
+    //*((typeof(cmdb->ca_cmh)*)mbuf) = cmdb->ca_cmh;
+#define ptr_host_to_be(ptr,n) do{\
     switch(sizeof(n)){\
         case 1:\
-            *((((typeof)n)*)ptr) = n;\
-            (u8*)ptr += 1;\
+            *((  typeof(n)*)ptr) = n;\
+            ptr = (u8*)ptr + 1;\
             break;\
         case 2:\
-            **((((typeof)n)*)ptr) = host_to_be16(n);\
-            (u8*)ptr += 2;\
+            *((  typeof(n)*)ptr) = host_to_be16(n);\
+            ptr = (u8*)ptr + 2;\
             break;\
         case 4:\
-            *((((typeof)n)*)ptr) = host_to_be32(n);\
-            (u8*)ptr += 4;\
+            *((  typeof(n)*)ptr) = host_to_be32(n);\
+            ptr = (u8*)ptr + 4;\
             break;\
         case 8:\
-            *((((typeof)n)*)ptr) = host_to_be64(n);\
-            (u8*)ptr += 8;\
+            *(( typeof(n)*)ptr) = host_to_be64(n);\
+            ptr = (u8*)ptr + 8;\
             break;\
-    }
-}
+    }\
+}while(0)
 #define ptr_be_to_host(ptr,n) {\
      switch(sizeof(n)){\
         case 1:\
-            *ptr = n;\
+            *(u8*)ptr = n;\
             break;\
         case 2:\
-            *ptr = be_to_host16(n);\
+            *(u16*)ptr = be_to_host16(n);\
             break;\
         case 4:\
-            *ptr = be_to_host32(n);\
+            *(u32*)ptr = be_to_host32(n);\
             break;\
         case 8:\
-            *ptr = be_to_host64(n);\
+            *(u64*)ptr = be_to_host64(n);\
             break;\
-    }
+    }\
 }
 /*************
  *这里的所有编码原则，都是固定长度，我们固定编码。
  *其他数组或者链表之类的我们就用4字节表示后面有多少字节。
  ************/
 static int cert_2_file(struct cmp_db* cmdb,int fd){
-    u8* mbuf,buf=NULL;
+    u8 *mbuf,*buf;
     int needlen,size = 0;
+    buf = NULL;
     needlen = 500;//预估一下有多长.
     buf =(u8*)malloc(needlen);
     if(buf == NULL)
@@ -130,8 +133,8 @@ fail:
     return -1;
 }
 static int others_2_file(struct cmp_db* cmdb,int fd){
-    u8* mbuf,buf=NULL;
-    int needlen;
+    u8  *mbuf,*buf=NULL;
+    int needlen,i;
     pthread_mutex_lock(&cmdb->lock);
     needlen =   cmdb->identifier.len + 4+
                 sizeof(cmdb->region.region_type)+sizeof(u32);
@@ -140,7 +143,7 @@ static int others_2_file(struct cmp_db* cmdb,int fd){
         case CIRCLE:
             needlen += sizeof(s32)*2 + sizeof(u16);
             break;
-        case RECTANGLE;
+        case RECTANGLE:
             needlen = needlen + cmdb->region.u.rectangular_region.len * (sizeof(s32)*4) +  4;
             break;
         case POLYGON:
@@ -172,7 +175,7 @@ static int others_2_file(struct cmp_db* cmdb,int fd){
             ptr_host_to_be(mbuf,cmdb->region.u.circular_region.center.longitude);
             ptr_host_to_be(mbuf,cmdb->region.u.circular_region.radius);
             break;
-        case RECTANGLE;
+        case RECTANGLE:
             ptr_host_to_be(mbuf,(u32)(cmdb->region.u.rectangular_region.len));
             for(i=0;i<cmdb->region.u.rectangular_region.len;i++){
                 ptr_host_to_be(mbuf,(cmdb->region.u.rectangular_region.buf+i)->north_west.latitude);
@@ -210,13 +213,14 @@ fail:
         free(buf);
     return -1;
 }
+
 static int lsis_array_2_file(struct cmp_db* cmdb,int fd){
-    u8* mbuf,buf = NULL;
+    u8  *mbuf,*buf = NULL;
     int needlen,i;
 
     pthread_mutex_lock(&cmdb->lock);
     needlen = cmdb->req_cert_lsises.len;
-    needlen = sizeof(struct pssme_lsis) * needlen;
+    needlen = sizeof(pssme_lsis) * needlen;
     buf = (u8*)malloc(needlen+4);
     if(buf == NULL){
         pthread_mutex_unlcok(&cmdb->lock);
@@ -224,7 +228,7 @@ static int lsis_array_2_file(struct cmp_db* cmdb,int fd){
     }
     mbuf = buf+4;
     for(i=0;i<cmdb->req_cert_lsises.len;i++)
-        ptr_host_to_be(mbuf,*(cmdb->req_cert_lsises.buf+i));
+        ptr_host_to_be(mbuf,*(cmdb->req_cert_lsises.lsis+i));
     *(u32*)buf = host_to_be32(cmdb->req_cert_lsises.len);
     pthread_mutex_unlock(&cmdb->lock);
     if( write(fd,buf,needlen+4) != needlen+4){
@@ -238,7 +242,7 @@ fail:
     return -1;
 }
 static int crl_cert_request_2_file(struct cmp_db* cmdb,int fd){
-    u8* mbuf,buf;
+    u8 *mbuf,*buf;
     int needlen = sizeof(time32) + 8 + sizeof(crl_series) +
         2*sizeof(cmh);
     if( (buf = (u8*)malloc(needlen)) == NULL){
@@ -248,7 +252,7 @@ static int crl_cert_request_2_file(struct cmp_db* cmdb,int fd){
     mbuf = buf;
     pthread_mutex_lock(&cmdb->lock);
     ptr_host_to_be(mbuf,cmdb->crl_request_issue_date);
-    hashedid8_cpy(mbuf,cmdb->crl_request_issuer);
+    memcpy(mbuf,cmdb->crl_request_issuer.hashedid8,8);
     mbuf += 8;
     ptr_host_to_be(mbuf,cmdb->crl_request_crl_series);
     ptr_host_to_be(mbuf,cmdb->req_cert_cmh);
@@ -299,7 +303,7 @@ static int crl_req_time_list_2_file(struct cmp_db* cmdb,int fd){
     
     size = 0;
     pthread_mutex_lock(&cmdb->lock);
-    head = &cmdb->crl_time;
+    head = &cmdb->crl_time.list;
     list_for_each_entry(ptr,head,list){
         if( (temp = crl_req_time_2_file(ptr,fd)) < 0){
             wave_printf_fl(MSG_ERROR,"crl_req_time_2_file 失败");
@@ -309,7 +313,8 @@ static int crl_req_time_list_2_file(struct cmp_db* cmdb,int fd){
         size +=1;
     }
     pthread_mutex_unlock(&cmdb->lock);
-    if( file_insert(fd,0,&(host_to_be32(size)),4) ){
+    size = host_to_be32(size);
+    if( file_insert(fd,0,&size,4) ){
         wave_error_printf("文件插入出错");
         return -1;
     }
@@ -321,8 +326,8 @@ static int crl_req_time_list_2_file(struct cmp_db* cmdb,int fd){
 }
 static void cmp_db_2_file(struct cmp_db* cmdb,const char* name){
     int fd;
-    if ((fd = open(name,O_WRONLY|O_CREAT|O_TRUNC))<0){
-        wave_printf(MSG_ERROR,"打开文件 %s 失败"，name);
+    if (( fd = open(name,O_WRONLY|O_CREAT|O_TRUNC) ) <0 ){
+        wave_printf(MSG_ERROR,"打开文件 %s 失败",name);
         return ;
     } 
     if ( crl_req_time_list_2_file(cmdb,fd) <0)
@@ -354,16 +359,16 @@ static int inline file_2_element(int fd,void* ele,int size){
     }
      switch(size){
         case 1:
-            *(u8*)ptr = n;
+            *(u8*)ele = *(u8*)ele;
             break;
         case 2:
-            *(u16*)ptr = be_to_host16(n);
+            *(u16*)ele = be_to_host16( *(u16*)ele );
             break;
         case 4:
-            *(u32*)ptr = be_to_host32(n);
+            *(u32*)ele = be_to_host32( *(u32*)ele );
             break;
         case 8:
-            *(u64*)ptr = be_to_host64(n);
+            *(u64*)ele = be_to_host64( *(u64*)ele );
             break;
     }
     return 0;
@@ -431,7 +436,7 @@ static int file_2_others(struct cmp_db* cmdb,int fd){
             }
             break;
         case RECTANGLE:
-            if ( file_2_len(&len,fp) ){
+            if ( file_2_len(&len,fd) ){
                 pthread_mutex_unlock(&cmdb->lock);
                 return -1;
             }
@@ -446,8 +451,8 @@ static int file_2_others(struct cmp_db* cmdb,int fd){
              for(i=0;i<len;i++){
                 if( file_2_element(fd,&((cmdb->region.u.rectangular_region.buf+i)->north_west.latitude),sizeof(s32)) ||
                         file_2_element(fd,&((cmdb->region.u.rectangular_region.buf+i)->north_west.longitude),sizeof(s32)) ||
-                        file_2_element(fd,&((cmdb->region.u.rectangular_region.buf+i)->south_west.latitude),sizeof(s32)) ||
-                        file_2_element(fd,&((cmdb->region.u.rectangular_region.buf+i)->south_west.longitude),sizeof(s32))){ 
+                        file_2_element(fd,&((cmdb->region.u.rectangular_region.buf+i)->south_east.latitude),sizeof(s32)) ||
+                        file_2_element(fd,&((cmdb->region.u.rectangular_region.buf+i)->south_east.longitude),sizeof(s32))){ 
                     free(cmdb->region.u.rectangular_region.buf);
                     wave_error_printf("读取文件失败");
                     pthread_mutex_unlock(&cmdb->lock);
@@ -467,8 +472,8 @@ static int file_2_others(struct cmp_db* cmdb,int fd){
                 pthread_mutex_unlock(&cmdb->lock);
                 return -1;
             }
-            if( file_2_element(fd,(cmdb->region.u.polygonal_region.buf + i)->latitude,sizeof(s32)) ||
-                        file_2_element(fd,(cmdb->region.u.polygonal_region.buf+i)->longitude,sizeof(s32) )){
+            if( file_2_element(fd,&(cmdb->region.u.polygonal_region.buf + i)->latitude,sizeof(s32)) ||
+                        file_2_element(fd,&(cmdb->region.u.polygonal_region.buf+i)->longitude,sizeof(s32) )){
                 free(cmdb->region.u.polygonal_region.buf);
                 wave_error_printf("读取文件失败");
                 pthread_mutex_unlock(&cmdb->lock); 
@@ -481,7 +486,7 @@ static int file_2_others(struct cmp_db* cmdb,int fd){
                 return -1;
             }
             cmdb->region.u.other_region.len = len;
-            cmdb->region.u.other_region.buf = (two_d_location*)malloc(len);
+            cmdb->region.u.other_region.buf = (u8*)malloc(len);
             if(cmdb->region.u.other_region.buf == NULL){
                 wave_error_printf("内存分配失败");
                 pthread_mutex_unlock(&cmdb->lock);
@@ -516,14 +521,14 @@ static int file_2_lsis_array(struct cmp_db* cmdb,int fd){
     }
     pthread_mutex_lock(&cmdb->lock);
     cmdb->req_cert_lsises.len = len;
-    cmdb->req_cert_lsises.lsis = (struct pssme_lsis*)malloc(sizeof(struct pssme_lsis) * len);
+    cmdb->req_cert_lsises.lsis = (pssme_lsis*)malloc(sizeof(pssme_lsis) * len);
     if(cmdb->req_cert_lsises.lsis == NULL){
         pthread_mutex_unlock(&cmdb->lock);
         wave_error_printf("分配空间失败");
         return -1;
     }
     for(i=0;i<len;i++){
-        if(file_2_element(fd,cmdb->req_cert_lsises.lsis+i,sizeof(struct pssme_lsis))  ){
+        if(file_2_element(fd,cmdb->req_cert_lsises.lsis+i,sizeof( pssme_lsis))  ){
             wave_error_printf("读取文件失败");
             free(cmdb->req_cert_lsises.lsis);
             pthread_mutex_unlock(&cmdb->lock);
@@ -535,7 +540,7 @@ static int file_2_lsis_array(struct cmp_db* cmdb,int fd){
 }
 static int file_2_crl_cert(struct cmp_db* cmdb,int fd){
     pthread_mutex_lock(&cmdb->lock);
-    if( file_2_element(fd,&cmdb->crl_req_issue_date,sizeof(time32)) ){
+    if( file_2_element(fd,&cmdb->crl_request_issue_date,sizeof(time32)) ){
         wave_error_printf("读取数据错误");
         goto fail;
     }
@@ -545,7 +550,7 @@ static int file_2_crl_cert(struct cmp_db* cmdb,int fd){
     }
     if( file_2_element(fd,&cmdb->crl_request_crl_series,sizeof(crl_series)) ||
             file_2_element(fd,&cmdb->req_cert_cmh,sizeof(cmh)) ||
-            file_2_element(fd,&req_cert_enc_cmh ,sizeof(cmh)) ){
+            file_2_element(fd,&cmdb->req_cert_enc_cmh ,sizeof(cmh)) ){
         wave_error_printf("读取数据失败");
         goto fail;
     }
@@ -573,10 +578,10 @@ static struct crl_req_time* file_2_crl_req_time(int fd){
         wave_error_printf("文件读取失败");
         goto fail;
     }
-    return crl;
+    return crt;
 fail:
-    if(crl != NULL)
-        free(crl);
+    if(crt != NULL)
+        free(crt);
     return NULL;
 }
 
@@ -597,7 +602,7 @@ static int file_2_crl_req_time_list(struct cmp_db* cmdb,int fd){
             pthread_mutex_unlock(&cmdb->lock);
             goto fail;
         }
-        list_add_tail(node,head);
+        list_add_tail(&node->list,head);
     }
     pthread_mutex_unlock(&cmdb->lock);
     return 0;
@@ -617,7 +622,7 @@ static int file_2_cmp_db(struct cmp_db* cmdb,const char* name){
     if( (fd = open(name,O_RDONLY)) <0){
         wave_error_printf("文件 %s 打开失败\n",name);
         close(fd);
-        return -1;
+        return -2;
     }
     if( file_2_crl_req_time_list(cmdb,fd) ||
             file_2_crl_cert(cmdb,fd) ||
@@ -719,17 +724,28 @@ void cmp_do_recieve_data(){
 }
 
 u32 cmp_init(){
+    int res;
     cmdb = (struct cmp_db*)malloc(sizeof(struct cmp_db));
     if(cmdb == NULL)
         return -1;
+    INIT(cmdb);
     cmdb->pending = 0;
-    pthread_mutex_init(&cmdb->lock,NULL); 
-    //这里很多都没数据没有初始化，这里先不写
-    
-    return 0;
+    pthread_mutex_init(&cmdb->lock,NULL);
+    INIT_LIST_HEAD(&cmdb->crl_time.list);
+    //cmdb->indentifier == ??????车牌好，这个就是个名字还是同意发送
+    //geographic_region region 这个获得怎么获得？？？
+    cmdb->life_time = 10;
+    cmdb->ca_cmh = 1;
+    //ca_cert证书来字外部，，
+
+    res = file_2_cmp_db(cmdb,"./cmp_db.txt");
+    if( res == -2){
+        return file_2_cmp_db(cmdb,"./cmp_db.init");
+    }
+    return res;
 }
 void cmp_end(){
-
+    cmp_db_2_file(cmdb,"./cmp_db.txt");
 }
 static int generate_cert_request(struct sec_db* sdb,struct cmp_db* cmdb,cme_lsis lsis,
                             string* veri_pk,string* enc_pk,string* res_pk,
@@ -778,7 +794,7 @@ static int generate_cert_request(struct sec_db* sdb,struct cmp_db* cmdb,cme_lsis
     pthread_mutex_lock(&cmdb->lock);
     expire  = now + cmdb->life_time*24*60*60;
     if(sec_get_certificate_request(sdb,CERTIFICATE,cmdb->ca_cmh,WSA,
-                            IMPLICT,&permissions,&cmdb->identifier,&cmdb->geographic_region,
+                            IMPLICT,&permissions,&cmdb->identifier,&cmdb->region,
                            true,true,now,expire,veri_pk,enc_pk,res_pk,&cmdb->ca_cert,data,request_hash)){
         pthread_mutex_unlock(&cmdb->lock);
         wave_printf(MSG_ERROR,"cmp 获取证书请求失败 %s %d",__FILE__,__LINE__);
@@ -1042,9 +1058,11 @@ fail:
     sec_data_free(&sdata);
     string_free(&rec_data);
 }
-void cmp_do_crl_req(crl_series crl_series){
+void cmp_do_crl_req(crl_series crl_series,hashedid8* issuer){
     struct crl_req_time *node;
     struct list_head *head;
+    time_t now;
+    time(&now);
     pthread_mutex_lock(&cmdb->lock);
     head = &cmdb->crl_time.list;
     list_for_each_entry(node,head,list){
@@ -1053,15 +1071,18 @@ void cmp_do_crl_req(crl_series crl_series){
         }
     }
     if(&node->list == head){
-        node = (struct crl_req_time*)malloc(struct crl_req_time);
-        if(node == NUL){
+        node = (struct crl_req_time*)malloc(sizeof(struct crl_req_time));
+        if(node == NULL){
             wave_error_printf("内存分配失败");
             pthread_mutex_unlock(&cmdb->lock);
             return ;
         }
         node->crl_series = crl_series;
         node->issue_date = 0;//代表要最近的
-        
+        node->time = now + 60;//加一分钟的偏移量
+        hashedid8_cpy(&node->issuer,issuer);
+        crl_req_time_insert(cmdb,node);
+        pending_crl_request(cmdb);
     }
     pthread_mutex_unlock(&cmdb->lock);
 }
