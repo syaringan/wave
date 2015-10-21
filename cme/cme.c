@@ -40,4 +40,7 @@ void certificate_chain_free(struct certificate_chain* certs_chain){
     certs_chain->certs = NULL;
     certs_chain->len = 0;
 }
+result cme_construct_certificate_chain(struct sec_db* sdb, enum identifier_type type,string* identifier,struct certificate_chain* certificates,bool terminate_at_root,u32 max_chain_len,struct certificate_chain* certificate_chain,struct cme_permissions_array* permissions_array,struct geographic_region_array* regions){
+
+}
 

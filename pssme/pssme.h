@@ -31,6 +31,14 @@ typedef struct lsis_array{
 }lsis_array;
 
 /**
+ * 释放一个pssme_local_cert链表
+ */
+void pssme_local_cert_list_free(struct pssme_local_cert *head);
+/*
+ * 释放一个pssme_local_cert节点
+ * */
+void pssme_local_cert_node_free(struct pssme_local_cert *node);
+/**
  * 释放serviceinfo_array内部的指针
  */
 void serviceinfo_array_free(serviceinfo_array* point);
