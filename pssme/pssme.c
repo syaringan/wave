@@ -155,16 +155,42 @@ result pssme_lsis_request(struct sec_db* sdb,pssme_lsis* lsis){
     struct pssme_db* pdb;
     struct list_head *head;
     struct pssme_lsis_chain *node;
-    struct pssme_alloc_lsis *alloc_node;
+    struct pssme_alloc_lsis *ptr_alloc_node,*alloc_node =NULL;
     pdb = &sdb->pssme_db;
-    alloc_node =(struct pssm,e)
+    if(lsis == NULL)
+        return FAILURE;
+    alloc_node =(struct pssme_alloc_lsis*)malloc(sizeof(struct pssme_alloc_lsis));
+    if(alloc_node == NULL){
+        wave_error_printf("分配内存失败");
+        goto FAILURE;
+    }
+    INIT(*pssme_alloc_lsis);
 
     lock_wrlock(&pdb->lock);
     head = pdb->lsis_db.lsises;
     
     if(list_empty(head)){
         lock_unlock(&pdb->lock);
-        return FAILURE;
+        goto FAILURE;
     }
     node = list_entry(head->next,struct pssme_lsis_chain,list);
+    alloc_node->lsis = node->list;
+    head = &pdb->lsis_db.alloc_lsis.list;
+    list_for_each_entry(ptr_alloc_node,head,list){
+        if(ptr_alloc_node->lsis > alloc_node->lsis)
+            break;
+    }
+    list_add_tail(&alloc_node->list,head);
+    list_del(&node->list);
+    free(node);
+    *lsis = alloc_node->lsis;
+    lock_unlock(&pdb->lock);
+    wave_printf(MSG_INFO,"申请到lsis: %d\n",*lsis);
+    return SUCCESS;
+fail:
+    if(alloc_node != NULL){
+        free(alloc_node);
+    }
+    wave_error_printf("申请lsis失败");
+    return FAILURE;
 }

@@ -1,5 +1,6 @@
 #include "cme.h"
 #include "../data/data_handle.h"
+#include"../sec/sec.h"
 #include <stdlib.h>
 #define INIT(n) memset(&n,0,sizeof(n))
 void cme_permissions_free(struct cme_permissions* permissions){
@@ -67,7 +68,7 @@ static void inline cme_lsis_insert(struct cme_db* cmdb,struct cme_alloced_lsis* 
     struct list_head *head;
     struct cme_alloced_lsis *node;
     lock_wrlock(&cmdb->lock);
-    head = &cmdb->cmhs.alloc_cmhs.cmh_init;
+    head = &cmdb->cmhs.alloc_cmhs.cmh_init.list;
     list_for_each_entry(node,head,list){
         if(lsis->lsis < node->lsis){
             break;
@@ -83,7 +84,7 @@ static void inline cmh_init_insert(struct cme_db* cmdb,struct cmh_chain* cmh){
     struct list_head *head;
     struct cmh_chain *node;
     lock_wrlock(&cmdb->lock);
-    head = &cmdb->cmhs.alloc_cmhs.cmh_init;
+    head = &cmdb->cmhs.alloc_cmhs.cmh_init.list;
     list_for_each_entry(node,head,list){
         if(cmh->cmh < node->cmh){
             break;
@@ -107,7 +108,7 @@ int cert_info_compare(struct rb_head* a,struct rb_head* b){
     struct cert_info *certinfoa,*certinfob;
     certinfoa = rb_entry(a,struct cert_info,rb);
     certinfob = rb_entry(b,struct cert_info,rb);
-    return certid10_cmp(certinfoa,certinfob);
+    return certid10_cmp(&certinfoa->certid10,&certinfob->certid10);
 }
 int cert_info_equal(struct rb_head* a,void* value){
     struct certid10* certid;
@@ -168,7 +169,7 @@ int equal(struct rb_head *a,void* value){
 void ckc_init_rb(struct cmh_key_cert* ckc){
     rb_init(&ckc->rb,compare,equal);
 }
-static struct cmh_key_cert* inline ckc_insert(struct cmh_key_cert* root,struct cmh_key_cert* node){
+static inline struct cmh_key_cert*  ckc_insert(struct cmh_key_cert* root,struct cmh_key_cert* node){
     struct rb_head *rb;
     if( root != NULL)
         rb = rb_insert(&root->rb,&node->rb);
@@ -176,7 +177,7 @@ static struct cmh_key_cert* inline ckc_insert(struct cmh_key_cert* root,struct c
         rb = rb_insert(NULL,&node->rb);
     return rb_entry(rb,struct cmh_key_cert,rb);
 }
-static struct cmh_key_cert* inline ckc_find(struct cmh_key_cert* root,void* value){
+static inline struct cmh_key_cert*  ckc_find(struct cmh_key_cert* root,void* value){
     struct rb_head* rb;
     if(root == NULL)
         return NULL;
@@ -185,7 +186,7 @@ static struct cmh_key_cert* inline ckc_find(struct cmh_key_cert* root,void* valu
         return NULL;
     return rb_entry(rb,struct cmh_key_cert,rb);
 }
-static struct cmh_key_cert* inline ckc_delete(struct cmh_key_cert* root,struct cmh_key_cert* node){
+static inline struct cmh_key_cert*  ckc_delete(struct cmh_key_cert* root,struct cmh_key_cert* node){
     struct rb_head* rb;
     if(root == NULL)
         return NULL;
@@ -195,15 +196,15 @@ static struct cmh_key_cert* inline ckc_delete(struct cmh_key_cert* root,struct c
 /***************cmh_key_cert 红黑树操作函数结束**************/
 
 result cme_lsis_request(struct sec_db* sdb,cme_lsis* lsis){
-    struct cme_db* cdb;
+    struct cme_db  *cdb;
     struct list_head *head;
     struct cme_lsis_chain *node;
     struct cme_alloced_lsis *mlsis;
     if(lsis == NULL)
         return FAILURE;
-    cdb = &sdb->cme_db;
+    cdb = &(sdb->cme_db);
     lock_wrlock(&cdb->lock);
-    head = &cdb->lsises.lsises;
+    head = &cdb->lsises.lsises.list;
     if( list_empty(head)){
         lock_unlock(&cdb->lock);
         wave_error_printf("lsis为空");
@@ -217,7 +218,7 @@ result cme_lsis_request(struct sec_db* sdb,cme_lsis* lsis){
     }
     list_del(&node->list);
     INIT(mlsis->data);
-    mlsis->lsis = node->list;
+    mlsis->lsis = node->lsis;
     cme_lsis_insert(cdb,mlsis);
     free(node);
     lock_unlock(&cdb->lock);
@@ -258,7 +259,7 @@ result cme_generate_keypair(struct sec_db* sdb,const cmh cmh,
     struct cmh_keypaired *cmh_keys_node,*new_keys_node;
     INIT(mpuk);
     INIT(mprk);
-    if(pub_key == NULL || pub_key.buf != NULL)
+    if(pub_key == NULL || pub_key->buf != NULL)
         return FAILURE;
     cdb = &sdb->cme_db;
     //按照二哥提供的算法，我们生成一对密钥和公要
@@ -269,7 +270,7 @@ result cme_generate_keypair(struct sec_db* sdb,const cmh cmh,
         wave_error_printf("内存分配失败");
         return FAILURE;
     }
-    if( cme_store_keypair(sdb,cmh,algorithm,&mpuk,&mprik) == FAILURE){
+    if( cme_store_keypair(sdb,cmh,algorithm,&mpuk,&mprk) == FAILURE){
         string_free(pub_key);
         return FAILURE;
     }
@@ -282,10 +283,10 @@ result cme_store_keypair(struct sec_db* sdb,const cmh cmh,
                             const string* pri_key){
     struct cme_db *cdb;
     struct list_head *cmh_init_head,*cmh_key_head;
-    struct cmh_init *cmh_init_node;
+    struct cmh_chain *cmh_init_node;
     struct cmh_keypaired *cmh_keys_node,*new_keys_node;
-    if(pub_key == NULL || pub_key.buf = NULL || pri_key == NULL
-            ||pri_key.buf == NULL)
+    if(pub_key == NULL || pub_key->buf == NULL || pri_key == NULL
+            ||pri_key->buf == NULL)
         return FAILURE;
     cdb = &sdb->cme_db;
     lock_wrlock(&cdb->lock);
@@ -325,7 +326,7 @@ result cme_store_keypair(struct sec_db* sdb,const cmh cmh,
             break;
         }
     }
-    list_add_tail(&new_keys_node->list,&cmh_keys_node.list);
+    list_add_tail(&new_keys_node->list,&cmh_keys_node->list);
     lock_unlock(&cdb->lock);
     return SUCCESS;
 }
@@ -341,13 +342,13 @@ result cme_store_cert(struct sec_db* sdb,const cmh cmh,
                         const certificate* cert,
                         const string* transfor){
 
-    struct list_head *cmh_keys_head,&cmh_key_cert_head;
+    struct list_head *cmh_keys_head,*cmh_key_cert_head;
     struct cmh_keypaired *cmh_keys_node;
     struct cmh_key_cert *root,*new_key_cert_node = NULL;
     struct certificate* mcert = NULL;
     struct cert_info* certinfo = NULL;
     struct cme_db *cdb;
-    cdb = *sdb->cme_db;
+    cdb = &sdb->cme_db;
    
     mcert = (struct certificate*)malloc(sizeof(struct certificate));
     if(mcert == NULL){
@@ -361,7 +362,7 @@ result cme_store_cert(struct sec_db* sdb,const cmh cmh,
         goto fail;
     }
     INIT(*certinfo);
-    new_key_cert_node = (struct cmh_key_cert*)malloc(sizeof(struct cmh_keys_cert));
+    new_key_cert_node = (struct cmh_key_cert*)malloc(sizeof(struct cmh_key_cert));
     if(new_key_cert_node == NULL){
         wave_error_printf("内存分配失败");
         goto fail;
@@ -369,13 +370,13 @@ result cme_store_cert(struct sec_db* sdb,const cmh cmh,
     INIT(*new_key_cert_node);
     ckc_init_rb(new_key_cert_node);
     certificate_cpy(mcert,cert);
-    cert_info_init(certinfo,mcert);
+    cert_info_init(sdb,certinfo,mcert);
     new_key_cert_node->cmh = cmh;
     new_key_cert_node->cert = mcert;
     new_key_cert_node->cert_info = certinfo;
     
     lock_wrlock(&cdb->lock);
-    cmh_keys_head = &cdb->cmhs.alloc_cmhs.cmh_keys;
+    cmh_keys_head = &cdb->cmhs.alloc_cmhs.cmh_keys.list;
     root= cdb->cmhs.alloc_cmhs.cmh_key_cert;
     list_for_each_entry(cmh_keys_node,cmh_keys_head,list){
         if(cmh_keys_node->cmh == cmh)
@@ -387,7 +388,7 @@ result cme_store_cert(struct sec_db* sdb,const cmh cmh,
         }
     }
     if(&cmh_keys_node->list == cmh_keys_head){
-        lock_unlock(&cdb-lock);
+        lock_unlock(&cdb->lock);
         wave_error_printf("没有找到cmh %d",cmh);
         goto fail;
     }
@@ -410,7 +411,7 @@ fail:
     if(certinfo != NULL){
         certinfo->cert = NULL;
         cert_info_free(certinfo);
-        free(certinfo)
+        free(certinfo);
     }
     if(new_key_cert_node != NULL){
         free(new_key_cert_node);
@@ -437,8 +438,8 @@ result cme_store_cert_key(struct sec_db* sdb,const certificate* cert,
         goto fail;
     }
     INIT(*certinfo);
-    certificate_cpy(mycert,cert);
-    cert_info_init(certinfo,mcert);
+    certificate_cpy(mcert,cert);
+    cert_info_init(sdb,certinfo,mcert);
     lock_wrlock(&cdb->lock);
     cdb->certs = cert_info_insert(cdb->certs,certinfo);
     lock_unlock(&cdb->lock);

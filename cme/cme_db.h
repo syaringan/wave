@@ -16,23 +16,35 @@ struct cmh_keypaired{
     string public_key;
     string private_key;
 };
+struct cert_info{
+    certificate *cert;
+    certid10 certid10;
+    bool verified;
+    time32 last_recieve_crl;
+    time32 next_recieve_crl;
+    bool trust_anchor;
+    struct rb_head rb;
+    time64 expriry;
+    hashedid8 ca_id;
+};
 struct cmh_key_cert{
     cmh cmh;
     struct rb_head rb;
     string private_key;
     certificate *cert;
-    cert_info* cert_info;
+    struct cert_info* cert_info;
 
+};
+struct cmh_chain{
+    cmh cmh;
+    struct list_head list;
 };
 struct alloced_cmhs{
    struct cmh_chain cmh_init;
    struct cmh_keypaired cmh_keys;
    struct cmh_key_cert *cmh_key_cert;
 };
-struct cmh_chain{
-    cmh cmh;
-    struct list_head list;
-};
+
 struct cmh_db{
     struct alloced_cmhs alloc_cmhs;
     struct cmh_chain cmh_chain;
@@ -68,17 +80,7 @@ struct crl_head{
     crl_series crl_series;
     struct crl_ca_id ca_id_list;
 };
-struct cert_info{
-    certificate *cert;
-    certid10 certid10;
-    bool verified;
-    time32 last_recieve_crl;
-    time32 next_recieve_crl;
-    bool trust_anchor;
-    struct rb_head rb;
-    time64 expriry;
-    hashedid8 ca_id;
-};
+
 struct cme_db{
     struct cert_info *certs;
     struct crl_head crls;
