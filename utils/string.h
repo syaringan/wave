@@ -3,6 +3,7 @@
 #include "common.h"
 #include "stdlib.h"
 #include "debug.h"
+#include <string.h>
 typedef struct string{
     u8 *buf;
     u16 len;
