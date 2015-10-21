@@ -25,10 +25,6 @@ typedef struct serviceinfo_array{
     u32 len;
 }serviceinfo_array;
 
-typedef struct lsis_array{
-    pssme_lsis* lsis;
-    u32 len;
-}lsis_array;
 
 /**
  * 释放一个pssme_local_cert链表
@@ -37,12 +33,12 @@ void pssme_local_cert_list_free(struct pssme_local_cert *head);
 /*
  * 释放一个pssme_local_cert节点
  * */
-void pssme_local_cert_node_free(struct pssme_local_cert *node);
+void pssme_local_cert_free(struct pssme_local_cert *node);
 /**
  * 释放serviceinfo_array内部的指针
  */
 void serviceinfo_array_free(serviceinfo_array* point);
-void lsis_array_free(lsis_array* lsises);
+void pssme_lsis_array_free(struct pssme_lsis_array* lsises);
 /**
  * 申请一个pssme lsis;
  */
@@ -57,7 +53,7 @@ result pssme_lsis_request(struct sec_db* sdb,pssme_lsis* lsis);
  * return 成功或者失败
  */
 result pssme_secure_provider_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,action action,
-                   string* psid,priority priority,string* ssp);
+                   psid* psid,priority priority,string* ssp);
 /**
  *获取该lsis实体的服务信息
  *@lsis：该实体的表示，如果为-1 表示获取所有实体的。
@@ -72,7 +68,7 @@ result pssme_get_serviceinfo(struct sec_db* sdb,
  * @liss_array:实体标示集合。
  **/
 result pssme_cryptomaterial_handle_storage(struct sec_db* sdb,
-                cmh cmh,lsis_array* lsis_array);
+                cmh cmh,struct pssme_lsis_array* lsises);
 
 result pssme_cryptimaterial_handle_delete(struct sec_db* sdb,
                 cmh cmh);

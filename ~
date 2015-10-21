@@ -1,6 +1,5 @@
 #include "pssme.h"
-#include "../cme/cme.h"
-#include "../sec/sec.h"
+#include "cme.h"
 #include<stdlib.h>
 #define INIT(m) memset(&m,0,sizeof(m))
 
@@ -12,7 +11,7 @@ void serviceinfo_array_free(serviceinfo_array* point){
     point->len = 0;
 };
 
-void pssme_lsis_array_free(struct pssme_lsis_array* lsises){
+void pssme_lsis_array_free(pssme_lsis_array* lsises){
     if(lsises->lsis == NULL)
         return ;
     free(lsises->lsis);
@@ -27,10 +26,8 @@ void pssme_local_cert_free(struct pssme_local_cert *node){
         node = NULL;
     }
 }
-void pssme_local_cert_list_free(struct pssme_local_cert *plc){
+void pssme_local_cert_list_free(struct list_head *head){
     struct pssme_local_cert *node = NULL;
-    struct list_head* head;
-    head = &plc->list;
     if(head != NULL){
         while(!list_empty(head)){
             node = list_entry(head->next, struct pssme_local_cert, list);
@@ -58,7 +55,7 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
 
     struct pssme_local_cert *p;//遍历用的临时变量
     //访问pssme_db，找到符合lsis要求的cmh
-    lock_rdlock(&sdb->pssme_db.lock);
+    lock_rdlock(sdb->pssme_db.lock);
     list_for_each_entry(p, &sdb->pssme_db.cert_db.local_cert.list, list){
         if(se_array->len > p->lsis_array.len)
             continue;
@@ -82,7 +79,7 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
             list_add(&p_add->list, &clist.list);
         }
     }
-    lock_unlock(&sdb->pssme_db.lock);
+    lock_unlock(sdb->pssme_db.lock);
 
     if(list_empty(&clist.list)){
         ret = CERTIFICATE_NOT_FOUND;
@@ -90,7 +87,7 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
     }
 
     certificate_found = false;
-    list_for_each_entry(p, &clist.list, list){
+    list_for_each(p, &clist.list, list){
         find_cert_by_cmh(p->cmh, &c);//这个函数的形式需要再考虑
         if(!cert_not_expired(p->cmh))
             continue;
@@ -138,7 +135,7 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
     if(ret == SUCCESS && cmh != NULL)
         *cmh = p->cmh;
 fail:
-    pssme_local_cert_list_free(&clist);
+    pssme_local_cert_list_free(&clist.list);
     cme_permissions_free(&current_cert_permissions);
     geographic_region_free(&geo_permissions);
     string_free(&cert_encoded);
@@ -160,8 +157,7 @@ result pssme_lsis_request(struct sec_db* sdb,pssme_lsis* lsis){
         wave_error_printf("分配内存失败");
         goto FAILURE;
     }
-    INIT(*alloc_lsis);
-    INIT_LIST_HEAD(&alloc_lsis->permissions.list);
+    INIT(*pssme_alloc_lsis);
 
     lock_wrlock(&pdb->lock);
     head = pdb->lsis_db.lsises;
@@ -191,13 +187,12 @@ fail:
     wave_error_printf("申请lsis失败");
     return FAILURE;
 }
-
 result pssme_secure_provider_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,action action,
                             psid* psid,priority priority,string* ssp){
     struct pssme_db  *pdb;
     struct list_head *head;
     struct pssme_alloc_lsis* node;
-    struct pssme_psid_priority_ssp_chain* permissions = NULL;
+
     pdb = &sdb->pssme_db;
     lock_wrlock(&pdb->lock);
     head = &pdb->lsis_db.alloc_lsis.list;
@@ -217,41 +212,5 @@ result pssme_secure_provider_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,acti
     }
     switch(action){
         case ADD:
-            permissions = (struct pssme_psid_priority_ssp_chain*)malloc(sizeof(struct pssme_psid_priority_ssp_chain));
-            if(permissions == NULL){
-                wave_error_printf("内存分配失败");
-                return FAILURE;
-            }
-            INIT(permissions)
-            permissions->permission.priority = priority;
-            permissions->permission.psid = psid;
-            string_cpy(&permissions->permission.ssp,ssp);
-            list_add_tail(&permissions->list,&node->permissions.list);
-            break;
-        case DELETE:
-            list_for_each_entry(permissions,&node->permissions.list,list){
-                if(permissions->permission.priority = priority &&
-                        permissions->permission.psid = psid &&
-                        string_cpy(&permissions->permission.psid,ssp) == 0){
-                    break;
-                }
-            }
-            if(&permissions->list != &node->oermissions.list){
-                list_del(&permissions->list);
-                pssme_psid_priority_ssp_chain_free(permissions);
-                free(permissions);
-            }
-            else{
-                wave_error_printf("没有找到permissions");
-                lock_unlock(&pdb->lock);
-                return FAILURE;
-            }
-            break;
-        default:
-            wave_error_printf("aciont 出现了一个不可能的指");
-            lock_unlock(&pdb->lock);
-            return FAILURE;
     }
-    lock_unlock(&pdb->lock);
-    return SUCCESS;
 }
