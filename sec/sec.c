@@ -10,7 +10,7 @@
 #include "../data/data.h"
 #include "../cme/cme.h"
 #define INIT(m) memset(&m,0,sizeof(m))
-
+//未测
 result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permissions,time32 life_time,string* signed_wsa){
     result ret = SUCCESS;
     struct certificate_chain chain;

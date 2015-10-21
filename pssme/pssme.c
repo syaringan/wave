@@ -19,6 +19,7 @@ void lsis_array_free(lsis_array* lsises){
     lsises->lsis = NULL;
 }
 
+//未测
 void pssme_local_cert_node_free(struct pssme_local_cert *node){
     if(!node){
         lsis_array_free(&node->lsis_array);
@@ -26,6 +27,7 @@ void pssme_local_cert_node_free(struct pssme_local_cert *node){
         node = NULL;
     }
 }
+//未测
 void pssme_local_cert_list_free(struct list_head *head){
     struct pssme_local_cert *node = NULL;
     if(head != NULL){
@@ -37,7 +39,10 @@ void pssme_local_cert_list_free(struct list_head *head){
         head->next = head->prev = NULL;
     }
 }
-result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_array,two_d_location* two_dl,string* permission_ind,cmh* cmh,struct certificate_chain* cert_chain){
+//未测
+result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_array,two_d_location* two_dl,
+        
+        string* permission_ind,cmh* cmh,struct certificate_chain* cert_chain){
     result ret = FAILURE;
 
     struct pssme_local_cert clist;
@@ -89,10 +94,11 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
 
     certificate_found = false;
     list_for_each(p, &clist.list, list){
-        find_cert_by_cmh(p->cmh, &c);//这个函数的形式需要再考虑
+        if(!find_cert_by_cmh(sdb, &p->cmh, &c))
+            continue;
         if(!cert_not_expired(p->cmh))
             continue;
-        certificate_encode(c, &cert_encoded);
+        certificate_encode(c, &cert_encoded);//这个函数需要判断能否成功吗
         ret = cme_certificate_info_request(sdb, ID_CERTIFICATE, cert_encoded, NULL, current_cert_permissions, geo_permissions, NULL, NULL, NULL, NULL);
         if(!geo_permissions_contains_location(geo_permissions))
             continue;

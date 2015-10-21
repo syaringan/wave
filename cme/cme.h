@@ -27,6 +27,13 @@ struct cme_permissions{
 };
 void cme_permissions_free(struct cme_permissions* permissions);
 
+struct verified_array{
+    bool *verified;
+    u32 len;
+};
+
+void verified_array_free(struct verified_array *verified_array);
+
 struct cme_permissions_array{
     struct cme_permissions* cme_permissions;
     u32 len;
@@ -162,5 +169,15 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
                 
                 struct certificate_chain* certificate_chain,
                 struct cme_permissions_array* permissions_array,
-                struct geographic_region_array* regions);
+                struct geographic_region_array* regions
+                time64* last_crl_time,time64* next_crl_time,
+                struct verified_array *verified_array);
+
+
+/************************************************************************/
+
+/*
+ * 通过cmh来找到一个证书,成功返回1，失败返回0
+ * */
+int find_cert_by_cmh(struct sec_db *sdb, void *value, struct certificate *cert);
 #endif

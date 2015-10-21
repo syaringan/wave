@@ -1,4 +1,5 @@
 #include "cme.h"
+#include "../data/data_handle.h"
 #include <stdlib.h>
 #define INIT(n) memset(&n,0,sizeof(n))
 void cme_permissions_free(struct cme_permissions* permissions){
@@ -42,13 +43,21 @@ void certificate_chain_free(struct certificate_chain* certs_chain){
     certs_chain->len = 0;
 }
 
-result cme_construct_certificate_chain(struct sec_db* sdb, enum identifier_type type,string* identifier,
-        struct certificate_chain* certificates,bool terminate_at_root,u32 max_chain_len,
-        
-        struct certificate_chain* certificate_chain,struct cme_permissions_array* permissions_array,
-        struct geographic_region_array* regions){
-
-
+/*
+ * 通过cmh找到对应的证书,成功返回1，失败返回0,未测
+ * */
+int find_cert_by_cmh(struct sec_db *sdb, void *value, struct certificate *cert){
+    struct cmh_key_cert *p = NULL;
+    if(cert != NULL){
+        lock_rdlock(sdb->cme_db.lock);
+        p = ckc_find(sdb->cme_db.cmh_db.alloc_cmhs.cmh_key_cert ,value);
+        if(!p)
+            return 0;
+        certificate_cpy(cert, p->cert);
+        lock_unlock(sdb->cme_db.lock);
+        return 1;
+    }
+    return 0;
 }
 
 /**
@@ -444,4 +453,19 @@ fail:
         free(certinfo);
     }
     return FAILURE;
+}
+
+result cme_construct_certificate_chain(struct sec_db* sdb,
+                enum identifier_type type,
+                string* identifier,
+                struct certificate_chain* certificates,
+                bool terminate_at_root,
+                u32 max_chain_len,
+                
+                struct certificate_chain* certificate_chain,
+                struct cme_permissions_array* permissions_array,
+                struct geographic_region_array* regions
+                time64* last_crl_time,time64* next_crl_time,
+                struct verified_array *verified_array){
+
 }
