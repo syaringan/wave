@@ -3,6 +3,7 @@
 #include"../sec/sec.h"
 #include <stdlib.h>
 #define INIT(n) memset(&n,0,sizeof(n))
+
 void cme_permissions_free(struct cme_permissions* permissions){
     switch(permissions->type){
         case PSID:
@@ -44,22 +45,6 @@ void certificate_chain_free(struct certificate_chain* certs_chain){
     certs_chain->len = 0;
 }
 
-/*
- * 通过cmh找到对应的证书,成功返回1，失败返回0,未测
- * */
-int find_cert_by_cmh(struct sec_db *sdb, void *value, struct certificate *cert){
-    struct cmh_key_cert *p = NULL;
-    if(cert != NULL){
-        lock_rdlock(sdb->cme_db.lock);
-        p = ckc_find(sdb->cme_db.cmh_db.alloc_cmhs.cmh_key_cert ,value);
-        if(!p)
-            return 0;
-        certificate_cpy(cert, p->cert);
-        lock_unlock(sdb->cme_db.lock);
-        return 1;
-    }
-    return 0;
-}
 
 /**
  * alloced_lsis链表按照递增的顺序维护
@@ -194,6 +179,25 @@ static inline struct cmh_key_cert*  ckc_delete(struct cmh_key_cert* root,struct 
     return rb_entry(rb,struct cmh_key_cert,rb);
 }
 /***************cmh_key_cert 红黑树操作函数结束**************/
+
+/*
+ * 通过cmh找到对应的证书,成功返回0，失败返回1,未测
+ * */
+int find_cert_by_cmh(struct sec_db *sdb, void *value, struct certificate *cert){
+    struct cmh_key_cert *p = NULL;
+    if(cert != NULL){
+        lock_rdlock(&sdb->cme_db.lock);
+        p = ckc_find(sdb->cme_db.cmhs.alloc_cmhs.cmh_key_cert ,value);
+        if(!p){
+            lock_unlock(&sdb->cme_db.lock);
+            return 1;
+        }
+        certificate_cpy(cert, p->cert);
+        lock_unlock(&sdb->cme_db.lock);
+        return 0;
+    }
+    return 1;
+}
 
 result cme_lsis_request(struct sec_db* sdb,cme_lsis* lsis){
     struct cme_db  *cdb;
@@ -456,6 +460,19 @@ fail:
     return FAILURE;
 }
 
+result cme_certificate_info_request(struct sec_db* sdb, 
+                    enum identifier_type type,
+                    string *identifier,
+                    
+                    string *certificate,
+                    struct cme_permissions* permissions,
+                    geographic_region* scope,
+                    time64* last_crl_time,time64* next_crl_time,
+                    bool* trust_anchor,bool* verified){
+    result ret = FOUND;
+
+}
+
 result cme_construct_certificate_chain(struct sec_db* sdb,
                 enum identifier_type type,
                 string* identifier,
@@ -465,8 +482,149 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
                 
                 struct certificate_chain* certificate_chain,
                 struct cme_permissions_array* permissions_array,
-                struct geographic_region_array* regions
-                time64* last_crl_time,time64* next_crl_time,
+                struct geographic_region_array* regions,
+                struct last_crl_times_array *last_crl_times_array,
+                struct next_crl_times_array *next_crl_times_array,
                 struct verified_array *verified_array){
+    result ret = SUCCESS;
+    struct certificate *certificate = NULL;
+    bool trust_anchor;
+    int i = 0, j = 0;
+    string sign_id;
+    string cert_encoded;
+    string hash8;
 
+    INIT(sign_id);
+    INIT(hash8);
+    cert_encoded.len = 0;
+    cert_encoded.buf = malloc(sizeof(500));
+    if(!cert_encoded.buf)
+        goto fail;
+    memset(cert_encoded.buf, 0, 500);
+
+    if(certificate_chain != NULL){
+        certificate_chain->certs = malloc(sizeof(struct certificate)*max_chain_len);
+        if(!certificate_chain->certs)
+            goto fail;
+        memset(certificate_chain->certs, 0, sizeof(struct certificate)*max_chain_len);
+        certificate_chain->len = 0;
+    }
+
+    if(permissions_array != NULL){
+        permissions_array->cme_permissions = malloc(sizeof(struct cme_permissions)*max_chain_len);
+        if(!permissions_array->cme_permissions)
+            goto fail;
+        memset(permissions_array->cme_permissions, 0, sizeof(struct cme_permissions)*max_chain_len);
+        permissions_array->len = 0;
+    }
+
+    if(regions != NULL){
+        regions->regions = malloc(sizeof(struct geographic_region)*max_chain_len);
+        if(!regions->regions)
+            goto fail;
+        memset(regions->regions, 0, sizeof(struct geographic_region)*max_chain_len);
+        regions->len = 0;
+    }
+
+    if(last_crl_times_array != NULL){
+        last_crl_times_array->last_crl_time = malloc(sizeof(time64)*max_chain_len);
+        if(!last_crl_times_array->last_crl_time)
+            goto fail;
+        memset(last_crl_times_array->last_crl_time, 0, sizeof(time64)*max_chain_len);
+        last_crl_times_array->last_crl_time = 0;
+    }
+
+    if(next_crl_times_array != NULL){
+        next_crl_times_array->next_crl_time = malloc(sizeof(time64)*max_chain_len);
+        if(!next_crl_times_array->next_crl_time)
+            goto fail;
+        memset(next_crl_times_array->next_crl_time, 0, sizeof(time64)*max_chain_len);
+        next_crl_times_array->len = 0;
+    }
+
+    if(verified_array != NULL){
+        verified_array->verified = malloc(sizeof(bool)*max_chain_len);
+        if(!verified_array->verified)
+            goto fail;
+        memset(verified_array->verified, 0, sizeof(bool)*max_chain_len);
+        verified_array->len = 0;
+    }
+
+    if(type == ID_CERTIFICATE)
+        certificate = &certificates->certs[0];
+    else
+        string_cpy(&sign_id, identifier);
+
+construct_chain:
+    if(i != 0){
+        sign_id.len = 8;
+        if(sign_id.buf == NULL)
+            sign_id.buf = malloc(sizeof(8));
+        if(sign_id.buf == NULL)
+            goto fail;
+        memcpy(sign_id.buf, certificate->unsigned_certificate.u.no_root_ca.signer_id.hashedid8, 8);
+        certificate = NULL;
+    }
+
+    if(certificate == NULL)
+        ret = cme_certificate_info_request(sdb, ID_HASHEDID8, &sign_id, &cert_encoded, &(permissions_array->cme_permissions[i]), 
+                &(regions->regions[i]), &(last_crl_times_array->last_crl_time[i]), &(next_crl_times_array->next_crl_time[i]), 
+                &trust_anchor, &(verified_array->verified[i]));
+    else{
+        certificate_2_buf(certificate, cert_encoded.buf, 500);
+        ret = cme_certificate_info_request(sdb, ID_CERTIFICATE, &cert_encoded, &cert_encoded, &(permissions_array->cme_permissions[i]), 
+                &(regions->regions[i]), &(last_crl_times_array->last_crl_time[i]), &(next_crl_times_array->next_crl_time[i]), 
+                &trust_anchor, &(verified_array->verified[i]));
+    }
+   
+    if(ret != FOUND && ret != CERTIFICATE_NOT_FOUND)
+        goto fail;
+   
+    if(ret == CERTIFICATE_NOT_FOUND && certificate == NULL){
+        if(type != ID_CERTIFICATE){
+            ret = NOT_ENOUGH_INFORMATION_TO_CONSTRUT_CHAIN;
+            goto fail;
+        }
+        for(j = 0; j < certificates->len; j++){
+            certificate_2_hash8(&certificates->certs[i],&hash8);//i need this
+            if(string_cmp(&hash8, &sign_id) == 0){
+                if(certificates->certs[i].unsigned_certificate.holder_type == ROOT_CA){
+                    ret = CHAINE_ENDED_AT_UNKNOWN_ROOT;
+                    goto fail;
+                }
+                certificate = &certificates->certs[i];
+                goto construct_chain;
+            }
+        }
+        ret = NOT_ENOUGH_INFORMATION_TO_CONSTRUT_CHAIN;
+        goto fail;
+    }
+   
+    if(ret == CERTIFICATE_NOT_FOUND && certificate != NULL){
+        verified_array->verified[i] = false;
+    }
+    certificate_cpy(&certificate_chain->certs[i], certificate);
+   
+    i++;
+    if(i > max_chain_len){
+        ret = CHAINE_TOO_LONG;
+        goto fail;
+    }
+    
+    if(terminate_at_root == false){
+        if(trust_anchor == false)
+            goto construct_chain;
+    }
+    else{
+        if(certificate->unsigned_certificate.holder_type != ROOT_CA)
+            goto construct_chain;
+    }
+
+    ret = SUCCESS;
+fail:
+    certificate = NULL;
+    string_free(&sign_id);
+    string_free(&cert_encoded);
+    string_free(&hash8);
+    return ret;
 }

@@ -5,6 +5,8 @@
 #include "../utils/list.h"
 #include "../utils/rb.h"
 #include "../utils/lock.h"
+#include "../cme/cme.h"
+
 typedef u32 pssme_lsis;
 typedef u8 priority;
 struct pssme_psid_priority_ssp{
@@ -12,14 +14,16 @@ struct pssme_psid_priority_ssp{
     priority priority;
     string ssp;
 };
-struct pssme_psid_priority_ssp_array{
+
+struct pssme_psid_priority_ssp_chain{
     struct pssme_psid_priority_ssp permission;
     struct list_head list;
 };
+
 struct pssme_alloc_lsis{
     struct list_head list;
     pssme_lsis lsis;
-    struct pssme_psid_priority_ssp_array
+    struct pssme_psid_priority_ssp_chain
             permissions;
 };
 struct pssme_lsis_chain{
@@ -53,4 +57,12 @@ struct pssme_db{
     struct pssme_lsis_db lsis_db;
     lock lock;
 };
+static void inline pssme_psid_priority_ssp_free(struct pssme_psid_priority_ssp* ptr){
+    if(ptr == NULL)
+        return;
+    string_free(&ptr->psid);
+}
+static void inline pssme_psid_priority_ssp_chain_free(struct pssme_psid_priority_ssp_chain* ptr){
+    pssme_psid_priority_ssp_free(&ptr->permission);
+}
 #endif

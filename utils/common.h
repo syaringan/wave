@@ -56,6 +56,7 @@ typedef enum result{
     NOT_ENOUGH_INFORMATION_TO_CONSTRUT_CHAIN = 50,
     CHAINE_ENDED_AT_UNKNOWN_ROOT = 51,
     CHAINE_TOO_LONG = 52,
+    FOUND = 53,
 }result;
 
 
