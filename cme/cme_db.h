@@ -7,7 +7,7 @@
 #include "../utils/string.h"
 #include "../utils/lock.h"
 #include <stdio.h>
-typedef s32 cme_lsis;
+typedef u32 cme_lsis;//从1开始发送，不准放0
 typedef u32 cmh;//cmh从1开始发放，不准放0
 struct cmh_keypaired{
     struct list_head list;

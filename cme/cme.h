@@ -189,7 +189,8 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
                 struct verified_array *verified_array);
 
 
-/************************************************************************/
+
+/*********************证书的一些基本信息提取的操作****************/
 
 /*
  * 通过cmh来找到一个证书,成功返回1，失败返回0
@@ -197,4 +198,9 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
 int find_cert_by_cmh(struct sec_db *sdb, void *value, struct certificate *cert);
 
 void certificate_2_hash8(struct certificate *cert, string *hash8);
+                struct geographic_region_array* regions);
+
+
+result certificate_get_permissions(struct sec_db* sdb,certificate* cert,
+                            struct cme_permissions* permissions)
 #endif

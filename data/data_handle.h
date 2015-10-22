@@ -33,4 +33,7 @@ void sec_data_free(sec_data* sec_data);
  * 证书的复制
  */
 void certificate_cpy(certificate *dst,certificate *src);
+
+bool certificate_equal(certificate* a,certificate* b);
+
 #endif

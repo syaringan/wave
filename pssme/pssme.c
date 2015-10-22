@@ -271,3 +271,176 @@ result pssme_secure_provider_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,acti
     lock_unlock(&pdb->lock);
     return SUCCESS;
 }
+result pssme_get_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,serviceinfo_array* se_array){
+    struct pssme_db  *pdb;
+    struct list_head *alloc_head,*permissions_head; 
+    struct pssme_alloc_lsis *alloc_node;
+    struct pssme_psid_priority_ssp_chain *permissions;
+    int i;
+    pdb = &sdb->pssme_db;
+    if(se_array == NULL || se_array->serviceinfos != NULL){
+        wave_error_printf("参数不能为空,或者可能存在野指针");
+        return FAILURE;
+    }
+    lock_rdlock(&pdb->lock);
+    alloc_head = &pdb->lsis_db.alloc_lsis.lsis;
+    if(lsis != 0){ 
+        list_for_each_entry(alloc_node,alloc_head,list){
+            if(alloc_node->lsis == lsis){
+                wave_printf(MSG_DEBUG,"寻找到lsis %d",lsis);
+                break;
+            }
+            if(alloc_node->lsis > lsis){
+                wave_error_printf("没有找到lsis %d",lsis);
+                lock_unlock(&pdb->lock);
+                se_array.len = 0;
+                return FAILURE;
+            }
+        }
+        if(&alloc_node->lsis == alloc_head){
+            wave_error_printf("没有找到lsis %d",lsis);
+            lock_unlock(&pdb->lock);
+            se_array.len = 0;
+            return FAILURE;
+        }
+        se_array.len = 0;
+        permissions_head = &alloc_node->permissions.list;
+        list_for_each_entry(permissions,head,list){
+            se_array.len++;
+        }
+        se_array.serviceinfos = (struct serviceinfo*)malloc(se_array.len * sizeof(struct serviceinfo));
+        if(se_array.serviceinfos == NULL){
+            wave_error_printf("内存空间分配失败");
+            se_array.len = 0;
+            lock_unlock(&pdb->lock);
+            return FAILURE;
+        }
+        permissions = list_entry(head,struct pssme_psid_priority_ssp_chain,list);
+        for(i=0;i<se_array.len;i++){
+            permissions = list_entry(permissions.list.next,struct pssme_psid_priority_ssp_chain,list);
+            INIT(*(se_array.serviceinfos+i));
+            (se_array.serviceinfos+i)->lsis = alloc_node->lsis;
+            (se_array.serviceinfos+i)->max_priority = permissions->permission.priority;
+            (se_array.serviceinfos+i)->psid = permissions->permission.psid;
+            string_cpy(&(se_array.serviceinfos+i)->ssp, &permissions->permission.ssp);
+        }
+    }
+    else{
+        se_array.len = 0;
+        alloc_head = &pdb->lsis_db.alloc_lsis.list;
+        list_for_each_entry(alloc_node,alloc_head,list){
+            permissions_head = &alloc_node->list;
+            list_for_each_entry(permissions,permissions_head,list){
+                se_array->len++;
+            }
+        }
+        se_array->serviceinfos = (struct serviceinfos*)malloc(se_array->len * sizeof(struct serviceinfos));
+        if(se_array->serviceinfos == NULL){
+            wave_error_printf("内存空间分配失败");
+            se_array.len = 0;
+            lock_unlock(&pdb->lock);
+            return FAILURE;
+        }
+        i=0;
+        list_for_each_entry(alloc_node,alloc_head,list){
+            permissions_head = &alloc_node->list;
+            list_for_each_entry(permissions,permissions_head,list){
+                INIT(*(se_array.serviceinfos+i));
+                (se_array.serviceinfos+i)->lsis = alloc_node->lsis;
+                (se_array.serviceinfos+i)->max_priority = permissions->permission.priority;
+                (se_array.serviceinfos+i)->psid = permissions->permission.psid;
+                string_cpy(&(se_array.serviceinfos+i)->ssp, &permissions->permission.ssp);
+                i++;
+            }
+        }
+    }
+    lock_unlock(&pdb->lock);
+    return SUCCESS;
+}
+result pssme_outoforder(struct sec_db* sdb,u64 generation_time,certificate* cert){
+    struct pssme_db *pdb;
+    struct list_head *head;
+    struct pssme_receive_cert *node;
+    pdb = &sdb->pssme_db;
+    lock_wrlock(&pdb->lock);
+    head = &pdb->cert_db.receive_cert.list;
+    list_for_each_entry(node,head,list){
+        if( certificate_equal(&node->cert,cert) == true)
+            break;
+    }
+    if(&node->list != head){
+        if(node->recent_time < generation_time){
+            lock_unlock(&pdb->lock);
+            return SUCCESS;
+        }
+        else{
+            lock_unlock(&pdb->lock);
+            return NOT_MOST_RECENT_WSA; 
+        }
+    }
+    node = (struct pssme_receive_cert*)malloc(sizeof(struct pssme_receive_cert));
+    if(node ==NULL){
+        wave_error_printf("内存分配失败，这个错误可能会引起逻辑的混乱");
+        lock_unlock(&pdb->lock);
+        return SUCCESS;//这个是一个问题哈，本来这个错误在协议里面不存在，但是代码有可能会发生
+    }
+    INIT(*node);
+    certificate_cpy(&node->cert,cert);
+    node->recent_time = generation_time;
+    list_add_tail(&node->list,head);
+    lock_unlock(&pdb->lock);
+    return SUCCESS;
+}
+result pssme_cryptomaterial_handle_storage(struct sec_db* sdb,cmh cmh,struct pssme_lsis_array* lsises){
+   struct list_head *head;
+   struct certificate *cert;
+   struct cme_permissions permissions;
+   struct serviceinfo_array ser_array;
+   psid_priority_ssp *ppsp;
+   pssme_lsis lsis;
+   int i,j;
+   if( (cert = (struct certificate*)malloc(sizeof(struct certificate))) == NULL){
+        wave_error_printf("内存分配失败");
+        return FAILURE;
+   }
+   INIT(*cert);
+   INIT(permissions);
+   INIT(ser_array);
+
+   if(find_cert_by_cmh(sdb,cmh, cert)){
+        goto fail;
+   }
+   if( certificate_get_permissions(sdb,cert,permissions) == FAILURE)
+       goto fail;
+   if(permissions.type != PSID_PRIORITY_SSP){
+        wave_error_printf("permissions的type不等于PSID_PRIORITY_SSP,不能进行比较");
+        goto fail;
+   }
+   for(i=0;i<lsises->len;i++){
+        lsis = *(lsises->lsis+i);
+        if( pssme_get_serviceinfo(struct sec_db* sdb,lsis,&ser_array) == FAILURE){
+            goto fail;
+        }
+        ppsp = (permissions.u.psid_priority_ssp_array.buf + i);
+        for(j=0;j<ser_array.len;j++){
+            if( (ser_array->serviceinfos+j)->psid == ppsp->psid &&
+                    (ser_array->serviceinfos + j)->max_priority == ppsp->max_priority &&
+                    string_cmp( &(ser_array->serviceinfos+j)->ssp,&ppsp->service_specific_permissions) == 0)
+                break;
+        }
+        if(j==ser_array.len){
+            wave_error_printf("lsis %d 没有相关的服务",lsis);
+            goto fail;
+        }
+        
+   }
+fail:
+    if(cert != NULL){
+        certificate_free(cert);
+        free(cert);
+    }
+    cme_permissions_free(permissions);
+    serviceinfo_array_free(ser_array);
+    return FAILURE;
+}
+

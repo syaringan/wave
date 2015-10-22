@@ -56,11 +56,11 @@ result pssme_secure_provider_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,acti
                    psid* psid,priority priority,string* ssp);
 /**
  *获取该lsis实体的服务信息
- *@lsis：该实体的表示，如果为-1 表示获取所有实体的。
+ *@lsis：该实体的表示，如果为0 表示获取所有实体的。
  *@se_array:如果成功，把相关的信息填写进去;
  */
 result pssme_get_serviceinfo(struct sec_db* sdb,
-                    cme_lsis lsis,serviceinfo_array* se_array);
+                    pssme_lsis lsis,serviceinfo_array* se_array);
 
 /**
  * 将证书和lsis绑定起来
@@ -69,7 +69,10 @@ result pssme_get_serviceinfo(struct sec_db* sdb,
  **/
 result pssme_cryptomaterial_handle_storage(struct sec_db* sdb,
                 cmh cmh,struct pssme_lsis_array* lsises);
-
+/**
+ *
+ * 这个暂时不实现，协议里面没有这个
+ */
 result pssme_cryptimaterial_handle_delete(struct sec_db* sdb,
                 cmh cmh);
 
