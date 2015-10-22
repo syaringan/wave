@@ -9,7 +9,7 @@
         u16 len;} name
 
 typedef u64 time64;
-typedef u64 psid;
+typedef u32 psid;
 typedef u16 certificate_duration;
 typedef u32 crl_series;
 typedef u32 time32;

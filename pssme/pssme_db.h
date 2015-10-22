@@ -44,8 +44,8 @@ struct pssme_local_cert{
     struct pssme_lsis_array lsis_array;
 };
 struct pssme_receive_cert{
-    struct rb_head rb_head;//根据证书里面什么？？比较
-    certificate certificate;
+    struct list_head list;
+    certificate cert;
     u64 recent_time;//最新受到的这个证书的数据的时间
 };
 struct pssme_cert_db{

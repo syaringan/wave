@@ -163,4 +163,9 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
                 struct certificate_chain* certificate_chain,
                 struct cme_permissions_array* permissions_array,
                 struct geographic_region_array* regions);
+
+/*********************证书的一些基本信息提取的操作****************/
+
+result certificate_get_permissions(struct sec_db* sdb,certificate* cert,
+                            struct cme_permissions* permissions)
 #endif
