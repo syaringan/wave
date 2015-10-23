@@ -1,6 +1,7 @@
 #include "pssme.h"
 #include "../cme/cme.h"
 #include "../sec/sec.h"
+#include "../utils/debug.h"
 #include<stdlib.h>
 #define INIT(m) memset(&m,0,sizeof(m))
 #define max_chain_length 8
@@ -60,9 +61,10 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
     INIT(geo_permissions);
     INIT_LIST_HEAD(&clist.list);
     cert_encoded.buf = malloc(500);
-    if(!cert_encoded.buf)
+    if(!cert_encoded.buf){
+        wave_error_printf("内存分配失败");
         goto fail;
-    memset(cert_encoded.buf, 0, 500);
+    }
     cert_encoded.len = 0;
 
     struct pssme_local_cert *p;//遍历用的临时变量
@@ -82,11 +84,17 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
         //创建一个新的临时节点，记得释放这个链表
         if(i == se_array->len){
             struct pssme_local_cert *p_add = malloc(sizeof(struct pssme_local_cert));
-            if(p_add == NULL)
+            if(p_add == NULL){
+                wave_error_printf("内存分配失败");
                 goto fail;
+            }
             p_add->cmh = p->cmh;
             p_add->lsis_array.len = p->lsis_array.len;
             p_add->lsis_array.lsis = malloc(sizeof(pssme_lsis)*p_add->lsis_array.len);
+            if(p_add->lsis_array.lsis == NULL){
+                wave_error_printf("内存分配失败");
+                goto fail;
+            }
             memcpy(p_add->lsis_array.lsis, p->lsis_array.lsis, sizeof(pssme_lsis)*p_add->lsis_array.len);
             list_add(&p_add->list, &clist.list);
         }
@@ -102,19 +110,26 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
     list_for_each_entry(p, &clist.list, list){
         if(find_cert_by_cmh(sdb, &p->cmh, &c))
             continue;
-        if(cert_not_expired(p->cmh))
+        if(cert_not_expired(sdb, &p->cmh))
             continue;
-        //certificate_encode(c, &cert_encoded);//这个函数需要判断能否成功吗
-        certificate_2_buf(&c,cert_encoded.buf,500);
+        //是否需要每次循环都填充为0
+        cert_encoded.len = certificate_2_buf(&c,cert_encoded.buf,500);
+       
         ret = cme_certificate_info_request(sdb, ID_CERTIFICATE, &cert_encoded, NULL, &current_cert_permissions, 
                 &geo_permissions, NULL, NULL, NULL, NULL);
         if(!geo_permissions_contains_location(geo_permissions))
             continue;
         if(permission_ind != NULL){
             permission_ind->len = se_array->len;
-            permission_ind->buf = malloc(sizeof(u8)*se_array->len);
-            if(permission_ind->buf == NULL)
+            if(permission_ind->buf != NULL){
+                wave_error_printf("permission_ind的buf已经被填充");
                 goto fail;
+            }
+            permission_ind->buf = malloc(sizeof(u8)*se_array->len);
+            if(permission_ind->buf == NULL){
+                wave_error_printf("内存分配失败");
+                goto fail;
+            }
             memset(permission_ind->buf, 0, sizeof(u8)*se_array->len);
             for(j = 0; j < se_array->len; j++){
                 if(se_array->serviceinfos[j].lsis == 0){
