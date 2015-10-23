@@ -213,9 +213,10 @@ static void psid_priority_ssp_array_free(psid_priority_ssp_array* psid_priority_
  *YGH 15
  */
 static void wsa_scope_free(wsa_scope* wsa_scope){
-	 free(wsa_scope->name);
-	 psid_priority_ssp_array_free(&wsa_scope->permissions);
-	 geographic_region_free(&wsa_scope->region);
+	if(NULL!=wsa_scope->name.buf)
+		ARRAY_FREE(&wsa_scope->name);
+	psid_priority_ssp_array_free(&wsa_scope->permissions);
+	geographic_region_free(&wsa_scope->region);
 }
 
 /**
@@ -233,7 +234,8 @@ static void anonymous_scope_free(anonymous_scope* anonymous_scope){
  *YGH 17
  */
 static void identified_scope_free(identified_scope* identified_scope){
-	free(identified_scope->name);
+	if(NULL!=identified_scope->name.buf)
+		ARRAY_FREE(&identified_scope->name);
 	psid_ssp_array_free(&identified_scope->permissions);
 	geographic_region_free(&identified_scope->region);
 
@@ -243,7 +245,8 @@ static void identified_scope_free(identified_scope* identified_scope){
  */
 static void identified_not_localized_scope_free(identified_not_localized_scope* 
 				identified_not_localized_scope){
-	free(identified_not_localized_scope->name);
+	if(NULL!=identified_not_localized_scope->name.buf)
+		ARRAY_FREE(&identified_not_localized_scope->name);
 	psid_ssp_array_free(&identified_not_localized_scope->permissions);
 }
 /**

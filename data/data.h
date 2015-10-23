@@ -9,7 +9,7 @@
         u16 len;} name
 
 typedef u64 time64;
-typedef u64 psid;
+typedef u32 psid;
 typedef u16 certificate_duration;
 typedef u32 crl_series;
 typedef u32 time32;
@@ -327,7 +327,7 @@ typedef struct psid_priority_ssp_array{
  */
 
 typedef struct wsa_scope{
-    u8* name;
+    ARRAY(u8,name);
     psid_priority_ssp_array permissions;
     geographic_region region;
 }wsa_scope;
@@ -345,7 +345,7 @@ typedef struct anonymous_scope{
  */
 
 typedef struct identified_scope{
-    u8* name;
+    ARRAY(u8,name);
     psid_ssp_array permissions;
     geographic_region region;
 }identified_scope;
@@ -354,7 +354,7 @@ typedef struct identified_scope{
  */
 
 typedef struct identified_not_localized_scope{
-    u8* name;
+    ARRAY(u8,name);
     psid_ssp_array permissions;
 }identified_not_localized_scope;
 /*
