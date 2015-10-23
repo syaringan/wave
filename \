@@ -74,8 +74,7 @@ result sec_encrypted_data(struct sec_db* sdb,
                 struct certificate_chain* failed_certs);
 
 
-result sec_secure_data_content_extration(struct sec_db* sdb,
-                string* recieve_data,cmh cmh,
+result sec_secure_data_content_extration(struct sec_db* sdb,cmh cmh,
                 
                 content_type *type,
                 content_type *inner_type,
@@ -86,7 +85,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,
                 bool* set_generation_time,
                 time64_with_standard_deviation *generation_time,
                 bool* set_expiry_time,
-                time64* expiry_time,
+                time64 expiry_time,
                 bool* set_generation_location,
                 three_d_location *location,
                 certificate* send_cert);

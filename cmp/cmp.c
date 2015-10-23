@@ -39,7 +39,7 @@ struct cmp_db{
     
     cmh req_cert_cmh;
     cmh req_cert_enc_cmh;
-    struct lsis_array req_cert_lsises;
+    struct pssme_lsis_array req_cert_lsises;
 
     string identifier;
     geographic_region region;
@@ -427,9 +427,12 @@ static int file_2_others(struct cmp_db* cmdb,int fd){
     switch(cmdb->region.region_type){
         case FROM_ISSUER:
         case CIRCLE:
-            if( file_2_element(fd,&cmdb->region.u.circular_region.center.latitude,sizeof(cmdb->region.u.circular_region.center.latitude)) ||
-                file_2_element(fd,&cmdb->region.u.circular_region.center.longitude,sizeof(cmdb->region.u.circular_region.center.longitude)) ||
-                    file_2_element(fd,&cmdb->region.u.circular_region.radius,sizeof(cmdb->region.u.circular_region.radius))){
+            if( file_2_element(fd,&cmdb->region.u.circular_region.center.latitude,
+                        sizeof(cmdb->region.u.circular_region.center.latitude)) ||
+                file_2_element(fd,&cmdb->region.u.circular_region.center.longitude,
+                    sizeof(cmdb->region.u.circular_region.center.longitude)) ||
+                file_2_element(fd,&cmdb->region.u.circular_region.radius,
+                    sizeof(cmdb->region.u.circular_region.radius))){
                 wave_error_printf("读取文件失败");
                 pthread_mutex_unlock(&cmdb->lock); 
                 return -1;      
@@ -642,12 +645,10 @@ static void crl_req_time_insert(struct cmp_db* cmdb,struct crl_req_time* new){
     //插入,按照时间排序
     list_for_each_entry(ptr,&head->list,list){
         if(ptr->time > new->time){
-            list_add_tail(&new->list,&ptr->list);
             break;
         }
     }
-    if(&ptr->list == &head->list)
-        list_add_tail(&new->list,&head->list);
+    list_add_tail(&new->list,&ptr->list);
     pthread_mutex_unlock(&cmdb->lock);
 }
 
@@ -697,7 +698,6 @@ static void set_crl_request_alarm(struct cmp_db* cmdb){
 }
 static void crl_alarm_handle(int signo){
     if(signo == SIGALRM){
-        set_crl_request_alarm(cmdb);
         pending_crl_request(cmdb);
     }
 }
@@ -892,8 +892,10 @@ static void crl_request_progress(struct cmp_db* cmdb){
     ca_write(buf,data_len);
     sec_data_free(&sdata);
     free(buf);
+    set_crl_request_alarm(cmdb);//发送了就设定下一个闹钟来请求
 fail:
     sec_data_free(&sdata); 
+    set_crl_request_alarm(cmdb);//发送了就设定下一个闹钟来请求
 }
 static void crl_recieve_progress(struct sec_db* sdb,struct cmp_db* cmdb,string* data){
     sec_data sdata;

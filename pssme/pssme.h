@@ -1,9 +1,9 @@
 #ifndef PSSME_H
 #define PSSME_H
 
+#include"pssme_db.h"
 #include"../utils/common.h"
 #include"../data/data.h"
-#include"pssme_db.h"
 #include"../cme/cme_db.h"
 
 struct sec_db;
@@ -53,7 +53,7 @@ result pssme_lsis_request(struct sec_db* sdb,pssme_lsis* lsis);
  * return 成功或者失败
  */
 result pssme_secure_provider_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,action action,
-                   psid* psid,priority priority,string* ssp);
+                   psid psid,priority priority,string* ssp);
 /**
  *获取该lsis实体的服务信息
  *@lsis：该实体的表示，如果为0 表示获取所有实体的。

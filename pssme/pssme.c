@@ -174,20 +174,20 @@ result pssme_lsis_request(struct sec_db* sdb,pssme_lsis* lsis){
     alloc_node =(struct pssme_alloc_lsis*)malloc(sizeof(struct pssme_alloc_lsis));
     if(alloc_node == NULL){
         wave_error_printf("分配内存失败");
-        goto FAILURE;
+        goto fail;
     }
-    INIT(*alloc_lsis);
-    INIT_LIST_HEAD(&alloc_lsis->permissions.list);
+    INIT(*alloc_node);
+    INIT_LIST_HEAD(&alloc_node->permissions.list);
 
     lock_wrlock(&pdb->lock);
-    head = pdb->lsis_db.lsises;
+    head = &pdb->lsis_db.lsises.list;
     
     if(list_empty(head)){
         lock_unlock(&pdb->lock);
-        goto FAILURE;
+        goto fail;
     }
     node = list_entry(head->next,struct pssme_lsis_chain,list);
-    alloc_node->lsis = node->list;
+    alloc_node->lsis = node->lsis;
     head = &pdb->lsis_db.alloc_lsis.list;
     list_for_each_entry(ptr_alloc_node,head,list){
         if(ptr_alloc_node->lsis > alloc_node->lsis)
@@ -209,7 +209,7 @@ fail:
 }
 
 result pssme_secure_provider_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,action action,
-                            psid* psid,priority priority,string* ssp){
+                            psid psid,priority priority,string* ssp){
     struct pssme_db  *pdb;
     struct list_head *head;
     struct pssme_alloc_lsis* node;
@@ -238,7 +238,7 @@ result pssme_secure_provider_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,acti
                 wave_error_printf("内存分配失败");
                 return FAILURE;
             }
-            INIT(permissions)
+            INIT(permissions);
             permissions->permission.priority = priority;
             permissions->permission.psid = psid;
             string_cpy(&permissions->permission.ssp,ssp);
@@ -246,13 +246,13 @@ result pssme_secure_provider_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,acti
             break;
         case DELETE:
             list_for_each_entry(permissions,&node->permissions.list,list){
-                if(permissions->permission.priority = priority &&
-                        permissions->permission.psid = psid &&
-                        string_cpy(&permissions->permission.psid,ssp) == 0){
+                if(permissions->permission.priority == priority &&
+                        permissions->permission.psid == psid &&
+                        string_cmp(&permissions->permission.ssp,ssp) == 0){
                     break;
                 }
             }
-            if(&permissions->list != &node->oermissions.list){
+            if(&permissions->list != &node->permissions.list){
                 list_del(&permissions->list);
                 pssme_psid_priority_ssp_chain_free(permissions);
                 free(permissions);
@@ -283,7 +283,7 @@ result pssme_get_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,serviceinfo_arra
         return FAILURE;
     }
     lock_rdlock(&pdb->lock);
-    alloc_head = &pdb->lsis_db.alloc_lsis.lsis;
+    alloc_head = &pdb->lsis_db.alloc_lsis.list;
     if(lsis != 0){ 
         list_for_each_entry(alloc_node,alloc_head,list){
             if(alloc_node->lsis == lsis){
@@ -293,40 +293,40 @@ result pssme_get_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,serviceinfo_arra
             if(alloc_node->lsis > lsis){
                 wave_error_printf("没有找到lsis %d",lsis);
                 lock_unlock(&pdb->lock);
-                se_array.len = 0;
+                se_array->len = 0;
                 return FAILURE;
             }
         }
-        if(&alloc_node->lsis == alloc_head){
+        if(&alloc_node->list == alloc_head){
             wave_error_printf("没有找到lsis %d",lsis);
             lock_unlock(&pdb->lock);
-            se_array.len = 0;
+            se_array->len = 0;
             return FAILURE;
         }
-        se_array.len = 0;
+        se_array->len = 0;
         permissions_head = &alloc_node->permissions.list;
-        list_for_each_entry(permissions,head,list){
-            se_array.len++;
+        list_for_each_entry(permissions,permissions_head,list){
+            se_array->len++;
         }
-        se_array.serviceinfos = (struct serviceinfo*)malloc(se_array.len * sizeof(struct serviceinfo));
-        if(se_array.serviceinfos == NULL){
+        se_array->serviceinfos = (struct serviceinfo*)malloc(se_array->len * sizeof(struct serviceinfo));
+        if(se_array->serviceinfos == NULL){
             wave_error_printf("内存空间分配失败");
-            se_array.len = 0;
+            se_array->len = 0;
             lock_unlock(&pdb->lock);
             return FAILURE;
         }
-        permissions = list_entry(head,struct pssme_psid_priority_ssp_chain,list);
-        for(i=0;i<se_array.len;i++){
-            permissions = list_entry(permissions.list.next,struct pssme_psid_priority_ssp_chain,list);
-            INIT(*(se_array.serviceinfos+i));
-            (se_array.serviceinfos+i)->lsis = alloc_node->lsis;
-            (se_array.serviceinfos+i)->max_priority = permissions->permission.priority;
-            (se_array.serviceinfos+i)->psid = permissions->permission.psid;
-            string_cpy(&(se_array.serviceinfos+i)->ssp, &permissions->permission.ssp);
+        permissions = list_entry(permissions_head,struct pssme_psid_priority_ssp_chain,list);
+        for(i=0;i<se_array->len;i++){
+            permissions = list_entry(permissions->list.next,struct pssme_psid_priority_ssp_chain,list);
+            INIT(*(se_array->serviceinfos+i));
+            (se_array->serviceinfos+i)->lsis = alloc_node->lsis;
+            (se_array->serviceinfos+i)->max_priority = permissions->permission.priority;
+            (se_array->serviceinfos+i)->psid = permissions->permission.psid;
+            string_cpy(&(se_array->serviceinfos+i)->ssp, &permissions->permission.ssp);
         }
     }
     else{
-        se_array.len = 0;
+        se_array->len = 0;
         alloc_head = &pdb->lsis_db.alloc_lsis.list;
         list_for_each_entry(alloc_node,alloc_head,list){
             permissions_head = &alloc_node->list;
@@ -334,10 +334,10 @@ result pssme_get_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,serviceinfo_arra
                 se_array->len++;
             }
         }
-        se_array->serviceinfos = (struct serviceinfos*)malloc(se_array->len * sizeof(struct serviceinfos));
+        se_array->serviceinfos = (struct serviceinfo*)malloc(se_array->len * sizeof(struct serviceinfo));
         if(se_array->serviceinfos == NULL){
             wave_error_printf("内存空间分配失败");
-            se_array.len = 0;
+            se_array->len = 0;
             lock_unlock(&pdb->lock);
             return FAILURE;
         }
@@ -345,11 +345,11 @@ result pssme_get_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,serviceinfo_arra
         list_for_each_entry(alloc_node,alloc_head,list){
             permissions_head = &alloc_node->list;
             list_for_each_entry(permissions,permissions_head,list){
-                INIT(*(se_array.serviceinfos+i));
-                (se_array.serviceinfos+i)->lsis = alloc_node->lsis;
-                (se_array.serviceinfos+i)->max_priority = permissions->permission.priority;
-                (se_array.serviceinfos+i)->psid = permissions->permission.psid;
-                string_cpy(&(se_array.serviceinfos+i)->ssp, &permissions->permission.ssp);
+                INIT(*(se_array->serviceinfos+i));
+                (se_array->serviceinfos+i)->lsis = alloc_node->lsis;
+                (se_array->serviceinfos+i)->max_priority = permissions->permission.priority;
+                (se_array->serviceinfos+i)->psid = permissions->permission.psid;
+                string_cpy(&(se_array->serviceinfos+i)->ssp, &permissions->permission.ssp);
                 i++;
             }
         }
@@ -393,12 +393,14 @@ result pssme_outoforder(struct sec_db* sdb,u64 generation_time,certificate* cert
 }
 result pssme_cryptomaterial_handle_storage(struct sec_db* sdb,cmh cmh,struct pssme_lsis_array* lsises){
    struct list_head *head;
+   psid_priority_ssp *ppsp;
+   
    struct certificate *cert;
    struct cme_permissions permissions;
    struct serviceinfo_array ser_array;
-   psid_priority_ssp *ppsp;
    pssme_lsis lsis;
-   int i,j;
+   string identity;
+   int i,j,k;
    if( (cert = (struct certificate*)malloc(sizeof(struct certificate))) == NULL){
         wave_error_printf("内存分配失败");
         return FAILURE;
@@ -406,11 +408,18 @@ result pssme_cryptomaterial_handle_storage(struct sec_db* sdb,cmh cmh,struct pss
    INIT(*cert);
    INIT(permissions);
    INIT(ser_array);
+   INIT(identity);
 
-   if(find_cert_by_cmh(sdb,cmh, cert)){
+   if(find_cert_by_cmh(sdb,&cmh, cert)){
         goto fail;
    }
-   if( certificate_get_permissions(sdb,cert,permissions) == FAILURE)
+   if( certificate_2_buf(cert,&identity)){
+        wave_error_printf("证书编码失败 ");
+        goto fail;
+   }
+   //if( certificate_get_permissions(sdb,cert,permissions) == FAILURE)
+   if( cme_certificate_info_request(sdb,ID_CERTIFICATE,&identity, NULL, &permissions,NULL,NULL,NULL,
+                                             NULL,NULL) )
        goto fail;
    if(permissions.type != PSID_PRIORITY_SSP){
         wave_error_printf("permissions的type不等于PSID_PRIORITY_SSP,不能进行比较");
@@ -418,15 +427,23 @@ result pssme_cryptomaterial_handle_storage(struct sec_db* sdb,cmh cmh,struct pss
    }
    for(i=0;i<lsises->len;i++){
         lsis = *(lsises->lsis+i);
-        if( pssme_get_serviceinfo(struct sec_db* sdb,lsis,&ser_array) == FAILURE){
+        serviceinfo_array_free(&ser_array);
+        if( pssme_get_serviceinfo(sdb,lsis,&ser_array) == FAILURE){
             goto fail;
         }
         ppsp = (permissions.u.psid_priority_ssp_array.buf + i);
         for(j=0;j<ser_array.len;j++){
-            if( (ser_array->serviceinfos+j)->psid == ppsp->psid &&
-                    (ser_array->serviceinfos + j)->max_priority == ppsp->max_priority &&
-                    string_cmp( &(ser_array->serviceinfos+j)->ssp,&ppsp->service_specific_permissions) == 0)
-                break;
+            if( (ser_array.serviceinfos+j)->psid == ppsp->psid &&
+                    (ser_array.serviceinfos + j)->max_priority == ppsp->max_priority ){
+                if( (ser_array.serviceinfos+j)->ssp.len == ppsp->service_specific_permissions.len ){
+                     for(k=0;k<ppsp->service_specific_permissions.len;k++){
+                        if( *((ser_array.serviceinfos+j)->ssp.buf+k) != *(ppsp->service_specific_permissions.buf+k))
+                            break;
+                     } 
+                     if(k == ppsp->service_specific_permissions.len)
+                         break;
+                }
+            }
         }
         if(j==ser_array.len){
             wave_error_printf("lsis %d 没有相关的服务",lsis);
@@ -434,13 +451,20 @@ result pssme_cryptomaterial_handle_storage(struct sec_db* sdb,cmh cmh,struct pss
         }
         
    }
+    certificate_free(cert);
+    free(cert);
+    cme_permissions_free(&permissions);
+    serviceinfo_array_free(&ser_array);
+    string_free(&identity);
+    return SUCCESS;
 fail:
     if(cert != NULL){
         certificate_free(cert);
         free(cert);
     }
-    cme_permissions_free(permissions);
-    serviceinfo_array_free(ser_array);
+    cme_permissions_free(&permissions);
+    serviceinfo_array_free(&ser_array);
+    string_free(&identity);
     return FAILURE;
 }
 

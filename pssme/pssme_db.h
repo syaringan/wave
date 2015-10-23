@@ -6,11 +6,12 @@
 #include "../utils/rb.h"
 #include "../utils/lock.h"
 #include "../cme/cme.h"
+#include "../utils/common.h"
 
 typedef u32 pssme_lsis;
 typedef u8 priority;
 struct pssme_psid_priority_ssp{
-    string psid;
+    psid psid;
     priority priority;
     string ssp;
 };
@@ -60,7 +61,7 @@ struct pssme_db{
 static void inline pssme_psid_priority_ssp_free(struct pssme_psid_priority_ssp* ptr){
     if(ptr == NULL)
         return;
-    string_free(&ptr->psid);
+    string_free(&ptr->ssp);
 }
 static void inline pssme_psid_priority_ssp_chain_free(struct pssme_psid_priority_ssp_chain* ptr){
     pssme_psid_priority_ssp_free(&ptr->permission);
