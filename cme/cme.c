@@ -181,7 +181,7 @@ static inline struct cmh_key_cert*  ckc_delete(struct cmh_key_cert* root,struct 
 /***************cmh_key_cert 红黑树操作函数结束**************/
 
 /*
- * 通过cmh找到对应的证书,成功返回0，失败返回1,未测
+ * 通过cmh找到对应的证书,成功返回0，失败返回-1,未测
  * */
 int find_cert_by_cmh(struct sec_db *sdb, void *value, struct certificate *cert){
     struct cmh_key_cert *p = NULL;
@@ -190,13 +190,13 @@ int find_cert_by_cmh(struct sec_db *sdb, void *value, struct certificate *cert){
         p = ckc_find(sdb->cme_db.cmhs.alloc_cmhs.cmh_key_cert ,value);
         if(!p){
             lock_unlock(&sdb->cme_db.lock);
-            return 1;
+            return -1;
         }
         certificate_cpy(cert, p->cert);
         lock_unlock(&sdb->cme_db.lock);
         return 0;
     }
-    return 1;
+    return -1;
 }
 
 result cme_lsis_request(struct sec_db* sdb,cme_lsis* lsis){
@@ -486,7 +486,7 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
                 struct last_crl_times_array *last_crl_times_array,
                 struct next_crl_times_array *next_crl_times_array,
                 struct verified_array *verified_array){
-    result ret = SUCCESS;
+    result ret = FAILURE;
     struct certificate *certificate = NULL;
     bool trust_anchor;
     int i = 0, j = 0;
@@ -498,54 +498,90 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
     INIT(hash8);
     cert_encoded.len = 0;
     cert_encoded.buf = malloc(sizeof(500));
-    if(!cert_encoded.buf)
-        goto fail;
+    if(!cert_encoded.buf){
+    }
     memset(cert_encoded.buf, 0, 500);
 
     if(certificate_chain != NULL){
-        certificate_chain->certs = malloc(sizeof(struct certificate)*max_chain_len);
-        if(!certificate_chain->certs)
+        if(certificate_chain->certs != NULL){
+            wave_error_printf("证书链中buf已经被填充");
             goto fail;
+        }
+        certificate_chain->certs = malloc(sizeof(struct certificate)*max_chain_len);
+        if(!certificate_chain->certs){
+            wave_error_printf("内存分配失败");
+            goto fail;
+        }
         memset(certificate_chain->certs, 0, sizeof(struct certificate)*max_chain_len);
         certificate_chain->len = 0;
     }
 
     if(permissions_array != NULL){
-        permissions_array->cme_permissions = malloc(sizeof(struct cme_permissions)*max_chain_len);
-        if(!permissions_array->cme_permissions)
+        if(permissions_array->cme_permissions != NULL){
+            wave_error_printf("permissions中buf已经被填充");
             goto fail;
+        }
+        permissions_array->cme_permissions = malloc(sizeof(struct cme_permissions)*max_chain_len);
+        if(!permissions_array->cme_permissions){
+            wave_error_printf("内存分配失败");
+            goto fail;
+        }
         memset(permissions_array->cme_permissions, 0, sizeof(struct cme_permissions)*max_chain_len);
         permissions_array->len = 0;
     }
 
     if(regions != NULL){
-        regions->regions = malloc(sizeof(struct geographic_region)*max_chain_len);
-        if(!regions->regions)
+        if(regions->regions != NULL){
+            wave_error_printf("regions的buf已经被填充");
             goto fail;
+        }
+        regions->regions = malloc(sizeof(struct geographic_region)*max_chain_len);
+        if(!regions->regions){
+            wave_error_printf("内存分配失败");
+            goto fail;
+        }
         memset(regions->regions, 0, sizeof(struct geographic_region)*max_chain_len);
         regions->len = 0;
     }
 
     if(last_crl_times_array != NULL){
-        last_crl_times_array->last_crl_time = malloc(sizeof(time64)*max_chain_len);
-        if(!last_crl_times_array->last_crl_time)
+        if(last_crl_times_array->last_crl_time != NULL){
+            wave_error_printf("last crl中的buf已经被填充");
             goto fail;
+        }
+        last_crl_times_array->last_crl_time = malloc(sizeof(time64)*max_chain_len);
+        if(!last_crl_times_array->last_crl_time){
+            wave_error_printf("内存分配失败");
+            goto fail;
+        }
         memset(last_crl_times_array->last_crl_time, 0, sizeof(time64)*max_chain_len);
         last_crl_times_array->last_crl_time = 0;
     }
 
     if(next_crl_times_array != NULL){
-        next_crl_times_array->next_crl_time = malloc(sizeof(time64)*max_chain_len);
-        if(!next_crl_times_array->next_crl_time)
+        if(next_crl_times_array->next_crl_time != NULL){
+            wave_error_printf("next crl的buf已经被填充");
             goto fail;
+        }
+        next_crl_times_array->next_crl_time = malloc(sizeof(time64)*max_chain_len);
+        if(!next_crl_times_array->next_crl_time){
+            wave_error_printf("内存分配失败");
+            goto fail;
+        }
         memset(next_crl_times_array->next_crl_time, 0, sizeof(time64)*max_chain_len);
         next_crl_times_array->len = 0;
     }
 
     if(verified_array != NULL){
-        verified_array->verified = malloc(sizeof(bool)*max_chain_len);
-        if(!verified_array->verified)
+        if(verified_array->verified != NULL){
+            wave_error_printf("verified中的buf已经被填充");
             goto fail;
+        }
+        verified_array->verified = malloc(sizeof(bool)*max_chain_len);
+        if(!verified_array->verified){
+            wave_error_printf("内存分配失败");
+            goto fail;
+        }
         memset(verified_array->verified, 0, sizeof(bool)*max_chain_len);
         verified_array->len = 0;
     }
@@ -586,6 +622,8 @@ construct_chain:
             goto fail;
         }
         for(j = 0; j < certificates->len; j++){
+            string_free(hash8);
+            INIT(hash8);
             certificate_2_hash8(&certificates->certs[i],&hash8);//i need this
             if(string_cmp(&hash8, &sign_id) == 0){
                 if(certificates->certs[i].unsigned_certificate.holder_type == ROOT_CA){
