@@ -304,15 +304,17 @@ u32 elliptic_curve_point_2_buf(const elliptic_curve_point *elliptic_curve_point,
 	for(i=0;i < elliptic_curve_point->x.len;i++){
 		*mbuf++ = *(elliptic_curve_point->x.buf + i);
 	}
-	size = size - encode_len - elliptic_curve_point->x.len;
-	res = res + encode_len + elliptic_curve_point->x.len;
+//	size = size - encode_len - elliptic_curve_point->x.len;
+//	res = res + encode_len + elliptic_curve_point->x.len;
+	size = size - elliptic_curve_point->x.len;
+	res = res + elliptic_curve_point->x.len;
 
-	if(elliptic_curve_point->type == UNCOMPRESSED){
-		encode_len = varible_len_calculate(elliptic_curve_point->u.y.len);
-		if (size < encode_len + elliptic_curve_point->u.y.len)
-			return NOT_ENOUGHT;
-		varible_len_encoding(mbuf,elliptic_curve_point->u.y.len);
-		mbuf += encode_len;
+/*	if(elliptic_curve_point->type == UNCOMPRESSED){
+//		encode_len = varible_len_calculate(elliptic_curve_point->u.y.len);
+//		if (size < encode_len + elliptic_curve_point->u.y.len)
+//			return NOT_ENOUGHT;
+//		varible_len_encoding(mbuf,elliptic_curve_point->u.y.len);
+//		mbuf += encode_len;
 
 		for(i=0;i < elliptic_curve_point->u.y.len;i++){
 			*mbuf++ = *(elliptic_curve_point->u.y.buf + i);
@@ -320,6 +322,7 @@ u32 elliptic_curve_point_2_buf(const elliptic_curve_point *elliptic_curve_point,
 		size = size - encode_len - elliptic_curve_point->u.y.len;
 		res = res + encode_len + elliptic_curve_point->u.y.len;
 	}
+*/
 	return res;
 }
  
@@ -344,17 +347,19 @@ u32 ecdsa_signature_2_buf(const ecdsa_signature *ecdsa_signature,u8* buf,u32 len
 	size -= encode_len;
 	res += encode_len;
 
-	encode_len = varible_len_calculate(ecdsa_signature->s.len);
-	if (size < encode_len + ecdsa_signature->s.len)
-		return NOT_ENOUGHT;
-	varible_len_encoding(mbuf,ecdsa_signature->s.len);
-	mbuf += encode_len;
+//	encode_len = varible_len_calculate(ecdsa_signature->s.len);
+//	if (size < encode_len + ecdsa_signature->s.len)
+//		return NOT_ENOUGHT;
+//	varible_len_encoding(mbuf,ecdsa_signature->s.len);
+//	mbuf += encode_len;
 
 	for(i=0;i < ecdsa_signature->s.len;i++){
 		*mbuf++ = *(ecdsa_signature->s.buf + i);
 	}
-	size = size - encode_len - ecdsa_signature->s.len;
-	res = res + encode_len + ecdsa_signature->s.len;
+//	size = size - encode_len - ecdsa_signature->s.len;
+//	res = res + encode_len + ecdsa_signature->s.len;
+	size = size - ecdsa_signature->s.len;
+	res = res + ecdsa_signature->s.len;
 	return res;
 }
 
@@ -413,6 +418,9 @@ u32 public_key_2_buf(const public_key *public_key,u8* buf,u32 len){
 	 size--;
 	 res++;
 
+
+
+
 	 switch(public_key->algorithm){
 		 case ECDSA_NISTP224_WITH_SHA224:
 		 case ECDSA_NISTP256_WITH_SHA256:
@@ -425,7 +433,7 @@ u32 public_key_2_buf(const public_key *public_key,u8* buf,u32 len){
 			 mbuf++;
 			 size--;
 			 res++;
-			 encode_len = elliptic_curve_point_2_buf(&public_key->u.public_key,mbuf,size);
+			 encode_len = elliptic_curve_point_2_buf(&public_key->u.ecies_nistp256.public_key,mbuf,size);
 			 if(encode_len < 0)
 				 return encode_len;
 			 return encode_len + res;
@@ -2267,7 +2275,6 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 
 	switch(type){
 		case SIGNED:
-		case SIGNED_PARTIAL_PAYLOAD:
 			tobuf32(mbuf,tobesigned_data->u.type_signed.psid);
 			mbuf += 4;
 			size -= 4;
@@ -2285,11 +2292,56 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 			size = size - encode_len - tobesigned_data->u.type_signed.data.len;
 			res = res + encode_len + tobesigned_data->u.type_signed.data.len;
 			break;
-		case SIGNED_EXTERNAL_PAYLOAD:
-			tobuf32(mbuf,tobesigned_data->u.psid);
+
+		case SIGNED_PARTIAL_PAYLOAD:
+			tobuf32(mbuf,tobesigned_data->u.type_signed_partical.psid);
 			mbuf += 4;
 			size -= 4;
 			res += 4;
+			
+			encode_len = varible_len_calculate(tobesigned_data->u.type_signed_partical.ext_data.len);
+			if (size < encode_len + tobesigned_data->u.type_signed_partical.ext_data.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,tobesigned_data->u.type_signed_partical.ext_data.len);
+			mbuf += encode_len;
+
+			for(i=0;i < tobesigned_data->u.type_signed_partical.ext_data.len;i++){
+				*mbuf++ = *(tobesigned_data->u.type_signed_partical.ext_data.buf + i);
+			}
+			size = size - encode_len - tobesigned_data->u.type_signed_partical.ext_data.len;
+			res = res + encode_len + tobesigned_data->u.type_signed_partical.ext_data.len;
+
+			encode_len = varible_len_calculate(tobesigned_data->u.type_signed_partical.data.len);
+			if (size < encode_len + tobesigned_data->u.type_signed_partical.data.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,tobesigned_data->u.type_signed_partical.data.len);
+			mbuf += encode_len;
+
+			for(i=0;i < tobesigned_data->u.type_signed_partical.data.len;i++){
+				*mbuf++ = *(tobesigned_data->u.type_signed_partical.data.buf + i);
+			}
+			size = size - encode_len - tobesigned_data->u.type_signed_partical.data.len;
+			res = res + encode_len + tobesigned_data->u.type_signed_partical.data.len;
+			break;
+
+		case SIGNED_EXTERNAL_PAYLOAD:
+			tobuf32(mbuf,tobesigned_data->u.type_signed_external.psid);
+			mbuf += 4;
+			size -= 4;
+			res += 4;
+
+			encode_len = varible_len_calculate(tobesigned_data->u.type_signed_external.ext_data.len);
+			if (size < encode_len + tobesigned_data->u.type_signed_external.ext_data.len)
+				return NOT_ENOUGHT;
+			varible_len_encoding(mbuf,tobesigned_data->u.type_signed_external.ext_data.len);
+			mbuf += encode_len;
+
+			for(i=0;i < tobesigned_data->u.type_signed_external.ext_data.len;i++){
+				*mbuf++ = *(tobesigned_data->u.type_signed_external.ext_data.buf + i);
+			}
+			size = size - encode_len - tobesigned_data->u.type_signed_external.ext_data.len;
+			res = res + encode_len + tobesigned_data->u.type_signed_external.ext_data.len;
+
 			break;
 		default:
 			encode_len = varible_len_calculate(tobesigned_data->u.data.len);

@@ -592,8 +592,16 @@ typedef struct tobesigned_data{
         struct {
             psid psid;
             ARRAY(u8,data);
-        }type_signed,type_signed_partical;
-        psid psid;
+        }type_signed;
+		struct{
+			psid psid;
+			ARRAY(u8,ext_data);
+			ARRAY(u8,data);
+		}type_signed_partical;
+		struct{
+			psid psid;
+			ARRAY(u8,ext_data);
+		}type_signed_external;
         ARRAY(u8,data);
    }u;
    struct {

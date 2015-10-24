@@ -565,14 +565,22 @@ static void certificate_request_free(certificate_request* certificate_request){
 static void tobesigned_data_free(tobesigned_data* tobesigned_data, content_type type){
 	int i;
 	switch(type){
-		case SIGNED:
-		case SIGNED_PARTIAL_PAYLOAD:
+		case SIGNED:	
 			free(&tobesigned_data->u.type_signed.psid);
 			if(NULL != tobesigned_data->u.type_signed.data.buf)
 				ARRAY_FREE(&tobesigned_data->u.type_signed.data);
 			break;
+		case SIGNED_PARTIAL_PAYLOAD:
+			free(&tobesigned_data->u.type_signed.psid);
+			if(NULL != tobesigned_data->u.type_signed_partical.ext_data.buf)
+				ARRAY_FREE(&tobesigned_data->u.type_signed_partical.ext_data);
+			if(NULL != tobesigned_data->u.type_signed_partical.data.buf)
+				ARRAY_FREE(&tobesigned_data->u.type_signed_partical.data);
+			break;
 		case SIGNED_EXTERNAL_PAYLOAD:
-			free(&tobesigned_data->u.psid);
+			free(&tobesigned_data->u.type_signed_external.psid);
+			if(NULL != tobesigned_data->u.type_signed_external.ext_data.buf)
+				ARRAY_FREE(&tobesigned_data->u.type_signed_external.ext_data);
 			break;
 		default:
 			if(NULL != tobesigned_data->u.data.buf)
