@@ -13,4 +13,7 @@ extern int wave_debug_level;
 void wave_printf(int level,const char *fmt,...);
 void wave_printf_fl(int level,const char* fmt,...);
 void wave_error_printf(const char*fmt,...);
+inline void wave_malloc_error(){
+    printf("内存分配失败  %s %d\n",__FILE__,__LINE__);
+}
 #endif

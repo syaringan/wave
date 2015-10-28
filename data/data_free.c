@@ -120,7 +120,7 @@ static void geographic_region_free(geographic_region* geographic_region){
  */
 
 static void psid_priority_free(psid_priority*  psid_priority){
-	free(psid_priority->psid);
+	free(&psid_priority->psid);
 }
 
 /**
@@ -162,7 +162,7 @@ static void psid_array_free(psid_array* psid_array){
  *YGH 11
  */
 static void psid_ssp_free(psid_ssp* psid_ssp){
-	  free(psid_ssp->psid);
+	  free(&psid_ssp->psid);
 	  if(NULL!=psid_ssp->service_specific_permissions.buf)
 		  ARRAY_FREE(&psid_ssp->service_specific_permissions);
 }
@@ -189,7 +189,7 @@ static void psid_ssp_array_free(psid_ssp_array* psid_ssp_array){
  */
 
 static void psid_priority_ssp_free(psid_priority_ssp* psid_priority_ssp){
-	 free(psid_priority_ssp->psid);
+	 free(&psid_priority_ssp->psid);
       if(NULL!=psid_priority_ssp->service_specific_permissions.buf)
 		  ARRAY_FREE(&psid_priority_ssp->service_specific_permissions);
 }
@@ -213,9 +213,10 @@ static void psid_priority_ssp_array_free(psid_priority_ssp_array* psid_priority_
  *YGH 15
  */
 static void wsa_scope_free(wsa_scope* wsa_scope){
-	 free(wsa_scope->name);
-	 psid_priority_ssp_array_free(&wsa_scope->permissions);
-	 geographic_region_free(&wsa_scope->region);
+	if(NULL!=wsa_scope->name.buf)
+		ARRAY_FREE(&wsa_scope->name);
+	psid_priority_ssp_array_free(&wsa_scope->permissions);
+	geographic_region_free(&wsa_scope->region);
 }
 
 /**
@@ -233,7 +234,8 @@ static void anonymous_scope_free(anonymous_scope* anonymous_scope){
  *YGH 17
  */
 static void identified_scope_free(identified_scope* identified_scope){
-	free(identified_scope->name);
+	if(NULL!=identified_scope->name.buf)
+		ARRAY_FREE(&identified_scope->name);
 	psid_ssp_array_free(&identified_scope->permissions);
 	geographic_region_free(&identified_scope->region);
 
@@ -243,7 +245,8 @@ static void identified_scope_free(identified_scope* identified_scope){
  */
 static void identified_not_localized_scope_free(identified_not_localized_scope* 
 				identified_not_localized_scope){
-	free(identified_not_localized_scope->name);
+	if(NULL!=identified_not_localized_scope->name.buf)
+		ARRAY_FREE(&identified_not_localized_scope->name);
 	psid_ssp_array_free(&identified_not_localized_scope->permissions);
 }
 /**
@@ -275,8 +278,8 @@ static void root_ca_scope_free(root_ca_scope* root_ca_scope){
 		  ARRAY_FREE(&root_ca_scope->name);
       psid_array_free(&root_ca_scope->flags_content.secure_data_permissions);
 	  psid_priority_array_free (&root_ca_scope->flags_content.wsa_permissions);
-	  if(NULL!=root_ca_scope->flags_content.other_permissons.buf)
-		  ARRAY_FREE(&root_ca_scope->flags_content.other_permissons);
+	  if(NULL!=root_ca_scope->flags_content.other_permissions.buf)
+		  ARRAY_FREE(&root_ca_scope->flags_content.other_permissions);
 	  geographic_region_free(&root_ca_scope->region);
 }
 /**
@@ -331,13 +334,13 @@ static void tobesigned_certificate_free(tobesigned_certificate* tobesigned_certi
 	cert_specific_data_free(&tobesigned_certificate->scope,tobesigned_certificate->holder_type);
 	switch(version_and_type){
 		case 2:
-	public_key_free(&tobesigned_certificate->verion_and_type.verification_key);
+	public_key_free(&tobesigned_certificate->version_and_type.verification_key);
 		   break;
 	    case 3:
 	   	 break;
 		default:
-		if(NULL!=tobesigned_certificate->verion_and_type.other_key_material.buf)
-			ARRAY_FREE(&tobesigned_certificate->verion_and_type.other_key_material);}
+		if(NULL!=tobesigned_certificate->version_and_type.other_key_material.buf)
+			ARRAY_FREE(&tobesigned_certificate->version_and_type.other_key_material);}
 	    public_key_free(&tobesigned_certificate->flags_content.encryption_key);
 		if(NULL!=tobesigned_certificate->flags_content.other_cert_content.buf)
 			ARRAY_FREE(&tobesigned_certificate->flags_content.other_cert_content);
@@ -346,15 +349,15 @@ static void tobesigned_certificate_free(tobesigned_certificate* tobesigned_certi
  *YGH 24
  */
 static void certificate_free(certificate* certificate){
-   tobesigned_certificate_free(&certificate->unsigend_certificate,certificate->version_and_type);
+   tobesigned_certificate_free(&certificate->unsigned_certificate,certificate->version_and_type);
    switch(certificate->version_and_type){
 	   case 2:
-         switch(certificate->unsigend_certificate.holder_type){
+         switch(certificate->unsigned_certificate.holder_type){
 			 case ROOT_CA:
-				 signature_free(&certificate->u.signature,certificate->unsigend_certificate.verion_and_type.verification_key.algorithm);
+				 signature_free(&certificate->u.signature,certificate->unsigned_certificate.version_and_type.verification_key.algorithm);
 				 break;
 			  default:
-				 signature_free(&certificate->u.signature,certificate->unsigend_certificate.u.no_root_ca.signature_alg);
+				 signature_free(&certificate->u.signature,certificate->unsigned_certificate.u.no_root_ca.signature_alg);
 		 }	;	 //  signature_free(&certificate->u.signature);
 		   break;
 		case 3:
@@ -478,18 +481,14 @@ static void tobe_encrypted_certificate_request_error_free(tobe_encrypted_certifi
 
 /**
  *YGH 29
- *@version_and_type外部数据结构传入参数
+ *@version_and_type由证书链中最后一个证书得到
  */
 static void tobe_encrypted_certificate_response_free(tobe_encrypted_certificate_response* 
-				tobe_encrypted_certificate_response, u8 version_and_type){
+				tobe_encrypted_certificate_response){
 	int i;
-	if(NULL != tobe_encrypted_certificate_response->certificate_chain.buf){
-		for(i = 0;i<tobe_encrypted_certificate_response->certificate_chain.len;i++){
-			certificate_free(tobe_encrypted_certificate_response->certificate_chain.buf + i);
-		}
-		ARRAY_FREE(&tobe_encrypted_certificate_response->certificate_chain);
-	}
-	switch(version_and_type){
+	int n = tobe_encrypted_certificate_response->certificate_chain.len - 1;
+
+	switch((tobe_encrypted_certificate_response->certificate_chain.buf + n)->version_and_type){
 		case 2:
 			break;
 		case 3:
@@ -507,14 +506,22 @@ static void tobe_encrypted_certificate_response_free(tobe_encrypted_certificate_
 		}
 		ARRAY_FREE(&tobe_encrypted_certificate_response->crl_path);
 	}
+
+	if(NULL != tobe_encrypted_certificate_response->certificate_chain.buf){
+		for(i = 0;i<tobe_encrypted_certificate_response->certificate_chain.len;i++){
+			certificate_free(tobe_encrypted_certificate_response->certificate_chain.buf + i);
+		}
+		ARRAY_FREE(&tobe_encrypted_certificate_response->certificate_chain);
+	}
+
+
 }
 
 /**
  *YGH 30
  */
 static void tobesigned_certificate_request_free(tobesigned_certificate_request* 
-		_
-				tobesigned_certificate_request){
+		tobesigned_certificate_request){
 
 	cert_specific_data_free(&tobesigned_certificate_request->type_specific_data,
 			tobesigned_certificate_request->holder_type);
@@ -558,14 +565,22 @@ static void certificate_request_free(certificate_request* certificate_request){
 static void tobesigned_data_free(tobesigned_data* tobesigned_data, content_type type){
 	int i;
 	switch(type){
-		case SIGNED:
-		case SIGNED_PARTIAL_PAYLOAD:
-			free(tobesigned_data->u.type_signed.psid);
+		case SIGNED:	
+			free(&tobesigned_data->u.type_signed.psid);
 			if(NULL != tobesigned_data->u.type_signed.data.buf)
 				ARRAY_FREE(&tobesigned_data->u.type_signed.data);
 			break;
+		case SIGNED_PARTIAL_PAYLOAD:
+			free(&tobesigned_data->u.type_signed.psid);
+			if(NULL != tobesigned_data->u.type_signed_partical.ext_data.buf)
+				ARRAY_FREE(&tobesigned_data->u.type_signed_partical.ext_data);
+			if(NULL != tobesigned_data->u.type_signed_partical.data.buf)
+				ARRAY_FREE(&tobesigned_data->u.type_signed_partical.data);
+			break;
 		case SIGNED_EXTERNAL_PAYLOAD:
-			free(tobesigned_data->u.psid);
+			free(&tobesigned_data->u.type_signed_external.psid);
+			if(NULL != tobesigned_data->u.type_signed_external.ext_data.buf)
+				ARRAY_FREE(&tobesigned_data->u.type_signed_external.ext_data);
 			break;
 		default:
 			if(NULL != tobesigned_data->u.data.buf)
@@ -638,14 +653,14 @@ static void tobe_encrypted_free(tobe_encrypted* tobe_encrypted){
 			certificate_request_free(&tobe_encrypted->u.request);
 			break;
 		case CERTIFICATE_RESPONSE:
-			tobe_encrypted_anonymous_cert_response_free(&tobe_encrypted->u.response);
+			tobe_encrypted_certificate_response_free(&tobe_encrypted->u.response);
 		case ANOYMOUS_CERTIFICATE_RESPONSE:
 			break;
 		case CERTIFICATE_REQUSET_ERROR:
 			tobe_encrypted_certificate_request_error_free(&tobe_encrypted->u.request_error);
 			break;
-		case CRL_REQUEST:
-			crl_request_free(&tobe_encrypted->u.crl_request);
+		case CONTENT_TYPE_CRL_REQUEST:
+//			crl_request_free(&tobe_encrypted->u.crl_request);
 			break;
 		case CRL:
 			crl_free(&tobe_encrypted->u.crl);
@@ -768,7 +783,7 @@ void sec_data_free(sec_data* sec_data){
             encrypted_data_free(&sec_data->u.encrypted_data);
             break;
         case CONTENT_TYPE_CRL_REQUEST:
-            crl_request_free(&sec_data->u.crl_request);
+//			crl_request_free(&sec_data->u.crl_request);
             break;
         case CRL:
             ARRAY_FREE(&sec_data->u.crl);

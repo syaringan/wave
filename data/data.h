@@ -187,7 +187,7 @@ typedef struct ecdsa_signature{
 }ecdsa_signature;
 
 /*
- * 5 free 
+ * 5 free buf_to 7
  */
 typedef struct signature{
     union{
@@ -197,7 +197,7 @@ typedef struct signature{
 }signature;
 
 /*
- * 6 free
+ * 6 free buf_to 8
  */
 typedef struct public_key{
     pk_algorithm algorithm;
@@ -211,23 +211,35 @@ typedef struct public_key{
     }u;
 }public_key;
 
+/*
+ * buf_to 9
+ */
+
 typedef struct two_d_location{
     s32 latitude;
     s32 longitude;
 }two_d_location;
 
 
+/*
+ * buf_to 10
+ */
+
 typedef struct rectangular_region{
     two_d_location north_west;
     two_d_location south_east;
 }rectangular_region;
+
+/*
+ * buf_to 11
+ */
 
 typedef struct circular_region{
     two_d_location center;
     u16 radius;
 }circular_region;
 /*
- * 7 free
+ * 7 free buf_to  12
  */
 typedef struct geographic_region{
     region_type region_type;
@@ -240,7 +252,7 @@ typedef struct geographic_region{
 }geographic_region;
 
 /*
- * 8 free
+ * 8 free buf_to  13
  */
 
 typedef struct psid_priority{
@@ -248,7 +260,7 @@ typedef struct psid_priority{
     u8 max_priority;
 }psid_priority;
 /*
- * 9 free
+ * 9 free buf_to  14
  */
 
 typedef struct psid_priority_array{
@@ -260,7 +272,7 @@ typedef struct psid_priority_array{
 }psid_priority_array;
 
 /*
- * 10 free
+ * 10 free buf_to  15
  */
 
 typedef struct psid_array{
@@ -271,7 +283,7 @@ typedef struct psid_array{
     }u;
 }psid_array;
 /*
- * 11 free
+ * 11 free buf_to  16
  */
 
 typedef struct psid_ssp{
@@ -279,7 +291,7 @@ typedef struct psid_ssp{
     ARRAY(u8,service_specific_permissions);
 }psid_ssp;
 /*
- * 12 free
+ * 12 free buf_to  17
  */
 
 typedef struct psid_ssp_array{
@@ -290,7 +302,7 @@ typedef struct psid_ssp_array{
     }u;
 }psid_ssp_array;
 /*
- * 13 free
+ * 13 free buf_to  18
  */
 
 typedef struct psid_priority_ssp{
@@ -299,7 +311,7 @@ typedef struct psid_priority_ssp{
     ARRAY(u8,service_specific_permissions);
 }psid_priority_ssp;
 /*
- * 14 free
+ * 14 free buf_to  19
  */
 
 typedef struct psid_priority_ssp_array{
@@ -310,7 +322,7 @@ typedef struct psid_priority_ssp_array{
     }u;
 }psid_priority_ssp_array;
 /*
- * 15 free
+ * 15 free buf_to  20
  */
 
 typedef struct wsa_scope{
@@ -319,7 +331,7 @@ typedef struct wsa_scope{
     geographic_region region;
 }wsa_scope;
 /*
- * 16 free
+ * 16 free  buf_to  21
  */
 
 typedef struct anonymous_scope{
@@ -328,24 +340,24 @@ typedef struct anonymous_scope{
     geographic_region region;
 }anonymous_scope;
 /*
- * 17 free
+ * 17 free  buf_to  22
  */
 
 typedef struct identified_scope{
-    u8* name;
+    ARRAY(u8,name);
     psid_ssp_array permissions;
     geographic_region region;
 }identified_scope;
 /*
- * 18 free
+ * 18 free  buf_to  23
  */
 
 typedef struct identified_not_localized_scope{
-    u8* name;
+    ARRAY(u8,name);
     psid_ssp_array permissions;
 }identified_not_localized_scope;
 /*
- * 19 free
+ * 19 free  buf_to  24
  */
 
 typedef struct wsa_ca_scope{
@@ -354,7 +366,7 @@ typedef struct wsa_ca_scope{
     geographic_region region;
 }wsa_ca_scope;
 /*
- * 20 free
+ * 20 free  buf_to  25
  */
 
 typedef struct sec_data_exch_ca_scope{
@@ -364,7 +376,7 @@ typedef struct sec_data_exch_ca_scope{
     geographic_region region;
 }sec_data_exch_ca_scope;
 /*
- * 21 free
+ * 21 free  buf_to  26
  */
 
 typedef struct root_ca_scope{
@@ -373,12 +385,12 @@ typedef struct root_ca_scope{
     struct{
         psid_array secure_data_permissions;
         psid_priority_array wsa_permissions;
-        ARRAY(u8,other_permissons);
+        ARRAY(u8,other_permissions);
     }flags_content;
     geographic_region region;
 }root_ca_scope;
 /*
- * 22 free
+ * 22 free  buf_to  27
  */
 
 typedef struct cert_specific_data{
@@ -395,7 +407,7 @@ typedef struct cert_specific_data{
     }u;
 }cert_specific_data;
 /*
- * 23 free
+ * 23 free  buf_to  28
  */
 
 typedef struct tobesigned_certificate{
@@ -422,7 +434,7 @@ typedef struct tobesigned_certificate{
     }flags_content;
 }tobesigned_certificate;
 /*
- * 24 free
+ * 24 free  buf_to  29
  */
 
 typedef struct certificate{
@@ -435,7 +447,7 @@ typedef struct certificate{
     }u;
 }certificate;
 /*
- * 25 free
+ * 25 free  buf_to  30
  */
 
 typedef struct signer_identifier{
@@ -452,6 +464,9 @@ typedef struct signer_identifier{
     }u;
 } signer_identifier;
 
+/*
+ * buf_to  31
+ */
 
 typedef struct crl_request{
     hashedid8 issuer;
@@ -459,16 +474,23 @@ typedef struct crl_request{
     time32 issue_date;
 }crl_request;
 
+/*
+ * buf_to  32
+ */
+
 typedef struct certid10{
     u8 certid10[10];
 }certid10;
 
+/*
+ * buf_to  33
+ */
 typedef struct id_and_date{
     certid10 id;
     time32 expiry;
 }id_and_date;
 /*
- * 26 free
+ * 26 free  buf_to  34
  */
 
 typedef struct tobesigned_crl{
@@ -486,7 +508,7 @@ typedef struct tobesigned_crl{
     }u;
 }tobesigned_crl;
 /*
- * 27 free
+ * 27 free  buf_to  35
  */
 
 typedef struct crl{
@@ -495,11 +517,17 @@ typedef struct crl{
     tobesigned_crl  unsigned_crl;
     signature  signature;
 }crl;
+
+/*
+ *  buf_to  36
+ */
+
 typedef struct tobe_encrypted_certificate_response_acknowledgment{
     u8 response_hash[10];
 }tobe_encrypted_certificate_response_acknowledgment;
+
 /*
- * 28 free
+ * 28 free  buf_to  37
  */
 
 typedef struct tobe_encrypted_certificate_request_error{
@@ -509,7 +537,7 @@ typedef struct tobe_encrypted_certificate_request_error{
     signature signature;
 }tobe_encrypted_certificate_request_error;
 /*
- * 29 free
+ * 29 free  buf_to  38
  */
 
 typedef struct tobe_encrypted_certificate_response{
@@ -521,8 +549,9 @@ typedef struct tobe_encrypted_certificate_response{
     }u;    
     ARRAY(crl,crl_path);
 }tobe_encrypted_certificate_response;
+
 /*
- * 30 free
+ * 30 free  buf_to  39
  */
 
 typedef struct tobesigned_certificate_request{
@@ -541,8 +570,9 @@ typedef struct tobesigned_certificate_request{
     public_key verification_key;
     public_key response_encryption_key;
 }tobesigned_certificate_request;
+
 /*
- * 31 free
+ * 31 free  buf_to  40
  */
 
 typedef struct certificate_request{
@@ -550,9 +580,10 @@ typedef struct certificate_request{
     tobesigned_certificate_request unsigned_csr;
     signature signature;
 }certificate_request;
+
 /*
- * 32 free
- */
+ * 32 free  buf_to  41
+ */ 
 
 typedef struct tobesigned_data{
    tbsdata_flags tf;
@@ -560,8 +591,16 @@ typedef struct tobesigned_data{
         struct {
             psid psid;
             ARRAY(u8,data);
-        }type_signed,type_signed_partical;
-        psid psid;
+        }type_signed;
+		struct{
+			psid psid;
+			ARRAY(u8,ext_data);
+			ARRAY(u8,data);
+		}type_signed_partical;
+		struct{
+			psid psid;
+			ARRAY(u8,ext_data);
+		}type_signed_external;
         ARRAY(u8,data);
    }u;
    struct {
@@ -574,7 +613,7 @@ typedef struct tobesigned_data{
 }tobesigned_data;
 
 /*
- * 33 free
+ * 33 free  buf_to  42
  */
 
 typedef struct signed_data{
@@ -583,7 +622,7 @@ typedef struct signed_data{
     struct signature signature;
 }signed_data;
 /*
- * 34 free
+ * 34 free  buf_to  43
  */
 
 typedef struct tobe_encrypted{
@@ -606,7 +645,7 @@ typedef struct tobe_encrypted{
     }u;
 }tobe_encrypted;
 /*
- * 35 free
+ * 35 free  buf_to  44
  */
 
 typedef struct aes_ccm_ciphertext{
@@ -615,7 +654,7 @@ typedef struct aes_ccm_ciphertext{
 }aes_ccm_ciphertext;
 
 /*
- * 36 free
+ * 36 free  buf_to  45
  */
 
 typedef struct ecies_nist_p256_encrypted_key{
@@ -624,7 +663,7 @@ typedef struct ecies_nist_p256_encrypted_key{
     u8 t[20];
 }ecies_nist_p256_encrypted_key;
 /*
- * 37 free
+ * 37 free  buf_to  46
  */
 
 typedef struct recipient_info{
@@ -636,7 +675,7 @@ typedef struct recipient_info{
 }recipient_info;
 
 /*
- * 38 free
+ * 38 free  buf_to  47
  */
 
 typedef struct encrypted_data{
@@ -648,7 +687,7 @@ typedef struct encrypted_data{
     }u;
 }encrypted_data;
 /*
- * 39 free
+ * 39 free  buf_to  48
  */
 
 typedef struct tobesigned_wsa{
@@ -664,7 +703,7 @@ typedef struct tobesigned_wsa{
     }flags_content;
 }tobesigned_wsa;
 /*
- * 40 free
+ * 40 free  buf_to  49
  */
 
 typedef struct signed_wsa{
@@ -677,7 +716,7 @@ typedef struct signed_wsa{
 
 
 /*
- * 41 free
+ * 41 free  buf_to  50
  */
 
 typedef struct sec_data{

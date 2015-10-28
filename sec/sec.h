@@ -39,6 +39,7 @@ enum sign_with_fast_verification{
  * @len_of_cert_chain:该证书连的长度。
  */
 result sec_signed_data(struct sec_db* sdb,
+                cmh cmh,
                 content_type type,string* data,
                 string* exter_data,psid psid,
                 string* ssp,
@@ -46,8 +47,8 @@ result sec_signed_data(struct sec_db* sdb,
                 time64_with_standard_deviation* generation_time,
                 bool set_generation_location,
                 three_d_location* location,
-                bool set_expiryt_time,
-                time64 expire_time,
+                bool set_expiry_time,
+                time64 expiry_time,
                 signer_identifier_type signer_type,
                 s32 cert_chain_len,
                 u32 cert_chain_max_len,
@@ -55,7 +56,7 @@ result sec_signed_data(struct sec_db* sdb,
                 bool compressed,
                 
                 string* signed_data,
-                u32 len_of_cert_chain);
+                u32* len_of_cert_chain);
 
 
 ;

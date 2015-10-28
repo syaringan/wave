@@ -5,7 +5,7 @@
 
 struct sec_db;
 enum identifier_type{
-    ID_CERTIFICATE = 0,
+    ID_CERTIFICATE = 0,//这个有两重意义，在construct——chain中为certificate_array
     ID_HASHEDID8 = 1,
     ID_CERTID10 = 2,
 };
@@ -24,6 +24,8 @@ struct cme_permissions{
         ARRAY(psid_ssp,psid_ssp_array);
         ARRAY(psid_priority_ssp,psid_priority_ssp_array);
     }u;
+    //我觉得这四个数组在设计上没有设计好，大多数用到他们的时候，没有体现数据的查询功能，
+    //相反链表会好很多，最主要的是让整个内部的数据结构统一，避免链表转数组，数组转链表的操作
 };
 void cme_permissions_free(struct cme_permissions* permissions);
 
@@ -191,7 +193,8 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
 
 
 /*********************证书的一些基本信息提取的操作****************/
-
+result certificate_get_start_time(certificate* cert,time32 *start_time);
+result certificate_get_expired_time(certificate* cert,time32 *expired_time);
 /*
  * 通过cmh来找到一个证书,成功返回0，失败返回-1
  * */
@@ -200,4 +203,5 @@ int find_cert_by_cmh(struct sec_db *sdb, void *value, struct certificate *cert);
 void certificate_2_hash8(struct certificate *cert, string *hash8);
 int cert_not_expired(struct sec_db *sdb, void *value);
 int cert_not_revoked(struct sec_db *sdb, enum identifier_type type, string *identifier);
+
 #endif
