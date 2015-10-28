@@ -173,7 +173,7 @@ bool VerifyMessage(const ECDSA<ECP, SHA1>::PublicKey& key,
 
 
 
-int ECDSA_get_privatekey(char* privatekey_buf, int len)
+int ECDSA256_get_privatekey(char* privatekey_buf, int len)
 {
 	bool result = false;
 	ECDSA<ECP, SHA1>::PrivateKey privatekey;
@@ -185,9 +185,9 @@ int ECDSA_get_privatekey(char* privatekey_buf, int len)
 	
 	stringstream stream;
 	string s_privatekey;
-	stream << privatekey.GetPrivateExponent();
+	stream <<std::hex<<privatekey.GetPrivateExponent();
 	stream >> s_privatekey;
-	s_privatekey.erase(--s_privatekey.end());
+	//s_privatekey.erase(--s_privatekey.end());
 	if((int)s_privatekey.length() >= len)
 		return -1;
 	//strcpy(privatekey_buf, s_privatekey.c_str());
@@ -196,7 +196,7 @@ int ECDSA_get_privatekey(char* privatekey_buf, int len)
 }
 
 
-int ECDSA_get_publickey(char* public_key_x_buf, char* public_key_y_buf,
+int ECDSA256_get_publickey(char* public_key_x_buf, char* public_key_y_buf,
 				int pulen, char* private_key_buf)
 {
 	Integer Integer_privatekey;
@@ -225,29 +225,27 @@ int ECDSA_get_publickey(char* public_key_x_buf, char* public_key_y_buf,
 	if(!result)	{return 0;}
 	stringstream streamx, streamy;
 	string publickey_x, publickey_y;
-	streamx << publicKey.GetPublicElement().x;
-	streamy << publicKey.GetPublicElement().y;
+	streamx <<std::hex <<publicKey.GetPublicElement().x;
+	streamy <<std::hex << publicKey.GetPublicElement().y;
 
 	streamx >> publickey_x;
 	streamy >> publickey_y;
 
-	publickey_x.erase(--publickey_x.end());
-	publickey_y.erase(--publickey_y.end());
+	//publickey_x.erase(--publickey_x.end());
+	//publickey_y.erase(--publickey_y.end());
 
 	if((int)publickey_x.length()>= pulen)
 		return -1;
 	StringToChar(publickey_x, public_key_x_buf);
-	cout<<"publc:"<<endl<<public_key_x_buf<<endl;
 
 	if((int)publickey_y.length()>=  pulen)
 		return -1;
 	StringToChar(publickey_y, public_key_y_buf);
-	cout<<"public"<<endl<<public_key_y_buf<<endl;
 	return (int)publickey_x.length();
 }
 
 
-int ECDSA_sign_message(char* private_key_buf, char* mess_buf, int mess_len,
+int ECDSA256_sign_message(char* private_key_buf, char* mess_buf, int mess_len,
 				char* signed_mess_buf, int signed_mess_len)
 {
 	bool result = false;
@@ -262,7 +260,6 @@ int ECDSA_sign_message(char* private_key_buf, char* mess_buf, int mess_len,
 	stream << s_private_key;
 	stream >> integer_privatekey;
 	
-	cout<<"privatekey:"<<integer_privatekey<<endl;
 	ECDSA<ECP, SHA1>::PrivateKey privateKey;
 	ECDSA<ECP, SHA1>::PublicKey publicKey;
 
@@ -280,19 +277,17 @@ int ECDSA_sign_message(char* private_key_buf, char* mess_buf, int mess_len,
 	result = SignMessage(privateKey, message, signed_message);
 	assert(true == result);
 	if(result == false)
-			cout<<"error in signMessage"<<endl;
 	if((int)signed_message.length() >= signed_mess_len)
 		return -1;
 	StringToChar(signed_message, signed_mess_buf);
 
-	cout<<"*************signed_message size"<<signed_message.length()<<endl;
 		return (int)signed_message.length();
 
 }
 
 
 
-int ECDSA_verify_message(char* public_key_x_buf, char* public_key_y_buf,
+int ECDSA256_verify_message(char* public_key_x_buf, char* public_key_y_buf,
 		char* signed_mess_buf,int signed_mess_len ,char* mess_buf, int mess_len)
 {
 	string public_key_xs, public_key_ys;
@@ -326,14 +321,9 @@ int ECDSA_verify_message(char* public_key_x_buf, char* public_key_y_buf,
 	result = publicKey.Validate(prng, 3);
 	if(!result)
 	{
-		cout<<"Faild to validate public key"<<endl;
 		return 0;
 	}
 	
-		cout<<"message"<<endl;
-	cout<<message<<endl;
-	cout<< "signed_message"<<signed_message<<endl;
-	cout<< "待认真消息长度"<<signed_message.length()<<endl;
 	result = VerifyMessage(publicKey, message, signed_message);
 	assert(true == result);
 
@@ -341,6 +331,162 @@ int ECDSA_verify_message(char* public_key_x_buf, char* public_key_y_buf,
 }
 
 
+int ECDSA224_get_privatekey(char* privatekey_buf, int len)
+{
+	bool result = false;
+	ECDSA<ECP, SHA1>::PrivateKey privatekey;
+	ECDSA<ECP, SHA1>::PublicKey publickey;
+
+	result = ECDSA_GeneratePrivateKey(CryptoPP::ASN1::secp224k1(), privatekey);
+	assert(true == result);
+	if(!result)	{return 0;}
+	
+	stringstream stream;
+	string s_privatekey;
+	stream <<std::hex<<privatekey.GetPrivateExponent();
+	stream >> s_privatekey;
+	//s_privatekey.erase(--s_privatekey.end());
+	if((int)s_privatekey.length() >= len)
+		return -1;
+	//strcpy(privatekey_buf, s_privatekey.c_str());
+	StringToChar(s_privatekey, privatekey_buf);
+	return (int)s_privatekey.length();
+}
+
+
+int ECDSA224_get_publickey(char* public_key_x_buf, char* public_key_y_buf,
+				int pulen, char* private_key_buf)
+{
+	Integer Integer_privatekey;
+	string s_privatekey;
+	
+	s_privatekey = private_key_buf;
+	//可能char中存在\0,所以不能直接进行赋值操作
+	//CharToString(s_privatekey, private_key_buf, prlen);
+
+	stringstream stream;
+	stream << s_privatekey;
+	stream >> Integer_privatekey;
+	bool result = false;
+
+	ECDSA<ECP, SHA1>::PrivateKey privateKey;
+	ECDSA<ECP, SHA1>::PublicKey publicKey;
+
+	result = ECDSA_GeneratePrivateKey(CryptoPP::ASN1::secp224k1(), privateKey);
+	assert(true == result);
+	if(!result) {return 0;}
+
+	privateKey.SetPrivateExponent(Integer_privatekey);
+	
+	result = ECDSA_GeneratePublicKey(privateKey, publicKey);
+	assert(true == result);
+	if(!result)	{return 0;}
+	stringstream streamx, streamy;
+	string publickey_x, publickey_y;
+	streamx <<std::hex <<publicKey.GetPublicElement().x;
+	streamy <<std::hex << publicKey.GetPublicElement().y;
+
+	streamx >> publickey_x;
+	streamy >> publickey_y;
+
+	//publickey_x.erase(--publickey_x.end());
+	//publickey_y.erase(--publickey_y.end());
+
+	if((int)publickey_x.length()>= pulen)
+		return -1;
+	StringToChar(publickey_x, public_key_x_buf);
+
+	if((int)publickey_y.length()>=  pulen)
+		return -1;
+	StringToChar(publickey_y, public_key_y_buf);
+	return (int)publickey_x.length();
+}
+
+
+int ECDSA224_sign_message(char* private_key_buf, char* mess_buf, int mess_len,
+				char* signed_mess_buf, int signed_mess_len)
+{
+	bool result = false;
+	string message, signed_message;
+	//message = mess_buf;
+	CharToString(message, mess_buf, mess_len);
+
+	string s_private_key;
+	s_private_key = private_key_buf;
+	Integer integer_privatekey;
+	stringstream stream;
+	stream << s_private_key;
+	stream >> integer_privatekey;
+	
+	ECDSA<ECP, SHA1>::PrivateKey privateKey;
+	ECDSA<ECP, SHA1>::PublicKey publicKey;
+
+	result = ECDSA_GeneratePrivateKey(CryptoPP::ASN1::secp224k1(),
+					privateKey);
+	//privateKey.Initialize(CryptoPP::ASN1::secp256k1, privatekey);
+	assert(true == result);
+	if(!result == result) {return 0;}
+	
+	privateKey.SetPrivateExponent(integer_privatekey);
+	result = ECDSA_GeneratePublicKey(privateKey, publicKey);
+	assert(true == result);
+	if(!result ){return 0;}
+
+	result = SignMessage(privateKey, message, signed_message);
+	assert(true == result);
+	if(result == false)
+	if((int)signed_message.length() >= signed_mess_len)
+		return -1;
+	StringToChar(signed_message, signed_mess_buf);
+
+		return (int)signed_message.length();
+
+}
+
+
+
+int ECDSA224_verify_message(char* public_key_x_buf, char* public_key_y_buf,
+		char* signed_mess_buf,int signed_mess_len ,char* mess_buf, int mess_len)
+{
+	string public_key_xs, public_key_ys;
+	//CharToString(public_key_xs, public_key_x_buf, pulen);
+	//CharToString(public_key_ys, public_key_y_buf, pulen);
+	public_key_xs = public_key_x_buf;
+	public_key_ys = public_key_y_buf;
+	string message, signed_message;
+	CharToString(message, mess_buf, mess_len);
+	CharToString(signed_message, signed_mess_buf, signed_mess_len);
+
+	Integer  integer_public_x;
+	Integer  integer_public_y;
+
+	stringstream streamx, streamy;
+	streamx << public_key_xs;
+	streamx >> integer_public_x;
+
+	streamy << public_key_ys;
+	streamy >> integer_public_y;
+
+	ECP::Point q;
+	q.identity = false;
+	q.x = integer_public_x;
+	q.y = integer_public_y;
+
+	ECDSA<ECP, SHA1>::PublicKey publicKey;
+	publicKey.Initialize(CryptoPP::ASN1::secp224k1(), q);
+	AutoSeededRandomPool prng;
+	bool result = false;	
+	result = publicKey.Validate(prng, 3);
+	if(!result)
+	{
+		return 0;
+	}
+	
+	result = VerifyMessage(publicKey, message, signed_message);
+	assert(true == result);
+
+	return 1;
+}
 
 
 int ECIES_get_private_key(char* private_key_buf, int prlen)
@@ -350,19 +496,16 @@ int ECIES_get_private_key(char* private_key_buf, int prlen)
 	ECIES<ECP>::Decryptor d0(prng, CryptoPP::ASN1::secp256r1());
 	Integer private_key = d0.GetKey().GetPrivateExponent();
 	ECIES<ECP>::Encryptor e0(d0);
-	cout<<"ECIES:"<<private_key<<endl;
 
-	cout<<"x:   "<<e0.GetKey().GetPublicElement().x<<endl;
-	cout<<"y:   "<<e0.GetKey().GetPublicElement().y<<endl;
 
 	stringstream stream;
 	string sprivatekey;
-	stream << private_key;
+	stream <<std::hex<< private_key;
 	stream >> sprivatekey;
 	
 	if(prlen <= (int)sprivatekey.length())
 		return -1;
-	sprivatekey.erase(--sprivatekey.end());
+	//sprivatekey.erase(--sprivatekey.end());
 	StringToChar(sprivatekey, private_key_buf);
 	return (int)sprivatekey.length();
 }
@@ -392,15 +535,13 @@ int ECIES_get_public_key(char* public_key_x_buf, char* public_key_y_buf,
 	Integer x = e0.GetKey().GetPublicElement().x;
 	Integer y = e0.GetKey().GetPublicElement().y;
 
-	streamx<< x;
-	streamy<< y;
+	streamx<< std::hex<<x;
+	streamy<< std::hex<<y;
 	
 	
 	streamx>> public_x;
 	streamy>> public_y;
 
-	public_x.erase(--public_x.end());
-	public_y.erase(--public_y.end());
 
 	if(pulen <= public_x.length())
 		return -1;
@@ -513,7 +654,6 @@ int HASH256_message(char* message, int len,
 					new StringSink(encoded)
 					)
 				); //StringSource
-	cout<< "key: "<<encoded<<endl;
 
 	try
 	{
@@ -539,8 +679,6 @@ int HASH256_message(char* message, int len,
 			)
 			);
 
-	cout<<"hmac:"<<encoded<<endl;
-	cout<<"hmac.size: "<<encoded.length()<<endl;
 	if(hash_len <= encoded.length())
 		return -1;
 	StringToChar(encoded, hash_message);
@@ -567,7 +705,6 @@ int HASH224_message(char* message, int len,
 					new StringSink(encoded)
 					)
 				); //StringSource
-	cout<< "key: "<<encoded<<endl;
 
 	try
 	{
@@ -593,8 +730,6 @@ int HASH224_message(char* message, int len,
 			)
 			);
 
-	cout<<"hmac:"<<encoded<<endl;
-	cout<<"hmac.size: "<<encoded.length()<<endl;
 	if(hash_len <= encoded.length())
 		return -1;
 	StringToChar(encoded, hash_message);

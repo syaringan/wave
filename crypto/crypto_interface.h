@@ -20,7 +20,7 @@ extern "C"{
  *	@len	 key_buf 的字节长度
  *	返回值： 0 私钥获取失败，-1 申请内存不够  大于零的数为私钥长度 
  */
-int 	ECDSA_get_privatekey(char* privatekey_buf, int len);
+int 	ECDSA256_get_privatekey(char* privatekey_buf, int len);
 /**
  *  函数产生公钥
  *  @public_key_x 公钥x
