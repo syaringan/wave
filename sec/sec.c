@@ -83,6 +83,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     tobesigned_data tbs_encode,tbs_sign;
     signed_data s_data;
     time32 start_time,expired_time;
+    string encoded_tbs,hashed_tbs,signed_tbs,privatekey;
 
     res = SUCCESS;
     INIT(cert);
@@ -93,18 +94,16 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     INIT(tbs_encode);
     INIT(tbs_sign);
     INIT(s_data);
-   
-    if( res = find_cert_by_cmh(sdb,&cmh,&cert) ){
-        goto fail;
-    }
+    INIT(encoded_tbs);
+    INIT(hashed_tbs);
+    INIT(signed_tbs);
+    INIT(privatekey);
 
-    cert_chain.certs = &cert; 
-    cert_chain.len = 1;
-    res = cme_construct_certificate_chain(sdb,ID_CERTIFICATE,NULL,&cert_chain,true,cert_chain_max_len,
-                    &construct_cert_chain,&permissions,&regions,NULL,NULL,NULL);
-    if(res != FOUND){
+    if( res = find_cert_prikey_by_cmh(sdb,cmh,&cert,&privatekey) ){
         goto fail;
     }
+    
+    cert_chain.certs = &cert; 
     if(certificate_get_start_time(&cert,&start_time) || 
             certificate_get_expired_time(&cert,&expired_time)){
         wave_error_printf("获取证书相关信息不对，这个证书没有这个信息");
@@ -156,16 +155,59 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     switch(type){
         case SIGNED:
             tbs_encode.u.type_signed.psid = psid;
+            
+            tbs_encode.u.type_signed_partical.data.len = data.len;
+            tbs_encode.u.type_signed_partical.data.buf = 
+                    (u8*)malloc(data.len);
+            if(tbs_encode.u.type_signed_partical.data.buf == NULL){
+                wave_malloc_error();
+                goto fail;
+            }
+            memcpy(tbs_encode.u.type_signed_partical.data.buf,data.buf,data.len);
             break;
         case SIGNED_PARTIAL_PAYLOAD:
             tbs_encode.u.type_signed_partical.psid = psid;
+
+            tbs_encode.u.type_signed_partical.data.len = data.len;
+            tbs_encode.u.type_signed_partical.data.buf = 
+                    (u8*)malloc(data.len);
+            if(tbs_encode.u.type_signed_partical.data.buf == NULL){
+                wave_malloc_error();
+                goto fail;
+            }
+            memcpy(tbs_encode.u.type_signed_partical.data.buf,data.buf,data.len);
+
+            if(exter_data != NULL){
+                tbs_encode.u.type_signed_partical.ext_data.len = exter_data.len;
+                tbs_encode.u.type_signed_partical.ext_data.buf = 
+                    (u8*)malloc(exter_data.len);
+                if(tbs_encode.u.type_signed_partical.ext_data.buf == NULL){
+                    wave_malloc_error();
+                    goto fail;
+                }
+                memcpy(tbs_encode.u.type_signed_partical.ext_data.buf,exter_data.buf,exter_data.len);
+            }
             break;
         case SIGNED_EXTERNAL_PAYLOAD:
             tbs_encode.u.psid = psid;
-            tbs_encode.u.
+           
+            if(exter_data != NULL){
+                tbs_encode.u.type_signed_partical.ext_data.len = exter_data.len;
+                tbs_encode.u.type_signed_partical.ext_data.buf = 
+                    (u8*)malloc(exter_data.len);
+                if(tbs_encode.u.type_signed_partical.ext_data.buf == NULL){
+                    wave_malloc_error();
+                    goto fail;
+                }
+                memcpy(tbs_encode.u.type_signed_partical.ext_data.buf,exter_data.buf,exter_data.len);
+            }
+            else{
+                wave_error_printf("模式为external_payload,但是你的exter_data为null");
+                goto fail;
+            }
             break;
         default:
-            wave_error_printf("这个指的话，是没有psid的。。怎么版，我只有返回错误");
+            wave_error_printf("这个指的话，是没有psid的。。怎么版，我只有返回错误,要不我这里暂时不支持这种");
             res = FAILURE;
             goto fail;
     }
@@ -185,7 +227,49 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         tbs_encode.tf |= EXPIRES;
         tbs_encode.flags_content.exipir_time = expiry_time; 
     }
-     
+
+    if( tobesigned_data_2_string(&tbs_encode,&encoded_tbs) ){
+        wave_error_printf("编码失败");
+        goto fail;
+    }
+    
+    //我要hash和签名了
+    switch(cert.version_and_type){
+        case 2:
+            if(cert.unsigned_certificate.holder_type  == ROOT_CA){
+                switch(cert.unsigned_certificate.version_and_type.verification_key.algorithm){
+                    case ECDSA_NISTP224_WITH_SHA224:
+                       if( crypto_HASH224(&encoded_tbs,&hashed_tbs) ){
+                            goto fail;
+                       }  
+                       break;
+                    case ECDSA_NISTP256_WITH_SHA256:
+                       if( crypto_HASH256(&encoded_tbs,&hashed_tbs))
+                           goto fail;
+                       break;
+                }
+                if(crypto_ECDSA_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
+                           goto fail;
+                break;
+            }
+            else{
+                switch(cert.unsigned_certificate.u.no_root_ca.signature_alg){
+                    case ECDSA_NISTP224_WITH_SHA224:
+                       if( crypto_HASH224(&encoded_tbs,&hashed_tbs) ){
+                            goto fail;
+                       }  
+                       break;
+                    case ECDSA_NISTP256_WITH_SHA256:
+                       if( crypto_HASH256(&encoded_tbs,&hashed_tbs))
+                           goto fail;
+                       break;
+                }
+                if(crypto_ECDSA_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
+                           goto fail;
+                break;
+            }
+    }
+    
 fail:
     certificate_free(&cert);
     //certificate_chain_free(&cert_chain);
@@ -197,6 +281,10 @@ fail:
     tobesigned_data_free(&tbs_encode);
     tobesigned_data_free(&tbs_sign);
     signed_data_free(&s_data);
+    string_free(encoded_tbs);
+    string_free(hashed_tbs);
+    string_free(signed_tbs);
+    string_free(privatekey);
     return res;
 }
 //未测

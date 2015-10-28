@@ -198,7 +198,26 @@ int find_cert_by_cmh(struct sec_db *sdb, void *value, struct certificate *cert){
     }
     return -1;
 }
-
+int find_cert_prikey_by_cmh(struct sec_db* sdb,cmh cmh,certificate* cert,string* privatekey){
+    struct cmh_key_cert *p = NULL;
+    if(privatekey == NULL || privatekey.buf != NULL){
+        wave_error_printf("string 里面可能有野指针");
+        return -1;
+    }
+    if(cert != NULL){
+        lock_rdlock(&sdb->cme_db.lock);
+        p = ckc_find(sdb->cme_db.cmhs.alloc_cmhs.cmh_key_cert ,&cmh);
+        if(!p){
+            lock_unlock(&sdb->cme_db.lock);
+            return -1;
+        }
+        certificate_cpy(cert, p->cert);
+        string_cpy(privatekey,p->private_key);
+        lock_unlock(&sdb->cme_db.lock);
+        return 0;
+    }
+    return -1;
+}
 result cme_lsis_request(struct sec_db* sdb,cme_lsis* lsis){
     struct cme_db  *cdb;
     struct list_head *head;

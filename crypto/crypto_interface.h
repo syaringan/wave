@@ -30,8 +30,8 @@ int 	ECDSA_get_privatekey(char* privatekey_buf, int len);
  *  返回值：0 公钥获取失败，-1，申请的内存不够公钥获取失败，other 获取成功
  *  大于零时为公钥长度（x， y长度相同）
  */
-int 	ECDSA_get_publickey(char* public_key_x_buf, char* public_key_y_buf, int pulen,
-				char* private_key_buf);		
+int 	ECDSA_get_publickey(char* public_key_x_buf,int xlen, char* public_key_y_buf,int ylen,
+				char* private_key_buf,int prilen);		
 /**
  *  利用私钥进行签名
  *	@private_key_buf 存放私钥
@@ -42,7 +42,7 @@ int 	ECDSA_get_publickey(char* public_key_x_buf, char* public_key_y_buf, int pul
  *  返回值 0 表示签名失败 -1 申请的内存不够     other 表示签名成功
  *  大于零为签名长度，
  */
-int		ECDSA_sign_message(char* private_key_buf, char* mess_buf, int mess_len, char* signed_mess_buf, int signed_mess_len);
+int		ECDSA_sign_message(char* private_key_buf,int prilen, char* mess_buf, int mess_len, char* signed_mess_buf, int signed_mess_len);
 /**
  *	利用公钥进行认证
  *	@public_key_x_buf 公钥x
@@ -51,7 +51,7 @@ int		ECDSA_sign_message(char* private_key_buf, char* mess_buf, int mess_len, cha
  *	@message_buf 没有签名的消息
  *	返回值 0 表示认证失败，other 签名成功
  */
-int		ECDSA_verify_message(char* public_key_x_buf, char* public_key_y_buf,
+int		ECDSA_verify_message(char* public_key_x_buf,int xlen, char* public_key_y_buf,int ylen,
 			 char* signed_mess_buf, int signed_mess_len, 
 				char* mess_buf, int mess_len);	
 /**
@@ -70,7 +70,7 @@ int		ECIES_get_private_key(char* private_key_buf, int prlen);
  *	@private_key_buf   私钥
  * 	返回值	0 表示获取失败， -1 申请的内存plen不够， 
  */
-int		ECIES_get_public_key(char* public_key_x_buf, char* public_key_y_buf, int pulen, char* private_key_buf);
+int		ECIES_get_public_key(char* public_key_x_buf,int xlen, char* public_key_y_buf,int ylen, char* private_key_buf,int prilen);
 /** 公钥加密，私钥解密，利用公钥加密
  *	message_buf 待加密的数据
  *	mess_len	待加密的数据长度
@@ -79,7 +79,8 @@ int		ECIES_get_public_key(char* public_key_x_buf, char* public_key_y_buf, int pu
  *	public_key_x/y_buf 公钥
  *	pulen 	私钥
  */
-int		ECIES_encrypto_message(char* mess_buf, int mess_len, char* encrypto_mess_buf, int encrypto_mess_len,char* public_key_x_buf, char* public_key_y_buf);
+int		ECIES_encrypto_message(char* mess_buf, int mess_len, char* encrypto_mess_buf, int encrypto_mess_len,char* public_key_x_buf,int xlen,
+             char* public_key_y_buf,int ylen);
 /**	利用私钥解密
  *	@encrypto_mess_buf 加密后的消息
  *  @encrypto_mess_len 加密后消息的长度
@@ -88,7 +89,8 @@ int		ECIES_encrypto_message(char* mess_buf, int mess_len, char* encrypto_mess_bu
  *  @private_key_buf   私钥
  *  @prlen 
  */
-int 	ECIES_decrypto_message(char* encrypto_mess_buf, int encrypto_mess_len, char* decrypto_mess_buf, int decrypto_mess_len, char* private_key_buf);
+int 	ECIES_decrypto_message(char* encrypto_mess_buf, int encrypto_mess_len, char* decrypto_mess_buf, int decrypto_mess_len,
+             char* private_key_buf,int prilen);
 /**
  *	计算消息的哈希值
  *	@message 待机算的消息

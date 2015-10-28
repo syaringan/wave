@@ -199,6 +199,8 @@ result certificate_get_expired_time(certificate* cert,time32 *expired_time);
  * 通过cmh来找到一个证书,成功返回0，失败返回-1
  * */
 int find_cert_by_cmh(struct sec_db *sdb, void *value, struct certificate *cert);
+int find_cert_prikey_by_cmh(struct sec_db * sdb,cmh cmh,certificate* cert,string *privatekey);
+
 
 void certificate_2_hash8(struct certificate *cert, string *hash8);
 int cert_not_expired(struct sec_db *sdb, void *value);
