@@ -20,7 +20,7 @@ extern "C"{
  *	@len	 key_buf 的字节长度
  *	返回值： 0 私钥获取失败，-1 申请内存不够  大于零的数为私钥长度 
  */
-int 	ECDSA_get_privatekey(char* privatekey_buf, int len);
+int 	ECDSA256_get_privatekey(char* privatekey_buf, int len);
 /**
  *  函数产生公钥
  *  @public_key_x 公钥x
@@ -30,7 +30,7 @@ int 	ECDSA_get_privatekey(char* privatekey_buf, int len);
  *  返回值：0 公钥获取失败，-1，申请的内存不够公钥获取失败，other 获取成功
  *  大于零时为公钥长度（x， y长度相同）
  */
-int 	ECDSA_get_publickey(char* public_key_x_buf, char* public_key_y_buf, int pulen,
+int 	ECDSA256_get_publickey(char* public_key_x_buf, char* public_key_y_buf, int pulen,
 				char* private_key_buf);		
 /**
  *  利用私钥进行签名
@@ -42,7 +42,7 @@ int 	ECDSA_get_publickey(char* public_key_x_buf, char* public_key_y_buf, int pul
  *  返回值 0 表示签名失败 -1 申请的内存不够     other 表示签名成功
  *  大于零为签名长度，
  */
-int		ECDSA_sign_message(char* private_key_buf, char* mess_buf, int mess_len, char* signed_mess_buf, int signed_mess_len);
+int		ECDSA256_sign_message(char* private_key_buf, char* mess_buf, int mess_len, char* signed_mess_buf, int signed_mess_len);
 /**
  *	利用公钥进行认证
  *	@public_key_x_buf 公钥x
@@ -51,7 +51,47 @@ int		ECDSA_sign_message(char* private_key_buf, char* mess_buf, int mess_len, cha
  *	@message_buf 没有签名的消息
  *	返回值 0 表示认证失败，other 签名成功
  */
-int		ECDSA_verify_message(char* public_key_x_buf, char* public_key_y_buf,
+int		ECDSA256_verify_message(char* public_key_x_buf, char* public_key_y_buf,
+			 char* signed_mess_buf, int signed_mess_len, 
+				char* mess_buf, int mess_len);	
+/**
+ *  函数产生私钥
+ *	@key_buf 存放密钥和公钥的入口地址
+ *	@len	 key_buf 的字节长度
+ *	返回值： 0 私钥获取失败，-1 申请内存不够  大于零的数为私钥长度 
+ */
+int 	ECDSA224_get_privatekey(char* privatekey_buf, int len);
+/**
+ *  函数产生公钥
+ *  @public_key_x 公钥x
+ *  @public_key_y 公钥y
+ *  @pulen 	公钥申请的内存长度
+ *	@privatekey_buf: 存放有privatekey的buf
+ *  返回值：0 公钥获取失败，-1，申请的内存不够公钥获取失败，other 获取成功
+ *  大于零时为公钥长度（x， y长度相同）
+ */
+int 	ECDSA224_get_publickey(char* public_key_x_buf, char* public_key_y_buf, int pulen,
+				char* private_key_buf);		
+/**
+ *  利用私钥进行签名
+ *	@private_key_buf 存放私钥
+ *  @message_buf	 需要签名的message
+ *  @mess_len		 message的字节长度
+ *  @signed_message_buf 存放签名后的message
+ *  @signed_mess_len	申请的内存大小
+ *  返回值 0 表示签名失败 -1 申请的内存不够     other 表示签名成功
+ *  大于零为签名长度，
+ */
+int		ECDSA224_sign_message(char* private_key_buf, char* mess_buf, int mess_len, char* signed_mess_buf, int signed_mess_len);
+/**
+ *	利用公钥进行认证
+ *	@public_key_x_buf 公钥x
+ *	@public_key_y_buf 公钥y
+ *	@signed_message_buf 签名消息
+ *	@message_buf 没有签名的消息
+ *	返回值 0 表示认证失败，other 签名成功
+ */
+int		ECDSA224_verify_message(char* public_key_x_buf, char* public_key_y_buf,
 			 char* signed_mess_buf, int signed_mess_len, 
 				char* mess_buf, int mess_len);	
 /**

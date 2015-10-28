@@ -14,16 +14,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-extern int ECDSA_get_privatekey(char* privatekey_buf, int len);
+extern int ECDSA256_get_privatekey(char* privatekey_buf, int len);
 
-extern int ECDSA_get_publickey(char* public_key_x_buf, char* public_key_y_buf,int pulen,
+extern int ECDSA256_get_publickey(char* public_key_x_buf, char* public_key_y_buf,int pulen,
 				char* private_key_buf);
-extern int ECDSA_sign_message(char* private_key_buf, char* mess_buf, int mess_len,
+extern int ECDSA256_sign_message(char* private_key_buf, char* mess_buf, int mess_len,
 				char* signed_mess_buf, int signed_mess_len);
 
 
-extern int ECDSA_verify_messagge(char* public_key_x_buf, char* public_key_y_buf,
+extern int ECDSA256_verify_messagge(char* public_key_x_buf, char* public_key_y_buf,
 				 char* signed_mess_buf, int signed_mess_len, char* mess_buf, int mess_len);
+
+extern int ECDSA224_get_privatekey(char* privatekey_buf, int len);
+
+extern int ECDSA224_get_publickey(char* public_key_x_buf, char* public_key_y_buf,int pulen,
+				char* private_key_buf);
+extern int ECDSA224_sign_message(char* private_key_buf, char* mess_buf, int mess_len,
+				char* signed_mess_buf, int signed_mess_len);
+
+
+extern int ECDSA224_verify_messagge(char* public_key_x_buf, char* public_key_y_buf,
+				 char* signed_mess_buf, int signed_mess_len, char* mess_buf, int mess_len);
+
+
 
 extern int ECIES_get_private_key(char* private_key_buf, int prlen);
 
@@ -54,7 +67,7 @@ int main()
 			printf("error in malloc\n");
 			return 0;
 		}
-	 	int private_len = ECDSA_get_privatekey(private_buf, 100);
+	 	int private_len = ECDSA224_get_privatekey(private_buf, 100);
 		printf("main函数中，私钥为：\n");
 		printf("%s",private_buf);
 		printf("\n");
@@ -74,7 +87,7 @@ int main()
 		}
 
 
-		int public_len = ECDSA_get_publickey(public_x_buf, public_y_buf, len + 40, private_buf);
+		int public_len = ECDSA224_get_publickey(public_x_buf, public_y_buf, len + 40, private_buf);
 		if(public_len < 0)
 		{
 			printf("error occur in publicke\n");
@@ -92,12 +105,12 @@ int main()
 		char mess[50] = "this is a test\n";
 		char signed_mess[100];
 
-		int signed_mess_len = ECDSA_sign_message(private_buf, mess, 14,
+		int signed_mess_len = ECDSA224_sign_message(private_buf, mess, 14,
 				signed_mess, 100);
 
 		printf("main 函数中，签名值为:\n %s\n", signed_mess);
 
-		int result= ECDSA_verify_message(public_x_buf, public_y_buf,  
+		int result= ECDSA224_verify_message(public_x_buf, public_y_buf,  
 				signed_mess, signed_mess_len, mess, 14);
 		if(result == 0)
 		{
