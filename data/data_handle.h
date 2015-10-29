@@ -29,11 +29,18 @@ u32 buf_2_sec_data(const u8* buf,u32 len, sec_data* sec);
  */
 void sec_data_free(sec_data* sec_data);
 
+
+/******************这后面请在data_helper.c里面实现******************/
 /**
  * 证书的复制
  */
+int sec_data_2_string(sec_data* sec_data,string* data);
+int certificate_2_string(certificate* cert,string* data);
+
 void certificate_cpy(certificate *dst,certificate *src);
 
 bool certificate_equal(certificate* a,certificate* b);
+
+void elliptic_curve_point_cpy(elliptic_curve_point* src,elliptic_curve_point* dst);
 
 #endif

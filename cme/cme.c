@@ -1235,3 +1235,35 @@ fail:
     string_free(&hashed);
     return -1;
 }
+
+int certificate_get_elliptic_curve_point(certificate* cert,elliptic_curve_point* point){
+    if(point->x.buf != NULL || point->u.y.buf != NULL){
+        wave_error_printf("出现野指针 %s %d",__FILE__,__LINE__);
+        return -1;
+    }
+    pk_algorithm algorithm;
+    
+    switch(point->type){
+        case 2:
+            if(cert->unsigned_certificate.holder_type == ROOT_CA){
+                 algorithm = cert->unsigned_certificate.version_and_type.verification_key.algorithm;
+            }
+            else{
+                algorithm = cert->unsigned_certificate.u.no_root_ca.signature_alg;
+            }
+            if(algorithm != ECDSA_NISTP224_WITH_SHA224 && algorithm != ECDSA_NISTP256_WITH_SHA256){
+                wave_error_printf("这里等于了一个不应该有的指  %s %d",__FILE__,__LINE__);
+                return -1;
+            }
+            elliptic_curve_point_cpy(point,&cert->u.signature.u.ecdsa_signature.r);     
+            break;
+        case 3:
+           elliptic_curve_point_cpy(point,&cert->u.reconstruction_value);   
+           break;
+        default:
+           wave_error_printf("这里不可能出现其他的指的 %s %d",__FILE__,__LINE__);
+           return -1;
+    }
+    return 0;
+
+}

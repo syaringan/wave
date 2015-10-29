@@ -1089,10 +1089,19 @@ void cmp_do_crl_req(crl_series crl_series,hashedid8* issuer){
     }
     pthread_mutex_unlock(&cmdb->lock);
 }
+//一个一直等待手数据的线程
+void read_progress(void* socket){
+    int fd = *(int*)socket;
+    while(1){
+        ca_read(fd);
+        cmp_do_recieve_data();
+    }
+    return;
+}
 void cmp_run(struct sec_db* sdb){
-    //socket
-    //create thread to recieve socket
     cmdb->socket = socket(AF_INET,SOCK_DGRAM,0);
+    pthread_t read_pthread;
+    pthread_create(&read_pthread,NULL,read_progress,&cmdb->socket);
     while(1){
         pthread_mutex_lock(&cmdb->lock);
         while(cmdb->pending == 0)
