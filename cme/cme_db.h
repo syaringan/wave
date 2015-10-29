@@ -24,6 +24,7 @@ struct cert_info{
     time32 next_recieve_crl;
     bool trust_anchor;
     bool trusted;
+    bool revoked;//新加字段判断是否吊销
     struct rb_head rb;
     time64 expriry;
     hashedid8 ca_id;

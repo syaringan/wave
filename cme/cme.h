@@ -206,4 +206,20 @@ int certificate_2_hash8(struct certificate *cert, string *hash8);
 int cert_not_expired(struct sec_db *sdb, void *value);
 int cert_not_revoked(struct sec_db *sdb, enum identifier_type type, string *identifier);
 int certificate_get_elliptic_curve_point(certificate* cert,elliptic_curve_point* point);
+int get_cert_expired_info_by_cmh(struct sec_db *sdb, void *value);
+
+int get_cert_info_by_certid(struct sec_db *sdb, enum identifier_type type, string *identifier,
+                             
+                            struct cert_info *cert_info);
+
+void certificate_2_hash8(struct certificate *cert, string *hash8);
+
+time64 get_next_crl_time_info(struct sec_db *sdb, crl_series crl_series, struct hashedid8 *id);
+
+int get_permission_from_certificate(certificate *cert,
+
+                                    struct cme_permissions *permission,
+                                    geographic_region *scope);
+
+int get_region(geographic_region *src, geographic_region *dst, enum holder_type type);
 #endif
