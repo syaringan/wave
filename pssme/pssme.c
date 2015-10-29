@@ -59,13 +59,8 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
     INIT(current_cert_permissions);
     INIT(c);
     INIT(geo_permissions);
+    INIT(cert_encoded);
     INIT_LIST_HEAD(&clist.list);
-    cert_encoded.buf = malloc(500);
-    if(!cert_encoded.buf){
-        wave_error_printf("内存分配失败");
-        goto fail;
-    }
-    cert_encoded.len = 0;
 
     struct pssme_local_cert *p;//遍历用的临时变量
     //访问pssme_db，找到符合lsis要求的cmh
@@ -110,10 +105,13 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
     list_for_each_entry(p, &clist.list, list){
         if(find_cert_by_cmh(sdb, &p->cmh, &c))
             continue;
-        if(cert_not_expired(sdb, &p->cmh))
+        if(get_cert_expired_info_by_cmh(sdb, &p->cmh))
             continue;
         //是否需要每次循环都填充为0
-        cert_encoded.len = certificate_2_buf(&c,cert_encoded.buf,500);
+        if(certificate_2_buf(&c,cert_encoded)){
+            wave_error_printf("证书编码失败");
+            goto fail;
+        }
        
         ret = cme_certificate_info_request(sdb, ID_CERTIFICATE, &cert_encoded, NULL, &current_cert_permissions, 
                 &geo_permissions, NULL, NULL, NULL, NULL);

@@ -15,6 +15,12 @@ enum sign_with_fast_verification{
     YES_COMPRESSED = 1,
     NO = 2,
 };
+
+typedef struct result_array{
+    result *result;
+    u32 len;
+}result_array;
+
 /**
  * 签名数据
  *
@@ -175,6 +181,7 @@ result sec_signed_wsa(struct sec_db* sdb,
 result sec_signed_wsa_verification(struct sec_db* sdb,
                 string* wsa,
                 
+                result_array *result;
                 string* wsa_data,
                 psid_priority_ssp_array* permissions,
                 time64_with_standard_deviation* generation_time,
@@ -189,7 +196,7 @@ result sec_check_certificate_chain_consistency(
                 struct sec_db* sdb,
                 struct certificate_chain* cert_chain,
                 struct cme_permissions_array* permission_array,
-                geographic_region* region);
+                struct geographic_region_array* region);
 
 result sec_check_chain_psids_consistency(struct sec_db* sdb,
                 struct cme_permissions_array* permission_array);
