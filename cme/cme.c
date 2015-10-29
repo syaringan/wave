@@ -685,3 +685,38 @@ fail:
     string_free(&hash8);
     return ret;
 }
+
+
+/*****************************************证书的一些操作的实现*************/
+
+int certificate_2_hash8(struct certificate *cert,string *hash8){
+
+    if(hash8 == NULL || hash8.buf != NULL){
+        wave_error_printf("参数错误");
+    }
+    string c,hashed;
+    INIT(c);
+    INIT(hashed);
+    if( certificate_2_string(cert,&c) ){
+        goto fail;
+    }
+    if( crypto_HASH256(&c,&hashed) ){
+        goto fail;
+    }
+    hash8.buf = (u8*)malloc(8);
+    if(hash8.buf == NULL){
+        wave_malloc_error();
+        goto fail;
+    }
+    //什么是低字节，这个地方是低字节嘛
+    memcpy(hash8.buf,hashed.buf+hashed.len-8,8);
+    wave_printf(MSG_DEBUG,"证书hash出来的低八字杰为：HASHEDID8_FORMAT",hash8.buf[0],hash8.buf[1],hash8.buf[2],hash8.buf[3],
+                hash8.buf[4],hash8.buf[5],hash8.buf[6],hash8.buf[7]);
+    string_free(&c);
+    string_free(&hashed);
+    return 0;
+fail:
+    string_free(&c);
+    string_free(&hashed);
+    return -1;
+}

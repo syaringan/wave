@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/socket.h>
 #include "../data/data_handle.h"
 #define FORWARD 60  //单位是s
 #define OVERDUE 60*10 // 单位是s
@@ -49,6 +50,7 @@ struct cmp_db{
     certificate ca_cert;
 
     u32 pending;
+    int socket;
     pthread_mutex_t lock;
 };
 
@@ -840,8 +842,8 @@ static void certificate_request_progress(struct cmp_db* cmdb,struct sec_db* sdb)
         goto fail;
     if(generate_cert_request(sdb,cmdb,lsis,&cert_pk,NULL,&keypair_pk,&data,&resquest_hash))
         goto fail;
-    ca_write(data.buf,data.len);
     pthread_mutex_lock(&cmdb->lock);
+    ca_write(cmdb->socket,data.buf,data.len);
     cmdb->req_cert_cmh = cert_cmh;
     cmdb->req_cert_enc_cmh  = key_pair_cmh;
     pthread_mutex_unlock(&cmdb->lock);
@@ -876,7 +878,6 @@ static void crl_request_progress(struct cmp_db* cmdb){
     crl_req->crl_series = cmdb->crl_request_crl_series;
     crl_req->issue_date = cmdb->crl_request_issue_date;
     hashedid8_cpy(&crl_req->issuer,&cmdb->crl_request_issuer);
-    pthread_mutex_unlock(&cmdb->lock);
     
     do{ 
         len = len*larger;
@@ -888,8 +889,8 @@ static void crl_request_progress(struct cmp_db* cmdb){
         larger++;
         data_len = crl_req_2_buf(buf,len,&crl_req);
     }while( data_len == NOT_ENOUGHT);
-
-    ca_write(buf,data_len);
+    ca_write(cmdb->socket,buf,data_len);
+    pthread_mutex_unlock(&cmdb->lock);
     sec_data_free(&sdata);
     free(buf);
     set_crl_request_alarm(cmdb);//发送了就设定下一个闹钟来请求
@@ -1089,6 +1090,9 @@ void cmp_do_crl_req(crl_series crl_series,hashedid8* issuer){
     pthread_mutex_unlock(&cmdb->lock);
 }
 void cmp_run(struct sec_db* sdb){
+    //socket
+    //create thread to recieve socket
+    cmdb->socket = socket(AF_INET,SOCK_DGRAM,0);
     while(1){
         pthread_mutex_lock(&cmdb->lock);
         while(cmdb->pending == 0)

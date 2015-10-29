@@ -15,6 +15,11 @@ enum sign_with_fast_verification{
     YES_COMPRESSED = 1,
     NO = 2,
 };
+enum signed_data_signer_type{
+    SIGNED_DATA_CERTIFICATE = 0,
+    SIGNED_DATA_CERTIFICATE_DIGEST = 1,
+    SIGNED_DATA_CERTIFICATE_CHAIN = 2,
+};
 /**
  * 签名数据
  *
@@ -49,7 +54,7 @@ result sec_signed_data(struct sec_db* sdb,
                 three_d_location* location,
                 bool set_expiry_time,
                 time64 expiry_time,
-                signer_identifier_type signer_type,
+                enum signed_data_signer_type signer_type,
                 s32 cert_chain_len,
                 u32 cert_chain_max_len,
                 enum sign_with_fast_verification fs_type,

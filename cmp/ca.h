@@ -1,7 +1,7 @@
 #ifndef CA_H
 #define CA_H
 
-void ca_write(u8* buf,u32 len);
-u32 ca_try_read(u8* buf,u32 len);
-u32 ca_read(u8* buf,u32 len);
+u32 ca_write(int fd,u8* buf,u32 len);
+s32 ca_try_read(int fd,u8* buf,u32 len);
+//s32 ca_read(u8* buf,u32 len);
 #endif
