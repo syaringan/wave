@@ -80,7 +80,7 @@ result sec_encrypted_data(struct sec_db* sdb,
                 string* data,
                 struct certificate_chain* certs,
                 bool compressed,
-                u64 time,
+                time64 time,
                 
                 string* encrypted_data,
                 struct certificate_chain* failed_certs);
@@ -94,7 +94,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,
                 string* data,
                 string* signed_data,
                 psid *psid,
-                struct cme_permissions  *permissions,
+                string* ssp;
                 bool* set_generation_time,
                 time64_with_standard_deviation *generation_time,
                 bool* set_expiry_time,

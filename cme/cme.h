@@ -114,7 +114,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
                     string *certificate,
                     struct cme_permissions* permissions,
                     geographic_region* scope,
-                    time64* last_crl_time,time64* next_crl_time,
+                    time32* last_crl_time,time32* next_crl_time,
                     bool* trust_anchor,bool* verified);
 
 /**

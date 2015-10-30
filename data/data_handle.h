@@ -35,6 +35,10 @@ void sec_data_free(sec_data* sec_data);
  * 证书的复制
  */
 int sec_data_2_string(sec_data* sec_data,string* data);
+int string_2_sec_data(string* data,sec_data* sec_data);
+
+int encrypted_data_2_string(encrypted_data* enc_data,string* data);
+int string_2_encrypted_data(string* data,encrypted_data* enc_data);
 int certificate_2_string(certificate* cert,string* data);
 
 void certificate_cpy(certificate *dst,certificate *src);

@@ -9,6 +9,7 @@
 #include "../pssme/pssme.h"
 #include "../data/data.h"
 #include "../cme/cme.h"
+#include <time.h>
 #define INIT(m) memset(&m,0,sizeof(m))
 
 
@@ -87,7 +88,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     time32 start_time,expired_time;
     string encoded_tbs,hashed_tbs,signed_tbs,privatekey,hash8;
     elliptic_curve_point point;
-    pk_algorithm algorithm = 100;//这里让他等于一个不可能的指
+    pk_algorithm algorithm = PK_ALGOTITHM_NOT_SET;//这里让他等于一个不可能的指
     int i;
 
     res = SUCCESS;
@@ -505,6 +506,322 @@ fail:
     elliptic_curve_point_free(&point);
     return res;
 }
+
+
+result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,struct certificate_chain* certs,
+                bool compressed,time64 time,
+                
+                string* encrypted_data,struct certificate_chain* failed_certs){
+    if(encrypted_data == NULL || encrypted_data.buf != NULL ||failed_certs == NULL
+            failed_certs.certs != NULL){
+        wave_error_printf("参数有问题 %s %d",__FILE__,__LINE__);
+    }
+    
+    result res = SUCCESS;
+    certificate_chain enc_certs;
+    certificate *temp_cert;
+    symm_algorithm symm_alg = SYMM_ALGORITHM_NOT_SET,current_symm_alg;//表示没有设定
+    int i;
+    string symm_key;
+    string cert_string;
+    string ok;
+    sec_data sdata;
+    recipient_info *rec_info; 
+    time32 next_crl_time;
+    time_t now;
+
+    INIT(enc_certs);
+    INIT(symm_key);
+    INIT(cert_string);
+    INIT(ok);
+    INIT(sdata);
+    
+    failed_certs->len = 0;
+    for(i=0;i<certs->len;i++){
+        string_free(cert_string);
+        temp_cert = certs->certs+i;
+        if( certificate_2_string(temp_cert,&cert_string))
+            goto end;
+        res = cme_certificate_info_request(sdb,ID_CERTIFICATE,&cert_string, 
+                            NULL,NULL,NULL,&next_crl_time,NULL,NULL);
+        if(res != FOUND){
+            res = FAIL_ON_SOME_CERTIFICATES;
+            if(certificate_chain_add_cert(failed_certs,temp_cert))
+                goto end;
+        }
+        else{
+            time(&now);
+            if(next_crl_time < now - OVERDUE_CRL_TOLERANCE){
+                wave_printf(MSG_WARNING,"crl没有获得，crl_next_time:%d  now:%d  over:OVERDUE_CRL_TOLERANCE\n",
+                        next_crl_time,now);
+                res = FAIL_ON_SOME_CERTIFICATES;
+                if(certificate_chain_add_cert(failed_certs,temp_cert))
+                    goto end;
+            }
+            else{
+                if(temp_cert->version_and_type != 2 ||
+                        temp_cert->unsigned_certificate.version_and_type.verification_key.algorithm !=
+                            ECIES_NISTP256){
+                    wave_error_printf("这个证书version_and_type != 2 或者algroithm != ECIES_NISTP256  %s %d"
+                            ,__FILE__,__LINE__);
+                    res = FAIL_ON_SOME_CERTIFICATES;
+                    if(certificate_chain_add_cert(failed_certs,temp_cert))
+                        goto end;
+                }
+                else{
+                    current_symm_alg = temp_cert->unsigned_certificate.version_and_type.verification_key.
+                                            u.ecies_nistp256.supported_symm_alg;
+                    if(current_symm_alg != AES_128_CCM){
+                        wave_error_printf("我们目前支持的加密算法只有AES_128_CCM %s %d",__FILE__,__LINE__);
+                        res = FAIL_ON_SOME_CERTIFICATES;
+                        if(certificate_chain_add_cert(failed_certs,temp_cert))
+                            goto end;
+                    }
+                    else{
+                        //这个地方我不知道我理解对没有，，请后来的人在核实一下，我是按照我的逻辑和想法猜测的
+                        if(symm_algorithm != SYMM_ALGORITHM_NOT_SET && symm_algorithm != current_symm_alg){
+                            res = FAIL_ON_SOME_CERTIFICATES;
+                            if(certificate_chain_add_cert(failed_certs,temp_cert))
+                                goto end;
+                        }
+                        else{
+                            symm_algorithm = current_symm_alg;
+                            if(certificate_chain_add_cert(&enc_certs,temp_cert))
+                                goto end;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if(enc_certs.len == 0){
+        res = FAIL_ON_ALL_CERTIFICATES;
+        goto end;
+    }
+    sdata.u.encrypted_data.recipients.buf = (recipient_info*)malloc(sizeof(recipient_info) * enc_certs.len);
+    if(sdata.u.encrypted_data.recipients.buf == NULL){
+        wave_malloc_error();
+        goto end;
+    }
+    sdata.u.encrypted_data.recipients.len = enc_certs.len;
+
+    /****
+     *这里随即产生一个对等加密的key 然后写进ok里面
+     */
+
+    for(i=0;i<enc_certs.len;i++){
+        rec_info = sdata.u.encrypted_data.recipients.buf+i;
+
+    }
+    //这里等待后面书写
+end:
+    string_free(&symm_key);
+    certificate_chain_free(&enc_certs);
+    string_free(&cert_string);
+    string_free(&ok);
+    sec_data_free(&sdata);
+    return res;
+}
+
+
+
+result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data,cmh cmh ,
+        
+                            content_type *content_type,content_type *inner_type,string* data,
+                            string* signed_data,psid *psid,
+                            string* ssp, bool* set_generation_time,
+                            time64_with_standard_deviation *generation_time,
+                            bool* set_expiry_time,time64* expiry_time,bool* set_generation_location,
+                            three_d_location* location,certificate* send_cert){
+    result res;
+    sec_data sdata;
+    encrypted_data *enc_data;
+    struct signed_data *s_data;
+    struct signer_identifier *signer;
+    string temp;
+    content_type type;
+    bool verified;
+    psid m_psid;
+    struct cme_permissions permissions;
+    int i;
+
+    INIT(sdata);
+    INIT(temp);
+    INIT(permissions);
+
+    if(  string_2_sec_data(recieve_data,&sdata)){
+        wave_error_printf("不能将受到的数据变为sdata %s %d",__FILE__,__LINE__);
+        res = INVAID_INPUT;
+        goto end;
+    }
+    if(content_type != NULL)
+        *content_type = sdata.type;
+    type = sdata.type;
+
+    if(sdata.protocol_version != CURRETN_VERSION){
+        wave_error_printf("这个数据不是本版本的 %s %d",__FILE__,__LINE__);
+        res = FAILURE;
+        goto end;
+    }
+    switch(type){
+        case ENCRYPTED:
+            enc_data = &sdata.u.encrypted_data;
+            if( encrypted_data_2_string(enc_data,&temp)){
+                wave_error_printf("转化失败 %s %d",__FILE__,__LINE__);
+                res = FAILURE;
+                goto fail;
+            }
+            //这里我觉得逻辑有错，我并没有按照协议的走，，如果出现bug请核对哈
+            res = sec_decrypt_data(sdb,&temp,cmh, inner_type,data);
+            if(res != SUCCESS){
+                goto end;
+            }
+            break;
+        case UNSECURED:
+            if(data != NULL){
+                if(data->buf != NULL){
+                    wave_error_printf("存在野指针 %s %d",__FILE__,__LINE__);
+                    res = FAILURE;
+                    goto end;
+                }
+                data->buf = (u8*)malloc(sdata.u.data.len);
+                if(data->buf == NULL){
+                    res = FAILURE;
+                    wave_malloc_error();
+                    goto end;
+                }
+                data->len = sdata.u.data.len;
+                memcpy(data->buf,sdata.u.data.buf,data->len);
+            }
+            goto end;
+        case SIGNED: 
+        case SIGNED_PARTIAL_PAYLOAD:
+        case SIGNED_EXTERNAL_PAYLOAD:
+            s_data = &sdata.u.signed_data;
+            switch(type){
+                case SIGNED:
+                    m_psid = s_data->unsigned_data.u.type_signed.psid; 
+                    break;
+                case SIGNED_PARTIAL_PAYLOAD:
+                    m_psid = s_data->unsigned_data.u.type_signed_partical.psid;
+                    break;
+                case SIGNED_EXTERNAL_PAYLOAD:
+                    m_psid = s_data->unsigned_data.u.type_signed_external.psid;
+                    break;
+            }
+            if(psid != NULL)
+                *psid = m_psid;
+            if(s_data->unsigned_data.tf & USE_GENERATION_TIME){
+                if(set_generation_time != NULL){
+                    *set_generation_time = true;
+                    if(generation_time != NULL){
+                        memcpy(generation_time,&s_data->unsigned_data.flags_content.generation_time,
+                                sizeof(time64_with_standard_deviation));
+                    }
+                }
+            }
+            else{
+                if(set_generation_time != NULL)
+                    *set_generation_time = false;
+            }
+
+            if(s_data->unsigned_data.tf & EXPIRES){
+                if(set_expiry_time != NULL){
+                    *set_expiry_time = true;
+                    if(expire_time != NULL)
+                        *expire_time = s_data->unsigned_data.flags_content.exipir_time;
+                }
+            }
+            else{
+                if(set_expiry_time != NULL)
+                    *set_expiry_time = false;
+            }
+
+            if(s_data->unsigned_data.tf & USE_LOCATION){
+                if(set_generation_location != NULL)
+                    *set_generation_location = true;
+                if(location != NULL){
+                    memcpy(location,&s_data->unsigned_data.flags_content.generation_location,sizeof(three_d_location));
+                }
+            }
+            else{
+                if(set_generation_location != NULL)
+                    *set_generation_location = false;
+            }
+
+            signer = &s_data.signer;
+            string_free(&temp);
+            if(signer->type == CERTIFICATE || signer->type == CERTIFICATE_CHAIN ){
+                if(signer->type == CERTIFICATE ){
+                    certificate_2_string(&signer->u.certificate,&temp);
+                }
+                else if(signer->type == CERTIFICATE_CHAIN){
+                    certificate_2_string(signer->u.certificates.buf+signer->u.certificates.len-1,&temp);
+                }
+                res = cme_certificate_info_request(sdb,ID_CERTIFICATE,&temp, NULL,&permissions,NULL,NULL,
+                            NULL,NULL,&verified);
+                if(res == CERTIFICATE_NOT_FOUND){
+                    if(signer->type == CERTIFICATE){
+                        cme_add_certificate(sdb,&signer->u.certificate,false);
+                    }
+                    else{
+                        cme_add_certificate(sdb,&signer->u.certificates.buf+signer->u.certificates.len-1,false);
+                    }
+                    res = FOUND;
+                }
+                if(res != NOT_FOUND){
+                    res = UNKNOWN_CERTIFICATE;
+                    goto end;
+                }
+                if(send_cert != NULL){
+                    if(signer->type == CERTIFICATE){
+                        certificate_cpy(send_cert,&signer->u.certificate);
+                    }
+                    else{
+                        certificate_cpy(send_cert,&signer->u.certificates.buf+signer->u.certificates.len-1);
+                    }
+                }
+            }
+            break;
+        default:
+            res = INVAID_INPUT;
+            wave_error_printf("出现了其他类心 %s %d",__FILE__,__LINE__);
+            goto end;
+    }
+    if(permissions.type == PSID_SSP ){
+        for(i=0;i<permissions.u.psid_ssp_array.len.i++){
+            if( (permissions.u.psid_ssp_array.buf+i)->psid == m_psid){
+                string_cpy(ssp,&(permissions.u.psid_ssp_array.buf+i)->ssp);
+                break;
+            }
+        } 
+        if(i == permissions.u.psid_ssp_array.len ){
+            res = INCONSISITENT_PERMISSIONS;
+            goto end;
+        }   
+    }
+    if(ssp != NULL && ssp.buf == NULL){
+        else if(permissions.type == PSID_PRIORITY_SSP){
+            for(i=0;i<permissions.u.psid_priority_ssp_array.len.i++){
+                if( (permissions.u.psid_priority_ssp_array.buf+i)->psid == m_psid){
+                    string_cpy(ssp,&(permissions.u.psid_priority_ssp_array.buf+i)->ssp);
+                    break;
+                }
+            } 
+            if(i == permissions.u.psid_priority_ssp_array.len ){
+                res = INCONSISITENT_PERMISSIONS;
+                goto end;
+            }
+        }
+    }
+    res = SUCCESS;
+    goto end;
+end:
+    sec_data_free(&sdata);
+    string_free(temp);
+    cme_permissions_free(&permissions);
+    return res;
+}
 //未测
 result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permissions,time32 life_time,string* signed_wsa){
     result ret = SUCCESS;
@@ -714,7 +1031,16 @@ result sec_check_chain_psids_consistency(struct sec_db* sdb,
     }
     return ret;
 }
-
+static inline void certificate_chain_add_cert(struct certificate_chain* certs,certificate* cert){
+    certs->certs = (certificate*)realloc(sizeof(certificate)*certs->len+1);
+    if(certs->certs == NULL){
+        wave_malloc_error();
+        return -1;
+    }
+    certs->len++;
+    certificate_cpy(certs->certs+certs->len-1,cert);
+    return 0;
+}
 result sec_check_chain_psid_priority_consistency(struct sec_db* sdb,
                         struct cme_permissions_array* permission_array){
     result ret = SUCCESS;

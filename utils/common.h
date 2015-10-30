@@ -3,6 +3,7 @@
 #include <endian.h>
 
 #define CURRETN_VERSION 2
+#define OVERDUE_CRL_TOLERANCE 100//单位秒
 typedef enum result{
     SUCCESS = 0,
     FAILURE = 1,
@@ -74,6 +75,9 @@ typedef enum result{
     INCONSISTENT_START_TIMES = 68,
     START_VALIDITY_LATER_THAN_EXPIRATION = 69,
     TOO_MANY_ENTRIES_IN_RECTANGULAR_GEOGRAPHIC_SCOPE = 70,
+    FAIL_ON_SOME_CERTIFICATES = 71,
+    FAIL_ON_ALL_CERTIFICATES = 72,
+    UNKNOWN_CERTIFICATE = 73,
 }result;
 
 
