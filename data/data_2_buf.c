@@ -41,7 +41,7 @@ static inline tobuf16(u8* buf,u16 value){//fixlength vector
     *buf++ = getchar2(value);
 }
 static inline tobuf64(u8* buf,u64 value){
-    value = host_to_be32(value);
+    value = host_to_be64(value);
     *buf++ = getchar1(value);
     *buf++ = getchar2(value);
     *buf++ = getchar3(value);
@@ -111,31 +111,31 @@ static void varible_len8_encoding(u8* buf,u64 len){//同上 小于56次方
     tobuf64(buf,size);
 }
 static void  varible_len_encoding(u8* buf,u64 len){//对Variable length的length进行编码 
-    if(len < 2<<7){
+    if(len < 1<<7){
         varible_len1_encoding(buf,(u8)len);
         return ;
     }
-    if(len < 2<<14){
+    if(len < 1<<14){
         varible_len2_encoding(buf,(u16)len);
         return ;
     }
-    if(len < 2<<21){
+    if(len < 1<<21){
         varible_len3_encoding(buf,(u32)len);
         return ;
     }
-    if(len < 2<<28){
+    if(len < 1<<28){
         varible_len4_encoding(buf,(u32)len);
         return ;
     }
-    if(len < 2ull<<35){  //默认为4字节，后加ull表示为8字节
+    if(len < 1ull<<35){  //默认为4字节，后加ull表示为8字节
         varible_len5_encoding(buf,(u64)len);
         return ;
     }
-    if(len < 2ull<<42){
+    if(len < 1ull<<42){
         varible_len6_encoding(buf,(u64)len);
         return ;
     }
-    if(len < 2ull<<49){
+    if(len < 1ull<<49){
         varible_len7_encoding(buf,(u64)len);
         return ;
     }
@@ -144,35 +144,86 @@ static void  varible_len_encoding(u8* buf,u64 len){//对Variable length的length
         
 }
 static u32 varible_len_calculate(u64 len){  
-    if(len < 2<<7){
+    if(len < 1<<7){
         return 1;
     }
-    if(len < 2<<14){
+    if(len < 1<<14){
         return 2;
     }
-    if(len < 2<<21){
+    if(len < 1<<21){
         return 3;
     }
-    if(len < 2<<28){
+    if(len < 1<<28){
         return 4;
     }
-    if(len < 2ull<<35){
+    if(len < 1ull<<35){
         return 5;
     }
-    if(len < 2ull<<42){
+    if(len < 1ull<<42){
         return 6;
     }
-    if(len < 2ull<<49){
+    if(len < 1ull<<49){
         return 7;
     }
     return 8;
+}
+
+static u32 psid_encoding(u8* buf,const psid* psid){
+	if((*psid & 15<<28) == 15<<28){
+//		wave_printf(MSG_ERROR,"psid大于4字节");
+		return -1;
+	}
+	u32 size;
+	u32 value = host_to_be32(*psid);
+
+	if((*psid & 14<<28) == 14<<28){
+		size = 4;
+	}
+	else if((*psid & 6<<21) == 6<<21){
+		size = 3;
+		if((*psid & 0xff000000) != 0)
+			return -1;
+	}
+	else if((*psid & 2<<14) == 2<<14){
+		size = 2;
+		if((*psid & 0xffff0000) != 0)
+			return -1;
+	}
+	else if((*psid & 1<<7) == 0){
+		size = 1;
+		if((*psid & 0xffffff00) != 0)
+			return -1;
+	}
+	else
+		return -1;
+
+	switch(size){
+		case 1:
+			value = value>>24;
+			break;
+		case 2:
+			value = value>>16;
+			break;
+		case 3:
+			value = value>>8;
+			break;
+		default:
+			break;
+	}
+
+	*buf++ = getchar1(value);
+	*buf++ = getchar2(value);
+	*buf++ = getchar3(value);
+	*buf++ = getchar4(value);
+
+	return size;
 }
 
 /**
  *   data_2  1
  */
 
-u32 time64_with_standard_deviation_2_buf(const time64_with_standard_deviation *time64_with_standard_deviation,
+static u32 time64_with_standard_deviation_2_buf(const time64_with_standard_deviation *time64_with_standard_deviation,
 		u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -196,7 +247,7 @@ u32 time64_with_standard_deviation_2_buf(const time64_with_standard_deviation *t
  *   data_2  2
  */
 
-u32 tbsdata_extension_2_buf(const tbsdata_extension *tbsdata_extension,
+static u32 tbsdata_extension_2_buf(const tbsdata_extension *tbsdata_extension,
 		u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -229,7 +280,7 @@ u32 tbsdata_extension_2_buf(const tbsdata_extension *tbsdata_extension,
  *   data_2  3
  */
 
-u32 three_d_location_2_buf(const three_d_location *three_d_location,
+static u32 three_d_location_2_buf(const three_d_location *three_d_location,
 		u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -260,7 +311,7 @@ u32 three_d_location_2_buf(const three_d_location *three_d_location,
  *   data_2  4
  */
 
-u32 hashedid8_2_buf(const hashedid8 *hashedid8,u8* buf,u32 len){
+static u32 hashedid8_2_buf(const hashedid8 *hashedid8,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -280,7 +331,7 @@ u32 hashedid8_2_buf(const hashedid8 *hashedid8,u8* buf,u32 len){
  *   data_2  5
  */
 
-u32 elliptic_curve_point_2_buf(const elliptic_curve_point *elliptic_curve_point,
+static u32 elliptic_curve_point_2_buf(const elliptic_curve_point *elliptic_curve_point,
 		u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -295,34 +346,19 @@ u32 elliptic_curve_point_2_buf(const elliptic_curve_point *elliptic_curve_point,
 	size--;
 	res++;
 
-//	encode_len = varible_len_calculate(elliptic_curve_point->x.len);
-//	if (size < encode_len + elliptic_curve_point->x.len)
-//		return NOT_ENOUGHT;
-//	varible_len_encoding(mbuf,elliptic_curve_point->x.len);
-//	mbuf += encode_len;
-
 	for(i=0;i < elliptic_curve_point->x.len;i++){
 		*mbuf++ = *(elliptic_curve_point->x.buf + i);
 	}
-//	size = size - encode_len - elliptic_curve_point->x.len;
-//	res = res + encode_len + elliptic_curve_point->x.len;
 	size = size - elliptic_curve_point->x.len;
 	res = res + elliptic_curve_point->x.len;
 
-/*	if(elliptic_curve_point->type == UNCOMPRESSED){
-//		encode_len = varible_len_calculate(elliptic_curve_point->u.y.len);
-//		if (size < encode_len + elliptic_curve_point->u.y.len)
-//			return NOT_ENOUGHT;
-//		varible_len_encoding(mbuf,elliptic_curve_point->u.y.len);
-//		mbuf += encode_len;
-
+	if(elliptic_curve_point->type == UNCOMPRESSED){
 		for(i=0;i < elliptic_curve_point->u.y.len;i++){
 			*mbuf++ = *(elliptic_curve_point->u.y.buf + i);
 		}
 		size = size - encode_len - elliptic_curve_point->u.y.len;
 		res = res + encode_len + elliptic_curve_point->u.y.len;
 	}
-*/
 	return res;
 }
  
@@ -330,7 +366,7 @@ u32 elliptic_curve_point_2_buf(const elliptic_curve_point *elliptic_curve_point,
  *   data_2  6
  */
 
-u32 ecdsa_signature_2_buf(const ecdsa_signature *ecdsa_signature,u8* buf,u32 len){
+static u32 ecdsa_signature_2_buf(const ecdsa_signature *ecdsa_signature,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -347,19 +383,12 @@ u32 ecdsa_signature_2_buf(const ecdsa_signature *ecdsa_signature,u8* buf,u32 len
 	size -= encode_len;
 	res += encode_len;
 
-//	encode_len = varible_len_calculate(ecdsa_signature->s.len);
-//	if (size < encode_len + ecdsa_signature->s.len)
-//		return NOT_ENOUGHT;
-//	varible_len_encoding(mbuf,ecdsa_signature->s.len);
-//	mbuf += encode_len;
-
 	for(i=0;i < ecdsa_signature->s.len;i++){
 		*mbuf++ = *(ecdsa_signature->s.buf + i);
 	}
-//	size = size - encode_len - ecdsa_signature->s.len;
-//	res = res + encode_len + ecdsa_signature->s.len;
 	size = size - ecdsa_signature->s.len;
 	res = res + ecdsa_signature->s.len;
+
 	return res;
 }
 
@@ -368,7 +397,7 @@ u32 ecdsa_signature_2_buf(const ecdsa_signature *ecdsa_signature,u8* buf,u32 len
  *   data_2  7
  */
 
-u32 signature_2_buf(const signature *signature,u8* buf,u32 len,pk_algorithm algorithm){
+static u32 signature_2_buf(const signature *signature,u8* buf,u32 len,pk_algorithm algorithm){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -403,7 +432,7 @@ u32 signature_2_buf(const signature *signature,u8* buf,u32 len,pk_algorithm algo
  *   data_2  8
  */
 
-u32 public_key_2_buf(const public_key *public_key,u8* buf,u32 len){
+static u32 public_key_2_buf(const public_key *public_key,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -417,9 +446,6 @@ u32 public_key_2_buf(const public_key *public_key,u8* buf,u32 len){
 	 mbuf++;
 	 size--;
 	 res++;
-
-
-
 
 	 switch(public_key->algorithm){
 		 case ECDSA_NISTP224_WITH_SHA224:
@@ -457,7 +483,7 @@ u32 public_key_2_buf(const public_key *public_key,u8* buf,u32 len){
  *   data_2  9
  */
 
-u32 two_d_location_2_buf(const two_d_location *two_d_location,u8* buf,u32 len){
+static u32 two_d_location_2_buf(const two_d_location *two_d_location,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -480,7 +506,7 @@ u32 two_d_location_2_buf(const two_d_location *two_d_location,u8* buf,u32 len){
  *   data_2  10
  */
 
-u32 rectangular_region_2_buf(const rectangular_region *rectangular_region,u8* buf,u32 len){
+static u32 rectangular_region_2_buf(const rectangular_region *rectangular_region,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -509,7 +535,7 @@ u32 rectangular_region_2_buf(const rectangular_region *rectangular_region,u8* bu
  *   data_2  11
  */
 
-u32 circular_region_2_buf(const circular_region *circular_region,u8* buf,u32 len){
+static u32 circular_region_2_buf(const circular_region *circular_region,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -537,7 +563,7 @@ u32 circular_region_2_buf(const circular_region *circular_region,u8* buf,u32 len
  *   每个rectangular_region长度为16字节
  */
 
-u32 geographic_region_2_buf(const geographic_region *geographic_region,u8* buf,u32 len){
+static u32 geographic_region_2_buf(const geographic_region *geographic_region,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -606,17 +632,21 @@ u32 geographic_region_2_buf(const geographic_region *geographic_region,u8* buf,u
  *   data_2  13
  */
 
-u32 psid_priority_2_buf(const psid_priority *psid_priority,u8* buf,u32 len){
+static u32 psid_priority_2_buf(const psid_priority *psid_priority,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
-	if(len < 5)
+	u32 encode_len;
+
+	if(len < 2)
 		return NOT_ENOUGHT;
 
-	tobuf32(mbuf,psid_priority->psid);
-	mbuf += 4;
-	size -= 4;
-	res += 4;
+	encode_len = psid_encoding(mbuf,&psid_priority->psid);
+	if(encode_len < 0)
+		return encode_len;
+	mbuf += encode_len;
+	size -= encode_len;
+	res += encode_len;
 
 	*mbuf = psid_priority->max_priority;
 	mbuf++;
@@ -629,7 +659,7 @@ u32 psid_priority_2_buf(const psid_priority *psid_priority,u8* buf,u32 len){
  *   data_2  14
  */
 
-u32 psid_priority_array_2_buf(const psid_priority_array *psid_priority_array,
+static u32 psid_priority_array_2_buf(const psid_priority_array *psid_priority_array,
 		u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -686,11 +716,14 @@ u32 psid_priority_array_2_buf(const psid_priority_array *psid_priority_array,
  *   data_2  15
  */
 
-u32 psid_array_2_buf(const psid_array *psid_array,u8* buf,u32 len){
+static u32 psid_array_2_buf(const psid_array *psid_array,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
+	u8* mbuf_beg;
+	u8* mbuf_end;
+	u32 min_len;
 	int i;
 
 	if(len < 1)
@@ -703,20 +736,35 @@ u32 psid_array_2_buf(const psid_array *psid_array,u8* buf,u32 len){
 
 	switch(psid_array->type){
 		case ARRAY_TYPE_SPECIFIED:
-			encode_len = varible_len_calculate(psid_array->u.permissions_list.len*8);
-			if (size < encode_len + psid_array->u.permissions_list.len*8)
+			min_len = varible_len_calculate(psid_array->u.permissions_list.len);
+			if (size < min_len + psid_array->u.permissions_list.len)
 				return NOT_ENOUGHT;
-			varible_len_encoding(mbuf,psid_array->u.permissions_list.len*8);
-			mbuf += encode_len;
-			size -= encode_len;
-			res += encode_len;
-
+			
+			mbuf_beg = mbuf;
+			u32 data_len = 0;
 			for(i=0;i < psid_array->u.permissions_list.len;i++){
-				tobuf64(mbuf,*(psid_array->u.permissions_list.buf + i));
-				mbuf += 8;
-				size -= 8;
-				res += 8;
+				encode_len = psid_encoding(mbuf,psid_array->u.permissions_list.buf + i);
+				if(encode_len < 0)
+					return encode_len;
+				data_len += encode_len;
+				mbuf += encode_len;
+				size -= encode_len;
+				res += encode_len;
 			}
+			mbuf_end = mbuf;
+
+			encode_len = varible_len_calculate(data_len);
+			if(size < encode_len)
+				return NOT_ENOUGHT;
+
+			mbuf = mbuf_end + encode_len;
+			while(mbuf_beg != mbuf_end){
+				mbuf_end--;
+				*(mbuf_end + encode_len) = *mbuf_end;
+			}
+
+			varible_len_encoding(mbuf_beg,data_len);
+
 			return res;
 		case ARRAY_TYPE_FROM_ISSUER:
 			return res;
@@ -740,20 +788,22 @@ u32 psid_array_2_buf(const psid_array *psid_array,u8* buf,u32 len){
  *   data_2  16
  */
 
-u32 psid_ssp_2_buf(const psid_ssp *psid_ssp,u8* buf,u32 len){
+static u32 psid_ssp_2_buf(const psid_ssp *psid_ssp,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
 	int i;
 
-	if(len < 5)
+	if(len < 2)
 		return NOT_ENOUGHT;
 
-	tobuf32(mbuf,psid_ssp->psid);
-	mbuf += 4;
-	size -= 4;
-	res += 4;
+	encode_len = psid_encoding(mbuf,&psid_ssp->psid);
+	if(encode_len < 0)
+		return encode_len;
+	mbuf += encode_len;
+	size -= encode_len;
+	res += encode_len;
 
 	encode_len = varible_len_calculate(psid_ssp->service_specific_permissions.len);
 	if (size < encode_len + psid_ssp->service_specific_permissions.len)
@@ -776,7 +826,7 @@ u32 psid_ssp_2_buf(const psid_ssp *psid_ssp,u8* buf,u32 len){
  *  
  */
 
-u32 psid_ssp_array_2_buf(const psid_ssp_array *psid_ssp_array,u8* buf,u32 len){
+static u32 psid_ssp_array_2_buf(const psid_ssp_array *psid_ssp_array,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -849,20 +899,22 @@ u32 psid_ssp_array_2_buf(const psid_ssp_array *psid_ssp_array,u8* buf,u32 len){
  *   data_2  18
  */
 
-u32 psid_priority_ssp_2_buf(const psid_priority_ssp *psid_priority_ssp,u8* buf,u32 len){
+static u32 psid_priority_ssp_2_buf(const psid_priority_ssp *psid_priority_ssp,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
 	int i;
 
-	if(len < 6)
+	if(len < 3)
 		return NOT_ENOUGHT;
 
-	tobuf32(mbuf,psid_priority_ssp->psid);
-	mbuf += 4;
-	size -= 4;
-	res += 4;
+	encode_len = psid_encoding(mbuf,&psid_priority_ssp->psid);
+	if(encode_len < 0)
+		return encode_len;
+	mbuf += encode_len;
+	size -= encode_len;
+	res += encode_len;
 
 	*mbuf = psid_priority_ssp->max_priority;
 	mbuf++;
@@ -887,7 +939,7 @@ u32 psid_priority_ssp_2_buf(const psid_priority_ssp *psid_priority_ssp,u8* buf,u
  *   data_2  19
  */
 
-u32 psid_priority_ssp_array_2_buf(const psid_priority_ssp_array *psid_priority_ssp_array,
+static u32 psid_priority_ssp_array_2_buf(const psid_priority_ssp_array *psid_priority_ssp_array,
 		u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -961,7 +1013,7 @@ u32 psid_priority_ssp_array_2_buf(const psid_priority_ssp_array *psid_priority_s
  *   data_2  20
  */
 
-u32 wsa_scope_2_buf(const wsa_scope *wsa_scope,u8* buf,u32 len){
+static u32 wsa_scope_2_buf(const wsa_scope *wsa_scope,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -996,6 +1048,7 @@ u32 wsa_scope_2_buf(const wsa_scope *wsa_scope,u8* buf,u32 len){
 	mbuf += encode_len;
 	size -= encode_len;
 	res += encode_len;
+
 	return res;
 }
 
@@ -1003,7 +1056,7 @@ u32 wsa_scope_2_buf(const wsa_scope *wsa_scope,u8* buf,u32 len){
  *   data_2  21
  */
 
-u32 anonymous_scope_2_buf(const anonymous_scope *anonymous_scope,u8* buf,u32 len){
+static u32 anonymous_scope_2_buf(const anonymous_scope *anonymous_scope,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -1045,7 +1098,7 @@ u32 anonymous_scope_2_buf(const anonymous_scope *anonymous_scope,u8* buf,u32 len
  *   data_2  22
  */
 
-u32 identified_scope_2_buf(const identified_scope *identified_scope,u8* buf,u32 len){
+static u32 identified_scope_2_buf(const identified_scope *identified_scope,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -1087,7 +1140,7 @@ u32 identified_scope_2_buf(const identified_scope *identified_scope,u8* buf,u32 
  *   data_2  23
  */
 
-u32 identified_not_localized_scope_2_buf(const identified_not_localized_scope *identified_not_localized_scope,
+static u32 identified_not_localized_scope_2_buf(const identified_not_localized_scope *identified_not_localized_scope,
 		u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -1123,7 +1176,7 @@ u32 identified_not_localized_scope_2_buf(const identified_not_localized_scope *i
  *   data_2  24
  */
 
-u32 wsa_ca_scope_2_buf(const wsa_ca_scope *wsa_ca_scope,u8* buf,u32 len){
+static u32 wsa_ca_scope_2_buf(const wsa_ca_scope *wsa_ca_scope,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -1165,7 +1218,7 @@ u32 wsa_ca_scope_2_buf(const wsa_ca_scope *wsa_ca_scope,u8* buf,u32 len){
  *   data_2  25
  */
 
-u32 sec_data_exch_ca_scope_2_buf(const sec_data_exch_ca_scope *sec_data_exch_ca_scope,
+static u32 sec_data_exch_ca_scope_2_buf(const sec_data_exch_ca_scope *sec_data_exch_ca_scope,
 		u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -1221,7 +1274,7 @@ u32 sec_data_exch_ca_scope_2_buf(const sec_data_exch_ca_scope *sec_data_exch_ca_
  *   data_2  26
  */
 
-u32 root_ca_scope_2_buf(const root_ca_scope *root_ca_scope,u8* buf,u32 len){
+static u32 root_ca_scope_2_buf(const root_ca_scope *root_ca_scope,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -1307,7 +1360,7 @@ u32 root_ca_scope_2_buf(const root_ca_scope *root_ca_scope,u8* buf,u32 len){
  *   data_2  27
  */
 
-u32 cert_specific_data_2_buf(const cert_specific_data *cert_specific_data,
+static u32 cert_specific_data_2_buf(const cert_specific_data *cert_specific_data,
 		u8* buf,u32 len,holder_type holder_type){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -1366,7 +1419,7 @@ u32 cert_specific_data_2_buf(const cert_specific_data *cert_specific_data,
  *   data_2  28
  */
 
-u32 tobesigned_certificate_2_buf(const tobesigned_certificate *tobesigned_certificate,
+static u32 tobesigned_certificate_2_buf(const tobesigned_certificate *tobesigned_certificate,
 		u8* buf,u32 len,u8 version_and_type){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -1492,7 +1545,7 @@ u32 tobesigned_certificate_2_buf(const tobesigned_certificate *tobesigned_certif
  *   data_2  29
  */
 
-u32 certificate_2_buf(const certificate *certificate,u8* buf,u32 len){
+static u32 certificate_2_buf(const certificate *certificate,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -1508,6 +1561,7 @@ u32 certificate_2_buf(const certificate *certificate,u8* buf,u32 len){
 	res++;
 
 	encode_len = tobesigned_certificate_2_buf(&certificate->unsigned_certificate,mbuf,size,certificate->version_and_type);
+
 	if(encode_len < 0)
 		return encode_len;
 	mbuf += encode_len;
@@ -1553,7 +1607,7 @@ u32 certificate_2_buf(const certificate *certificate,u8* buf,u32 len){
  *   data_2  30
  */
 
-u32 signer_identifier_2_buf(const signer_identifier *signer_identifier,u8* buf,u32 len){
+static u32 signer_identifier_2_buf(const signer_identifier *signer_identifier,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -1647,7 +1701,7 @@ u32 signer_identifier_2_buf(const signer_identifier *signer_identifier,u8* buf,u
  *   data_2  31
  */
 
-u32 crl_request_2_buf(const crl_request *crl_request,u8* buf,u32 len){
+static u32 crl_request_2_buf(const crl_request *crl_request,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -1678,7 +1732,7 @@ u32 crl_request_2_buf(const crl_request *crl_request,u8* buf,u32 len){
  *   data_2  32
  */
 
-u32 certid10_2_buf(const certid10 *certid10,u8* buf,u32 len){
+static u32 certid10_2_buf(const certid10 *certid10,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -1699,7 +1753,7 @@ u32 certid10_2_buf(const certid10 *certid10,u8* buf,u32 len){
  *   data_2  33
  */
 
-u32 id_and_date_2_buf(const id_and_date *id_and_date,u8* buf,u32 len){
+static u32 id_and_date_2_buf(const id_and_date *id_and_date,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -1726,7 +1780,7 @@ u32 id_and_date_2_buf(const id_and_date *id_and_date,u8* buf,u32 len){
  *   data_2  34
  */
 
-u32 tobesigned_crl_2_buf(const tobesigned_crl *tobesigned_crl,u8* buf,u32 len){
+static u32 tobesigned_crl_2_buf(const tobesigned_crl *tobesigned_crl,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -1830,12 +1884,12 @@ u32 tobesigned_crl_2_buf(const tobesigned_crl *tobesigned_crl,u8* buf,u32 len){
  *   data_2  35
  */
 
-u32 crl_2_buf(const crl *crl,u8* buf,u32 len){
+static u32 crl_2_buf(const crl *crl,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
-	int n = crl->signer.u.certificates.len - 1;
+	int n;
 
 	if(len < 33)
 		return NOT_ENOUGHT;
@@ -1889,6 +1943,7 @@ u32 crl_2_buf(const crl *crl,u8* buf,u32 len){
 			}
 			return encode_len + res;
 		case CERTIFICATE_CHAIN:
+			n = crl->signer.u.certificates.len - 1;
 			if((crl->signer.u.certificates.buf + n)->version_and_type == 2){
 				encode_len = signature_2_buf(&crl->signature,mbuf,size,
 						(crl->signer.u.certificates.buf + n)->unsigned_certificate.version_and_type.verification_key.algorithm);
@@ -1909,7 +1964,7 @@ u32 crl_2_buf(const crl *crl,u8* buf,u32 len){
  *   data_2  36
  */
 
-u32 tobe_encrypted_certificate_response_acknowledgment_2_buf(const tobe_encrypted_certificate_response_acknowledgment*
+static u32 tobe_encrypted_certificate_response_acknowledgment_2_buf(const tobe_encrypted_certificate_response_acknowledgment*
 		tobe_encrypted_certificate_response_acknowledgment,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -1931,7 +1986,7 @@ u32 tobe_encrypted_certificate_response_acknowledgment_2_buf(const tobe_encrypte
  *   data_2  37
  */
 
-u32 tobe_encrypted_certificate_request_error_2_buf(const tobe_encrypted_certificate_request_error*
+static u32 tobe_encrypted_certificate_request_error_2_buf(const tobe_encrypted_certificate_request_error*
 		tobe_encrypted_certificate_request_error,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -1982,7 +2037,7 @@ u32 tobe_encrypted_certificate_request_error_2_buf(const tobe_encrypted_certific
  *   data_2  38
  */
 
-u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certificate_response*
+static u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certificate_response*
 		tobe_encrypted_certificate_response,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -1993,7 +2048,7 @@ u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certificate_r
 	u32 min_len;
 	u32 data_len;
 	int i;
-	int n = tobe_encrypted_certificate_response->certificate_chain.len - 1;
+	int n;
 
 	if(len < 3)
 		return NOT_ENOUGHT;
@@ -2030,6 +2085,7 @@ u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certificate_r
 	size -= encode_len;
 	res += encode_len;
 	
+	n = tobe_encrypted_certificate_response->certificate_chain.len - 1;
 	switch((tobe_encrypted_certificate_response->certificate_chain.buf + n)->version_and_type){
 		case 2:
 			break;
@@ -2100,7 +2156,7 @@ u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certificate_r
  *   data_2  39
  */
 
-u32 tobesigned_certificate_request_2_buf(const tobesigned_certificate_request*
+static u32 tobesigned_certificate_request_2_buf(const tobesigned_certificate_request*
 		tobesigned_certificate_request,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -2202,7 +2258,7 @@ u32 tobesigned_certificate_request_2_buf(const tobesigned_certificate_request*
  *   data_2  40
  */
 
-u32 certificate_request_2_buf(const certificate_request *certificate_request,u8* buf,u32 len){
+static u32 certificate_request_2_buf(const certificate_request *certificate_request,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -2255,7 +2311,7 @@ u32 certificate_request_2_buf(const certificate_request *certificate_request,u8*
  *   data_2  41
  */
 
-u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len,content_type type){
+static u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len,content_type type){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -2265,7 +2321,7 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 	u32 min_len;
 	int i;
 
-	if(len < 31)
+	if(len < 28)
 		return NOT_ENOUGHT;
 
 	*mbuf = tobesigned_data->tf;
@@ -2275,10 +2331,12 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 
 	switch(type){
 		case SIGNED:
-			tobuf32(mbuf,tobesigned_data->u.type_signed.psid);
-			mbuf += 4;
-			size -= 4;
-			res += 4;
+			encode_len = psid_encoding(mbuf,&tobesigned_data->u.type_signed.psid);
+			if(encode_len < 0)
+				return encode_len;
+			mbuf += encode_len;
+			size -= encode_len;
+			res += encode_len;
 			
 			encode_len = varible_len_calculate(tobesigned_data->u.type_signed.data.len);
 			if (size < encode_len + tobesigned_data->u.type_signed.data.len)
@@ -2294,10 +2352,12 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 			break;
 
 		case SIGNED_PARTIAL_PAYLOAD:
-			tobuf32(mbuf,tobesigned_data->u.type_signed_partical.psid);
-			mbuf += 4;
-			size -= 4;
-			res += 4;
+			encode_len = psid_encoding(mbuf,&tobesigned_data->u.type_signed_partical.psid);
+			if(encode_len < 0)
+				return encode_len;
+			mbuf += encode_len;
+			size -= encode_len;
+			res += encode_len;
 			
 			encode_len = varible_len_calculate(tobesigned_data->u.type_signed_partical.ext_data.len);
 			if (size < encode_len + tobesigned_data->u.type_signed_partical.ext_data.len)
@@ -2325,10 +2385,12 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 			break;
 
 		case SIGNED_EXTERNAL_PAYLOAD:
-			tobuf32(mbuf,tobesigned_data->u.type_signed_external.psid);
-			mbuf += 4;
-			size -= 4;
-			res += 4;
+			encode_len = psid_encoding(mbuf,&tobesigned_data->u.type_signed_external.psid);
+			if(encode_len < 0)
+				return encode_len;
+			mbuf += encode_len;
+			size -= encode_len;
+			res += encode_len;
 
 			encode_len = varible_len_calculate(tobesigned_data->u.type_signed_external.ext_data.len);
 			if (size < encode_len + tobesigned_data->u.type_signed_external.ext_data.len)
@@ -2438,14 +2500,14 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
  *   data_2  42
  */
 
-u32 signed_data_2_buf(const signed_data *signed_data,u8* buf,u32 len,content_type type){
+static u32 signed_data_2_buf(const signed_data *signed_data,u8* buf,u32 len,content_type type){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
-	int n = signed_data->signer.u.certificates.len - 1;
+	int n;
 
-	if(len < 33)
+	if(len < 30)
 		return NOT_ENOUGHT;
 
 	encode_len = signer_identifier_2_buf(&signed_data->signer,mbuf,size);
@@ -2495,6 +2557,7 @@ u32 signed_data_2_buf(const signed_data *signed_data,u8* buf,u32 len,content_typ
 				return encode_len + res;
 			}
 		case CERTIFICATE_CHAIN:
+			n = signed_data->signer.u.certificates.len - 1;
 			if((signed_data->signer.u.certificates.buf + n)->version_and_type == 2){
 				encode_len = signature_2_buf(&signed_data->signature,mbuf,size,
 						(signed_data->signer.u.certificates.buf + n)->unsigned_certificate.version_and_type.verification_key.algorithm);
@@ -2516,7 +2579,7 @@ u32 signed_data_2_buf(const signed_data *signed_data,u8* buf,u32 len,content_typ
  *   data_2  43
  */
 
-u32 tobe_encrypted_2_buf(const tobe_encrypted *tobe_encrypted,u8* buf,u32 len){
+static u32 tobe_encrypted_2_buf(const tobe_encrypted *tobe_encrypted,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -2605,7 +2668,7 @@ u32 tobe_encrypted_2_buf(const tobe_encrypted *tobe_encrypted,u8* buf,u32 len){
  *   data_2  44
  */
 
-u32 aes_ccm_ciphertext_2_buf(const aes_ccm_ciphertext *aes_ccm_ciphertext,u8* buf,u32 len){
+static u32 aes_ccm_ciphertext_2_buf(const aes_ccm_ciphertext *aes_ccm_ciphertext,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -2640,7 +2703,7 @@ u32 aes_ccm_ciphertext_2_buf(const aes_ccm_ciphertext *aes_ccm_ciphertext,u8* bu
  *   data_2  45
  */
 
-u32 ecies_nist_p256_encrypted_key_2_buf(const ecies_nist_p256_encrypted_key *ecies_nist_p256_encrypted_key,
+static u32 ecies_nist_p256_encrypted_key_2_buf(const ecies_nist_p256_encrypted_key *ecies_nist_p256_encrypted_key,
 		u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -2682,7 +2745,7 @@ u32 ecies_nist_p256_encrypted_key_2_buf(const ecies_nist_p256_encrypted_key *eci
  *   data_2  46
  */
 
-u32 recipient_info_2_buf(const recipient_info *recipient_info,u8* buf,u32 len,pk_algorithm algorithm){
+static u32 recipient_info_2_buf(const recipient_info *recipient_info,u8* buf,u32 len,pk_algorithm algorithm){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -2726,7 +2789,7 @@ u32 recipient_info_2_buf(const recipient_info *recipient_info,u8* buf,u32 len,pk
  *   @recipient_info_2_buf 本协议仅支持ECIES_NISTP256,其他算法暂不考虑
  */
 
-u32 encrypted_data_2_buf(const encrypted_data *encrypted_data,u8* buf,u32 len){
+static u32 encrypted_data_2_buf(const encrypted_data *encrypted_data,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -2802,7 +2865,7 @@ u32 encrypted_data_2_buf(const encrypted_data *encrypted_data,u8* buf,u32 len){
  *   data_2  48
  */
 
-u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32 len){
+static u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -2897,7 +2960,7 @@ u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32 len){
 		res += encode_len; 
 	}
 	
-	if((tobesigned_wsa->tf & 0xf7)!=0){
+	if((tobesigned_wsa->tf & 0xf0)!=0){
 		encode_len = varible_len_calculate(tobesigned_wsa->flags_content.other_data.len);
 		if (size < encode_len + tobesigned_wsa->flags_content.other_data.len)
 			return NOT_ENOUGHT;
@@ -2918,12 +2981,12 @@ u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32 len){
  *   data_2  49
  */
 
-u32 signed_wsa_2_buf(const signed_wsa *signed_wsa,u8* buf,u32 len){
+static u32 signed_wsa_2_buf(const signed_wsa *signed_wsa,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
-	int n = signed_wsa->signer.u.certificates.len - 1;
+	int n;
 
 	if(len < 32)
 		return NOT_ENOUGHT;
@@ -2941,9 +3004,17 @@ u32 signed_wsa_2_buf(const signed_wsa *signed_wsa,u8* buf,u32 len){
 	mbuf += encode_len;
 	size -= encode_len;
 	res += encode_len;
-	
-	encode_len = signature_2_buf(&signed_wsa->signature,mbuf,size,
-			(signed_wsa->signer.u.certificates.buf + n)->unsigned_certificate.version_and_type.verification_key.algorithm);
+
+	n = signed_wsa->signer.u.certificates.len - 1;
+	if((signed_wsa->signer.type == CERTIFICATE_CHAIN) &&
+		((signed_wsa->signer.u.certificates.buf + n)->version_and_type == 2)){
+		encode_len = signature_2_buf(&signed_wsa->signature,mbuf,size,
+				(signed_wsa->signer.u.certificates.buf + n)->unsigned_certificate.version_and_type.verification_key.algorithm);
+	}else{
+		encode_len = signature_2_buf(&signed_wsa->signature,mbuf,size,
+				ECDSA_NISTP256_WITH_SHA256);
+	}
+
 	if(encode_len < 0)
 		return encode_len;
 	mbuf += encode_len;
