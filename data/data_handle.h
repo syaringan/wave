@@ -28,18 +28,20 @@ u32 buf_2_sec_data(const u8* buf,u32 len, sec_data* sec);
  * 释放这个sec_data，这里要递归的去释放。
  */
 void sec_data_free(sec_data* sec_data);
-
+void signed_data_free(signed_data* signed_data);
 
 /******************这后面请在data_helper.c里面实现******************/
-/**
- * 证书的复制
- */
 int sec_data_2_string(sec_data* sec_data,string* data);
 int string_2_sec_data(string* data,sec_data* sec_data);
 
 int encrypted_data_2_string(encrypted_data* enc_data,string* data);
 int string_2_encrypted_data(string* data,encrypted_data* enc_data);
+
 int certificate_2_string(certificate* cert,string* data);
+int string_2_certificate(string* data,certificate* cert);
+
+int signed_data_2_string(signed_data* s_data,string* data);
+int string_2_signed_data(string* data,signed_data* s_data);\
 
 void certificate_cpy(certificate *dst,certificate *src);
 

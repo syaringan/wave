@@ -10,8 +10,10 @@
 #include "../data/data.h"
 #include "../cme/cme.h"
 #include <time.h>
+#include <math.h>
 #define INIT(m) memset(&m,0,sizeof(m))
-
+#define US_TO_S 1000000
+#define LOG_STD_DEV_BASE 1.134666
 
 static bool three_d_location_in_region(three_d_location* location,geographic_region* region){
    
@@ -63,6 +65,69 @@ static bool cme_permissions_contain_psid_with_ssp(struct cme_permissions* permis
             return false; 
     }
     return false;
+}
+static int hash_with_certificate(certificate* cert,string* message,string* hashed){
+    switch(cert->version_and_type){
+        case 2:
+            if(cert->unsigned_certificate.holder_type  == ROOT_CA){
+                switch(cert->unsigned_certificate.version_and_type.verification_key.algorithm){
+                    case ECDSA_NISTP224_WITH_SHA224:
+                       if( crypto_HASH224(message,hashed) ){
+                            goto fail;
+                       }  
+                       break;
+                    case ECDSA_NISTP256_WITH_SHA256:
+                       if( crypto_HASH256(message,hashed))
+                           goto fail;
+                       break;
+                    case ECIES_NISTP256:
+                       wave_error_printf("这个是加密算法，怎么出现在了这个签名中");
+                       goto fail;
+                       break;
+                }
+            }
+            else{
+                switch(cert->unsigned_certificate.u.no_root_ca.signature_alg){
+                    case ECDSA_NISTP224_WITH_SHA224:
+                       if( crypto_HASH224(message,hashed) ){
+                            goto fail;
+                       }  
+                       break;
+                    case ECDSA_NISTP256_WITH_SHA256:
+                       if( crypto_HASH256(message,hashed))
+                           goto fail;
+                       break;
+                    case ECIES_NISTP256:
+                       wave_error_printf("这个是加密算法，怎么出现在了这个签名中");
+                       goto fail;
+                       break;
+                }
+            }
+            break;
+        case 3:
+             switch(cert->unsigned_certificate.u.no_root_ca.signature_alg){
+                    case ECDSA_NISTP224_WITH_SHA224:
+                       if( crypto_HASH224(message,hashed) ){
+                            goto fail;
+                       }  
+                       break;
+                    case ECDSA_NISTP256_WITH_SHA256:
+                       if( crypto_HASH256(&message,&hashed))
+                           goto fail;
+                       break;
+                    case ECIES_NISTP256:
+                       wave_error_printf("这个是加密算法，怎么出现在了这个签名中");
+                       goto fail;
+                       break;
+            } 
+            break;
+        default:
+            wave_error_printf("出现了不可能出现的指 %s %d ",__FILE__,__LINE__);
+            goto fail;
+    }
+    return 0;
+fail:
+    return -1;
 }
 //cert_chani_len == 257的时候代表MAX
 result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data,string* exter_data,psid psid,
@@ -507,18 +572,17 @@ fail:
     return res;
 }
 
-
 result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,struct certificate_chain* certs,
-                bool compressed,time64 time,
+                bool compressed,time64 overdue_crl_tolerance,
                 
                 string* encrypted_data,struct certificate_chain* failed_certs){
-    if(encrypted_data == NULL || encrypted_data.buf != NULL ||failed_certs == NULL
-            failed_certs.certs != NULL){
+    if(encrypted_data == NULL || encrypted_data->buf != NULL ||failed_certs == NULL || 
+            failed_certs->certs != NULL){
         wave_error_printf("参数有问题 %s %d",__FILE__,__LINE__);
     }
     
     result res = SUCCESS;
-    certificate_chain enc_certs;
+    struct certificate_chain enc_certs;
     certificate *temp_cert;
     symm_algorithm symm_alg = SYMM_ALGORITHM_NOT_SET,current_symm_alg;//表示没有设定
     int i;
@@ -538,12 +602,12 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     
     failed_certs->len = 0;
     for(i=0;i<certs->len;i++){
-        string_free(cert_string);
+        string_free(&cert_string);
         temp_cert = certs->certs+i;
         if( certificate_2_string(temp_cert,&cert_string))
             goto end;
         res = cme_certificate_info_request(sdb,ID_CERTIFICATE,&cert_string, 
-                            NULL,NULL,NULL,&next_crl_time,NULL,NULL);
+                            NULL,NULL,NULL,NULL,&next_crl_time,NULL,NULL);
         if(res != FOUND){
             res = FAIL_ON_SOME_CERTIFICATES;
             if(certificate_chain_add_cert(failed_certs,temp_cert))
@@ -551,9 +615,9 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
         }
         else{
             time(&now);
-            if(next_crl_time < now - OVERDUE_CRL_TOLERANCE){
-                wave_printf(MSG_WARNING,"crl没有获得，crl_next_time:%d  now:%d  over:OVERDUE_CRL_TOLERANCE\n",
-                        next_crl_time,now);
+            if(next_crl_time < now - overdue_crl_tolerance){
+                wave_printf(MSG_WARNING,"crl没有获得，crl_next_time:%d  now:%d  over:%lld\n",
+                        next_crl_time,now,overdue_crl_tolerance);
                 res = FAIL_ON_SOME_CERTIFICATES;
                 if(certificate_chain_add_cert(failed_certs,temp_cert))
                     goto end;
@@ -579,13 +643,13 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
                     }
                     else{
                         //这个地方我不知道我理解对没有，，请后来的人在核实一下，我是按照我的逻辑和想法猜测的
-                        if(symm_algorithm != SYMM_ALGORITHM_NOT_SET && symm_algorithm != current_symm_alg){
+                        if( symm_alg != SYMM_ALGORITHM_NOT_SET && symm_alg != current_symm_alg){
                             res = FAIL_ON_SOME_CERTIFICATES;
-                            if(certificate_chain_add_cert(failed_certs,temp_cert))
+                            if( certificate_chain_add_cert(failed_certs,temp_cert))
                                 goto end;
                         }
                         else{
-                            symm_algorithm = current_symm_alg;
+                            symm_alg = current_symm_alg;
                             if(certificate_chain_add_cert(&enc_certs,temp_cert))
                                 goto end;
                         }
@@ -625,10 +689,10 @@ end:
 
 
 
-result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data,cmh cmh ,
-        
-                            content_type *content_type,content_type *inner_type,string* data,
-                            string* signed_data,psid *psid,
+result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data,cmh cmh,
+
+                            enum content_type *content_type,enum content_type *inner_type,string* data,
+                            string* signed_data,psid *out_psid,
                             string* ssp, bool* set_generation_time,
                             time64_with_standard_deviation *generation_time,
                             bool* set_expiry_time,time64* expiry_time,bool* set_generation_location,
@@ -639,7 +703,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
     struct signed_data *s_data;
     struct signer_identifier *signer;
     string temp;
-    content_type type;
+    enum content_type type;
     bool verified;
     psid m_psid;
     struct cme_permissions permissions;
@@ -651,7 +715,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
 
     if(  string_2_sec_data(recieve_data,&sdata)){
         wave_error_printf("不能将受到的数据变为sdata %s %d",__FILE__,__LINE__);
-        res = INVAID_INPUT;
+        res = INVALID_INPUT;
         goto end;
     }
     if(content_type != NULL)
@@ -669,7 +733,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
             if( encrypted_data_2_string(enc_data,&temp)){
                 wave_error_printf("转化失败 %s %d",__FILE__,__LINE__);
                 res = FAILURE;
-                goto fail;
+                goto end;
             }
             //这里我觉得逻辑有错，我并没有按照协议的走，，如果出现bug请核对哈
             res = sec_decrypt_data(sdb,&temp,cmh, inner_type,data);
@@ -709,8 +773,15 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
                     m_psid = s_data->unsigned_data.u.type_signed_external.psid;
                     break;
             }
-            if(psid != NULL)
-                *psid = m_psid;
+            if(signed_data != NULL && signed_data->buf == NULL){
+                if(signed_data_2_string(s_data,&signed_data)){
+                    res = FAILURE;
+                    wave_error_printf("编码失败 %s %d",__FILE__,__LINE__);
+                    goto end;
+                }
+            }
+            if(out_psid != NULL)
+                *out_psid = m_psid;
             if(s_data->unsigned_data.tf & USE_GENERATION_TIME){
                 if(set_generation_time != NULL){
                     *set_generation_time = true;
@@ -728,8 +799,8 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
             if(s_data->unsigned_data.tf & EXPIRES){
                 if(set_expiry_time != NULL){
                     *set_expiry_time = true;
-                    if(expire_time != NULL)
-                        *expire_time = s_data->unsigned_data.flags_content.exipir_time;
+                    if(expiry_time != NULL)
+                        *expiry_time = s_data->unsigned_data.flags_content.exipir_time;
                 }
             }
             else{
@@ -749,7 +820,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
                     *set_generation_location = false;
             }
 
-            signer = &s_data.signer;
+            signer = &s_data->signer;
             string_free(&temp);
             if(signer->type == CERTIFICATE || signer->type == CERTIFICATE_CHAIN ){
                 if(signer->type == CERTIFICATE ){
@@ -765,7 +836,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
                         cme_add_certificate(sdb,&signer->u.certificate,false);
                     }
                     else{
-                        cme_add_certificate(sdb,&signer->u.certificates.buf+signer->u.certificates.len-1,false);
+                        cme_add_certificate(sdb,signer->u.certificates.buf+signer->u.certificates.len-1,false);
                     }
                     res = FOUND;
                 }
@@ -784,27 +855,40 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
             }
             break;
         default:
-            res = INVAID_INPUT;
+            res = INVALID_INPUT;
             wave_error_printf("出现了其他类心 %s %d",__FILE__,__LINE__);
             goto end;
     }
-    if(permissions.type == PSID_SSP ){
-        for(i=0;i<permissions.u.psid_ssp_array.len.i++){
-            if( (permissions.u.psid_ssp_array.buf+i)->psid == m_psid){
-                string_cpy(ssp,&(permissions.u.psid_ssp_array.buf+i)->ssp);
-                break;
-            }
-        } 
-        if(i == permissions.u.psid_ssp_array.len ){
-            res = INCONSISITENT_PERMISSIONS;
-            goto end;
-        }   
-    }
-    if(ssp != NULL && ssp.buf == NULL){
+    
+    if(ssp != NULL && ssp->buf == NULL){
+        if(permissions.type == PSID_SSP ){
+            for(i=0;i<permissions.u.psid_ssp_array.len;i++){
+                if( (permissions.u.psid_ssp_array.buf+i)->psid == m_psid){
+                    ssp->len = (permissions.u.psid_ssp_array.buf+i)->service_specific_permissions.len;
+                    if( ssp->buf = (u8*)malloc(  ssp->len) ){
+                        wave_malloc_error();
+                        res = FAILURE;
+                        goto end;
+                    }
+                    memcpy(ssp->buf,(permissions.u.psid_ssp_array.buf+i)->service_specific_permissions.buf,ssp->len);
+                    break;
+                }
+            } 
+            if(i == permissions.u.psid_ssp_array.len ){
+                res = INCONSISITENT_PERMISSIONS;
+                goto end;
+            }   
+        }
         else if(permissions.type == PSID_PRIORITY_SSP){
-            for(i=0;i<permissions.u.psid_priority_ssp_array.len.i++){
+            for(i=0;i<permissions.u.psid_priority_ssp_array.len;i++){
                 if( (permissions.u.psid_priority_ssp_array.buf+i)->psid == m_psid){
-                    string_cpy(ssp,&(permissions.u.psid_priority_ssp_array.buf+i)->ssp);
+                    ssp->len = (permissions.u.psid_priority_ssp_array.buf+i)->service_specific_permissions.len;
+                    if( ssp->buf = (u8*)malloc(  ssp->len) ){
+                        wave_malloc_error();
+                        res = FAILURE;
+                        goto end;
+                    }
+                    memcpy(ssp->buf,(permissions.u.psid_priority_ssp_array.buf+i)->service_specific_permissions.buf,ssp->len);
                     break;
                 }
             } 
@@ -818,10 +902,403 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
     goto end;
 end:
     sec_data_free(&sdata);
-    string_free(temp);
+    string_free(&temp);
     cme_permissions_free(&permissions);
     return res;
 }
+
+   
+result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* input_psid,content_type type,string* signed_data,
+                            string* external_data, u32 max_cert_chain_len,bool detect_reply,bool check_generation_time,
+                            time64 validity_period,time64_with_standard_deviation* generation_time,float generation_threshold,
+                            time64 accepte_time,float accepte_threshold,bool check_expiry_time,time64 exprity_time,float exprity_threshold,
+                            bool check_geneartion_location,two_d_location* location,u32 validity_distance,three_d_location* generation_location,
+                            time64 overdue_crl_tolerance,
+                            
+                            struct time32_array *last_recieve_crl_times,
+                            struct time32_array *next_expected_crl_times,
+                            certificate* send_cert){
+
+    result res = SUCCESS;
+
+    struct certificate_chain  certs_chain,temp_certs_chain;
+    struct cme_permissions_array permissions;
+    struct geographic_region_array geo_scopes;
+    struct verified_array verifieds;
+    time64 expiry_time;
+    time64_with_standard_deviation gen_time;
+    two_d_location gen_loc,current_location;
+    struct signed_data s_data;
+    struct string string,digest;
+    int i;
+    time_t now;
+    struct time32_array times;
+    time32 start_validity;
+    certificate* cert;
+    struct cme_permissions* permission;
+    psid m_psid;
+
+    INIT(certs_chain);
+    INIT(temp_certs_chain);
+    INIT(permissions);
+    INIT(geo_scopes);
+    INIT(verifieds);
+    INIT(s_data);
+    INIT(expiry_time);
+    INIT(gen_time);
+    INIT(string);
+    INIT(gen_loc);//这个初始化为0恰当不，，，，会有地理位之为0的点嘛？？？？
+    INIT(times);
+    INIT(digest);
+
+    if( string_2_signed_data(signed_data, &s_data) ){
+        wave_error_printf("signed_data解码失败 %s %d",__FILE__,__LINE__);
+        res = INVALID_INPUT;
+        goto end;
+    }
+
+
+    if( s_data.unsigned_data.tf & USE_GENERATION_TIME){
+        gen_time.time = s_data.unsigned_data.flags_content.generation_time.time;
+        gen_time.long_std_dev = s_data.unsigned_data.flags_content.generation_time.long_std_dev;
+        if(generation_time != NULL){
+            if(gen_time.time == generation_time->time){
+                res = SUCCESS;
+                goto next;
+            }
+            else{
+                res = INVALID_INPUT;
+                goto next;
+            }
+
+            if(gen_time.long_std_dev == generation_time->long_std_dev){
+                res = SUCCESS;
+                goto next;
+            }
+            else{
+                res = INVALID_INPUT;
+                goto next;
+            }
+        }
+    }
+    else if(generation_time != NULL){
+        gen_time.time = generation_time->time;
+        gen_time.long_std_dev = generation_time->long_std_dev;
+    }
+
+    if(s_data.unsigned_data.tf & EXPIRES){
+        expiry_time = s_data.unsigned_data.flags_content.exipir_time;
+        if(exprity_time != 0){
+            if(expiry_time == exprity_time){
+                res = SUCCESS;
+                goto next;
+            }
+            else{
+                res = INVALID_INPUT;
+                goto next;
+            }
+        }
+    }
+    else if(exprity_time != 0){
+        expiry_time = exprity_time;
+    }
+
+    if(s_data.unsigned_data.tf & USE_LOCATION){
+        gen_loc.latitude = s_data.unsigned_data.flags_content.generation_location.latitude;
+        gen_loc.longitude = s_data.unsigned_data.flags_content.generation_location.longitude;
+        if(location != NULL){
+            if(gen_loc.latitude == location->latitude){
+                res = SUCCESS;
+                goto next;
+            }
+            else{
+                res = INVALID_INPUT;
+                goto next;
+            }
+            if(gen_loc.longitude == location->longitude){
+                res = SUCCESS;
+                goto next;
+            }
+            else{
+                res = INVALID_INPUT;
+                goto next;
+            }
+        }
+    }
+    else if(location != NULL){
+        gen_loc.longitude = location->longitude;
+        gen_loc.latitude = location->latitude;
+    }
+    if(gen_loc.latitude == 0 && gen_loc.longitude == 0){
+        res = INVALID_INPUT;
+        goto next;
+    }
+    if(gen_loc.latitude == 900000001 && gen_loc.longitude == 1800000001){
+        res = SENDER_LOCATION_UNAVAILABLE;
+        goto next;
+    }
+next:
+    if(res != SUCCESS){
+        goto end;
+    }
+    if(gen_time.time != 0 && expiry_time != 0){
+        if(expiry_time < gen_time.time){
+            res = EXPIRTY_TIME_BEFORE_GENERATION_TIME;
+            goto end;
+        }
+    }     
+
+    switch(s_data.signer.type){
+        case CERTIFICATE_DIGEST_WITH_ECDSAP224:
+        case CERTIFICATE_DIGEST_WITH_ECDSAP256:
+            string_free(&string);
+            hashedid8_2_string(&s_data.signer.u.digest,&string);
+            if( res = cme_construct_certificate_chain(sdb,ID_HASHEDID8,&string,NULL,false,max_cert_chain_len,
+                         &certs_chain,&permissions,&geo_scopes,last_recieve_crl_times,&times,&verifieds) ){
+                goto end;
+            }
+            if(next_expected_crl_times != NULL){
+                next_expected_crl_times->times = (time32*)malloc(sizeof(time32) * times.len);
+                if(next_expected_crl_times->times == NULL){
+                    res = FAILURE;
+                    wave_malloc_error();
+                    goto end;
+                }
+                next_expected_crl_times->len = times.len;
+                memcpy(next_expected_crl_times->times,times.times,sizeof(time32) * times.len);
+            }
+            break;
+        case CERTIFICATE_CHAIN:
+            temp_certs_chain.certs = (certificate*)malloc(sizeof(certificate) * s_data.signer.u.certificates.len);
+            if(temp_certs_chain.certs == NULL){
+                res = FAILURE;
+                wave_malloc_error();
+                goto end;
+            }
+            temp_certs_chain.len = s_data.signer.u.certificates.len;
+            if( res = cme_construct_certificate_chain(sdb,ID_CERTIFICATE,NULL,&temp_certs_chain,false,max_cert_chain_len,
+                        &certs_chain,&permissions,&geo_scopes,last_recieve_crl_times,next_expected_crl_times,&verifieds) ){
+                goto end;
+            }
+        default:
+            wave_error_printf("出现了不可能的直哦 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+    }
+
+    if( res = sec_check_certificate_chain_consistency(sdb,&certs_chain,&permissions,&geo_scopes)){
+        goto end;
+    }
+    time(&now);
+    for(i=0;i<times.len;i++){
+        if ( *(times.times+i) < now-overdue_crl_tolerance ){
+             wave_printf(MSG_DEBUG,"next_expected_crl :%d  now :%d  overdue_crl_tolerance :%d",
+                                *(times.times+i),now,overdue_crl_tolerance);
+            res = OVERDUE_CRL;
+            goto end;
+        }
+    }
+    
+    cert = certs_chain.certs;
+    if( certificate_get_start_time(cert,&start_validity)){
+            res = FAILURE;
+            goto end;
+    }
+    if(gen_time.time != 0){ 
+        if(gen_time.time / US_TO_S  <= start_validity){
+            res = FUTURE_CERTIFICATE_AT_GENERATION_TIME;
+            goto end;
+        }
+        if(gen_time.time / US_TO_S >= cert->unsigned_certificate.expiration){
+            res = EXPIER_CERTIFICATE_AT_GENERATION_TIME;
+            goto end;
+        }
+    }
+    if(expiry_time != 0){
+         if(expiry_time / US_TO_S <= start_validity){
+            res = EXPIRY_DATE_TOO_EARLY;
+            goto end;
+         }
+         if(expiry_time / US_TO_S >= cert->unsigned_certificate.expiration ){
+            res = EXPIRY_DATE_TOO_LATE;
+            goto end;
+         }        
+    }
+    if(gen_loc.latitude != 0 && gen_loc.longitude != 0 && geo_scopes.regions != NULL){
+        if(!two_d_location_in_geographic_region(&gen_loc,geo_scopes.regions)){
+            res = SIGNATURE_GENERATED_OUTSIDE_CERTIFICATE_VALIDITY_REGION;
+            goto end;
+        }
+    }
+    switch(type){
+        case SIGNED:
+            m_psid = s_data.unsigned_data.u.type_signed.psid;
+            break;
+        case SIGNED_PARTIAL_PAYLOAD:
+            m_psid = s_data.unsigned_data.u.type_signed_partical.psid;
+            if(external_data != NULL){
+                if(s_data.unsigned_data.u.type_signed_partical.ext_data.buf != NULL){
+                    wave_printf(MSG_WARNING,"我觉得这里不应该会有直的，请核实一下，我觉得这里是一个潜在的bug的点，有可能是我对external_data这个理解有错误\
+%s %d",__FILE__,__LINE__);
+                    free(s_data.unsigned_data.u.type_signed_partical.ext_data.buf);
+                }
+                if( s_data.unsigned_data.u.type_signed_partical.ext_data.buf = (u8*)malloc(external_data->len) ){
+                    wave_malloc_error();
+                    res = FAILURE;
+                    goto end;
+                }
+                memcpy(s_data.unsigned_data.u.type_signed_partical.ext_data.buf,external_data->buf,external_data->len);
+            }
+            break;
+        case SIGNED_EXTERNAL_PAYLOAD:
+            m_psid = s_data.unsigned_data.u.type_signed_external.psid;
+            if(external_data != NULL){
+                if(s_data.unsigned_data.u.type_signed_external.ext_data.buf != NULL){
+                    wave_printf(MSG_WARNING,"我觉得这里不应该会有直的，请核实一下，我觉得这里是一个潜在的bug的点，有可能是我对external_data这个理解有错误\
+ %s %d",__FILE__,__LINE__);
+                    free(s_data.unsigned_data.u.type_signed_external.ext_data.buf);
+                }
+                if( s_data.unsigned_data.u.type_signed_external.ext_data.buf = (u8*)malloc(external_data->len) ){
+                    wave_malloc_error();
+                    res = FAILURE;
+                    goto end;
+                }
+                memcpy(s_data.unsigned_data.u.type_signed_external.ext_data.buf,external_data->buf,external_data->len);
+            }
+            break;
+        default:
+            wave_error_printf("出现了不可能的类型 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+    }
+    permission = permissions.cme_permissions; 
+    switch(permission->type){
+        case PSID:
+            for(i=0;i<permission->u.psid_array.len;i++){
+                if(m_psid == *(permission->u.psid_array.buf+i))
+                    break;
+            }
+            if( i == permission->u.psid_array.len){
+                res = UNAUTHORIZED_PSID;
+                goto end;
+            }
+            break;
+        case PSID_PRIORITY:
+            for(i=0;i<permission->u.psid_priority_array.len;i++){
+                if(m_psid == (permission->u.psid_priority_array.buf+i)->psid)
+                    break;
+            }
+            if( i == permission->u.psid_priority_array.len){
+                res = UNAUTHORIZED_PSID;
+                goto end;
+            }
+            break;
+        case PSID_PRIORITY_SSP:
+            for(i=0;i<permission->u.psid_priority_ssp_array.len;i++){
+                if(m_psid == (permission->u.psid_priority_ssp_array.buf+i)->psid)
+                    break;
+            }
+            if( i == permission->u.psid_priority_ssp_array.len){
+                res = UNAUTHORIZED_PSID;
+                goto end;
+            }
+            break;
+        default:
+            wave_error_printf("出现了不可能出现的直 %s %d ",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+    }
+    if(input_psid != NULL && *input_psid != m_psid){
+        res = PSIDS_NOT_MATCH;
+        goto end;
+    }
+    if( certs_chain.certs->unsigned_certificate.holder_type != SDE_ANONYMOUS &&
+            certs_chain.certs->unsigned_certificate.holder_type != SDE_IDENTIFIED_NOT_LOCALIZED &&
+            certs_chain.certs->unsigned_certificate.holder_type != SDE_IDENTIFIED_LOCALIZED){
+        res = UNAUTHORIZED_CERTIFICATE_TYPE;
+        goto end;
+    }
+    if(check_generation_time){
+        if(generation_threshold > 1 || generation_threshold < 0 || accepte_threshold > 1|| accepte_threshold < 0){
+            wave_error_printf("不要乱给参数撒 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+        }
+        //请核实哈我写对没有
+        if( normal_distribution_calculate_probability((float)generation_time->time,(float)pow(LOG_STD_DEV_BASE,generation_time->long_std_dev),
+                            (float)generation_time->time,(float)(now*US_TO_S) > generation_threshold) > generation_threshold){
+            res = DATA_EXPIRED_BASE_ON_EXPIRY_TIME;
+            goto end;
+        }
+        //请核实下我写对没有
+        if( normal_distribution_calculate_probability( (float)generation_time->time,(float)pow(LOG_STD_DEV_BASE,generation_time->long_std_dev),
+                    (float)(now*US_TO_S),(float)generation_time->time+accepte_time) > accepte_threshold){
+            res = FUTURE_DATA;
+            goto end;
+        }
+    }
+    if(check_expiry_time){
+        if(exprity_threshold < 0 || exprity_threshold > 1){
+            wave_error_printf("不要乱给参数撒 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+        }
+        //请核实哈我写对没有,我认为本地的时间的绝对误差为1ms（我乱写的，我都不知道该为多少）
+        if( normal_distribution_calculate_probability( (float)(now*US_TO_S),(float)(1000),(float)exprity_time,(float)now) > exprity_threshold){
+            res = DATA_EXPIRED_BASE_ON_EXPIRY_TIME;
+            goto end;
+        }
+    }
+    string_free(&string);
+    if( signed_data_2_string(&s_data,&string) ){
+         res = FAILURE;
+         goto end;
+    }
+    if( detect_reply){
+        if( REPLAY ==  cme_reply_detection(sdb,lsis,&string) ){
+            res = REPLAY;
+        }
+    }
+    if(check_geneartion_location){
+        get_current_location(&current_location);
+        if( distance_with_two_d_location(&gen_loc,&current_location) > validity_distance + 0){//我没的localconf也不准备有
+            res = OUT_OF_RANGE;
+            goto end;
+        }
+    }
+    
+    if( hash_with_certificate((certs_chain.certs+certs_chain.len -1),&string,&digest) ){
+            res = FAILURE;
+            goto end;
+    }
+    res =  sec_verify_chain_signature(sdb,&certs_chain,&verifieds,&digest,&s_data.signature);
+    if(res == SUCCESS){
+        for(i=0;i<certs_chain.len;i++){
+            cert = certs_chain.certs+i;
+            cme_add_certificate(sdb,cert,true);
+        }
+        //协议上没说，这个我想应该是这样
+        if(send_cert != NULL){
+            certificate_cpy(send_cert,certs_chain.certs+certs_chain.len-1);
+        }
+    }
+    
+    goto end;
+end:
+    certificate_chain_free(&certs_chain);
+    certificate_chain_free(&temp_certs_chain);
+    cme_permissions_array_free(&permissions);
+    geographic_region_array_free(&geo_scopes);
+    verified_array_free(&verifieds);
+    signed_data_free(&s_data);
+    string_free(&string);
+    string_free(&digest);
+    time32_array_free(&times);
+    return res;
+    
+    
+}
+
 //未测
 result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permissions,time32 life_time,string* signed_wsa){
     result ret = SUCCESS;

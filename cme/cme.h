@@ -36,19 +36,13 @@ struct verified_array{
 
 void verified_array_free(struct verified_array *verified_array);
 
-struct last_crl_times_array{
-    time64* last_crl_time;
+struct time32_array{
+    time32* times;
     u32 len;
 };
 
-void last_crl_times_array_free(struct last_crl_times_array *array);
 
-struct next_crl_times_array{
-    time64 *next_crl_time;
-    u32 len;
-};
-
-void next_crl_times_array_free(struct last_crl_times_array *array);
+void time32_array_free(struct time32_array *array);
 
 struct cme_permissions_array{
     struct cme_permissions* cme_permissions;
@@ -186,8 +180,8 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
                 struct certificate_chain* certificate_chain,
                 struct cme_permissions_array* permissions_array,
                 struct geographic_region_array* regions,
-                struct last_crl_times_array* last_crl_time_array,
-                struct next_crl_times_array* next_crl_time_array,
+                struct time32_array* last_crl_time_array,
+                struct time32_array* next_crl_time_array,
                 struct verified_array *verified_array);
 
 
@@ -206,13 +200,12 @@ int certificate_2_hash8(struct certificate *cert, string *hash8);
 int cert_not_expired(struct sec_db *sdb, void *value);
 int cert_not_revoked(struct sec_db *sdb, enum identifier_type type, string *identifier);
 int certificate_get_elliptic_curve_point(certificate* cert,elliptic_curve_point* point);
+int certificate_get_start_validity(certificate* cert,time32* start);
 int get_cert_expired_info_by_cmh(struct sec_db *sdb, void *value);
 
 int get_cert_info_by_certid(struct sec_db *sdb, enum identifier_type type, string *identifier,
                              
                             struct cert_info *cert_info);
-
-void certificate_2_hash8(struct certificate *cert, string *hash8);
 
 time64 get_next_crl_time_info(struct sec_db *sdb, crl_series crl_series, struct hashedid8 *id);
 
