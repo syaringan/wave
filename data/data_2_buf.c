@@ -170,7 +170,7 @@ static u32 varible_len_calculate(u64 len){
 
 static u32 psid_encoding(u8* buf,const psid* psid){
 	if((*psid & 15<<28) == 15<<28){
-//		wave_printf(MSG_ERROR,"psid大于4字节");
+		wave_error_printf("psid大于4字节 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	u32 size;
@@ -181,21 +181,28 @@ static u32 psid_encoding(u8* buf,const psid* psid){
 	}
 	else if((*psid & 6<<21) == 6<<21){
 		size = 3;
-		if((*psid & 0xff000000) != 0)
+		if((*psid & 0xff000000) != 0){
+			wave_error_printf("psid格式错误 %s %d",__FILE__,__LINE__);
 			return -1;
+		}
 	}
 	else if((*psid & 2<<14) == 2<<14){
 		size = 2;
-		if((*psid & 0xffff0000) != 0)
+		if((*psid & 0xffff0000) != 0){
+			wave_error_printf("psid格式错误 %s %d",__FILE__,__LINE__);
 			return -1;
+		}
 	}
 	else if((*psid & 1<<7) == 0){
 		size = 1;
-		if((*psid & 0xffffff00) != 0)
+		if((*psid & 0xffffff00) != 0){
+			wave_error_printf("psid格式错误 %s %d",__FILE__,__LINE__);
 			return -1;
-	}
-	else
+		}
+	}else{
+		wave_error_printf("psid格式错误 %s %d",__FILE__,__LINE__);
 		return -1;
+	}
 
 	switch(size){
 		case 1:
@@ -228,8 +235,10 @@ static u32 time64_with_standard_deviation_2_buf(const time64_with_standard_devia
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
-	if(len < 9)
+	if(len < 9){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	tobuf64(mbuf,time64_with_standard_deviation->time);
 	mbuf += 8;
@@ -253,8 +262,10 @@ static u32 tbsdata_extension_2_buf(const tbsdata_extension *tbsdata_extension,
 	u32 size = len;
 	u32 res = 0;
 	int i;
-	if(len < 2)
+	if(len < 2){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = tbsdata_extension->type;
 	mbuf++;
@@ -262,8 +273,10 @@ static u32 tbsdata_extension_2_buf(const tbsdata_extension *tbsdata_extension,
 	res++;
 
 	u32 encode_len = varible_len_calculate(tbsdata_extension->value.len);
-	if (size < encode_len + tbsdata_extension->value.len)
+	if (size < encode_len + tbsdata_extension->value.len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 	varible_len_encoding(mbuf,tbsdata_extension->value.len);
 	mbuf += encode_len;
 
@@ -286,8 +299,10 @@ static u32 three_d_location_2_buf(const three_d_location *three_d_location,
 	u32 size = len;
 	u32 res = 0;
 	int i;
-	if(len < 10)
+	if(len < 10){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	tobuf32(mbuf,three_d_location->latitude);
 	mbuf += 4;
@@ -316,8 +331,10 @@ static u32 hashedid8_2_buf(const hashedid8 *hashedid8,u8* buf,u32 len){
 	u32 size = len;
 	u32 res = 0;
 	int i;
-	if(len < 8)
+	if(len < 8){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	for(i=0;i<8;i++){
 		*mbuf++ = *(hashedid8->hashedid8 + i);
@@ -338,8 +355,10 @@ static u32 elliptic_curve_point_2_buf(const elliptic_curve_point *elliptic_curve
 	u32 res = 0;
 	u32 encode_len;
 	int i;
-	if(len < 29)
+	if(len < 29){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = elliptic_curve_point->type;
 	mbuf++;
@@ -373,8 +392,10 @@ static u32 ecdsa_signature_2_buf(const ecdsa_signature *ecdsa_signature,u8* buf,
 	u32 encode_len;
 	int i;
 
-	if(len < 30)
+	if(len < 30){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = elliptic_curve_point_2_buf(&ecdsa_signature->r,mbuf,size);
 	if(encode_len < 0)
@@ -404,8 +425,10 @@ static u32 signature_2_buf(const signature *signature,u8* buf,u32 len,pk_algorit
 	u32 encode_len;
 	int i;
 
-	if(len < 1)
+	if(len < 1){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	switch(algorithm){
 		case ECDSA_NISTP224_WITH_SHA224:
@@ -414,8 +437,10 @@ static u32 signature_2_buf(const signature *signature,u8* buf,u32 len,pk_algorit
 			return encode_len;
 		default:
 			encode_len = varible_len_calculate(signature->u.signature.len);
-			if (size < encode_len + signature->u.signature.len)
+			if (size < encode_len + signature->u.signature.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,signature->u.signature.len);
 			mbuf += encode_len;
 
@@ -439,8 +464,10 @@ static u32 public_key_2_buf(const public_key *public_key,u8* buf,u32 len){
 	u32 encode_len;
 	int i;
 
-	if(len < 2)
+	if(len < 2){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = public_key->algorithm;
 	 mbuf++;
@@ -465,8 +492,10 @@ static u32 public_key_2_buf(const public_key *public_key,u8* buf,u32 len){
 			 return encode_len + res;
 		 default:
 			 encode_len = varible_len_calculate(public_key->u.other_key.len);
-			 if (size < encode_len + public_key->u.other_key.len)
+			 if (size < encode_len + public_key->u.other_key.len){
+				 wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				 return NOT_ENOUGHT;
+			 }
 			 varible_len_encoding(mbuf,public_key->u.other_key.len);
 			 mbuf += encode_len;
 
@@ -487,8 +516,10 @@ static u32 two_d_location_2_buf(const two_d_location *two_d_location,u8* buf,u32
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
-	if(len < 8)
+	if(len < 8){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	tobuf32(mbuf,two_d_location->latitude);
 	mbuf += 4;
@@ -511,8 +542,10 @@ static u32 rectangular_region_2_buf(const rectangular_region *rectangular_region
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
-	if(len < 16)
+	if(len < 16){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = two_d_location_2_buf(&rectangular_region->north_west,mbuf,size);
 	if(encode_len < 0)
@@ -540,8 +573,10 @@ static u32 circular_region_2_buf(const circular_region *circular_region,u8* buf,
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
-	if(len < 10)
+	if(len < 10){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = two_d_location_2_buf(&circular_region->center,mbuf,size);
 	if(encode_len < 0)
@@ -570,8 +605,10 @@ static u32 geographic_region_2_buf(const geographic_region *geographic_region,u8
 	u32 encode_len;
 	int i;
 
-	if(len < 1)
+	if(len < 1){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = geographic_region->region_type;
 	mbuf++;
@@ -588,8 +625,10 @@ static u32 geographic_region_2_buf(const geographic_region *geographic_region,u8
 			return encode_len + res;
 		case RECTANGLE:
 			encode_len = varible_len_calculate(geographic_region->u.rectangular_region.len*16);
-			if (size < encode_len + geographic_region->u.rectangular_region.len*16)
+			if (size < encode_len + geographic_region->u.rectangular_region.len*16){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,geographic_region->u.rectangular_region.len*16);
 			mbuf += encode_len;
 			size -= encode_len;
@@ -614,8 +653,10 @@ static u32 geographic_region_2_buf(const geographic_region *geographic_region,u8
 			return res;
 		default:
 			encode_len = varible_len_calculate(geographic_region->u.other_region.len);
-			if (size < encode_len + geographic_region->u.other_region.len)
+			if (size < encode_len + geographic_region->u.other_region.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,geographic_region->u.other_region.len);
 			mbuf += encode_len;
 
@@ -638,8 +679,10 @@ static u32 psid_priority_2_buf(const psid_priority *psid_priority,u8* buf,u32 le
 	u32 res = 0;
 	u32 encode_len;
 
-	if(len < 2)
+	if(len < 2){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = psid_encoding(mbuf,&psid_priority->psid);
 	if(encode_len < 0)
@@ -667,8 +710,10 @@ static u32 psid_priority_array_2_buf(const psid_priority_array *psid_priority_ar
 	u32 encode_len;
 	int i;
 
-	if(len < 1)
+	if(len < 1){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = psid_priority_array->type;
 	mbuf++;
@@ -678,8 +723,10 @@ static u32 psid_priority_array_2_buf(const psid_priority_array *psid_priority_ar
 	switch(psid_priority_array->type){
 		case ARRAY_TYPE_SPECIFIED:
 			encode_len = varible_len_calculate(psid_priority_array->u.permissions_list.len*9);
-			if (size < encode_len + psid_priority_array->u.permissions_list.len*9)
+			if (size < encode_len + psid_priority_array->u.permissions_list.len*9){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,psid_priority_array->u.permissions_list.len*9);
 			mbuf += encode_len;
 			size -= encode_len;
@@ -698,8 +745,10 @@ static u32 psid_priority_array_2_buf(const psid_priority_array *psid_priority_ar
 			return res;
 		default:
 			encode_len = varible_len_calculate(psid_priority_array->u.other_permissions.len);
-			if (size < encode_len + psid_priority_array->u.other_permissions.len)
+			if (size < encode_len + psid_priority_array->u.other_permissions.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,psid_priority_array->u.other_permissions.len);
 			mbuf += encode_len;
 
@@ -726,8 +775,10 @@ static u32 psid_array_2_buf(const psid_array *psid_array,u8* buf,u32 len){
 	u32 min_len;
 	int i;
 
-	if(len < 1)
+	if(len < 1){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = psid_array->type;
 	mbuf++;
@@ -737,8 +788,10 @@ static u32 psid_array_2_buf(const psid_array *psid_array,u8* buf,u32 len){
 	switch(psid_array->type){
 		case ARRAY_TYPE_SPECIFIED:
 			min_len = varible_len_calculate(psid_array->u.permissions_list.len);
-			if (size < min_len + psid_array->u.permissions_list.len)
+			if (size < min_len + psid_array->u.permissions_list.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);	
 				return NOT_ENOUGHT;
+			}
 			
 			mbuf_beg = mbuf;
 			u32 data_len = 0;
@@ -754,8 +807,10 @@ static u32 psid_array_2_buf(const psid_array *psid_array,u8* buf,u32 len){
 			mbuf_end = mbuf;
 
 			encode_len = varible_len_calculate(data_len);
-			if(size < encode_len)
+			if(size < encode_len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 
 			mbuf = mbuf_end + encode_len;
 			while(mbuf_beg != mbuf_end){
@@ -770,8 +825,10 @@ static u32 psid_array_2_buf(const psid_array *psid_array,u8* buf,u32 len){
 			return res;
 		default:
 			encode_len = varible_len_calculate(psid_array->u.other_permissions.len);
-			if (size < encode_len + psid_array->u.other_permissions.len)
+			if (size < encode_len + psid_array->u.other_permissions.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,psid_array->u.other_permissions.len);
 			mbuf += encode_len;
 
@@ -795,8 +852,10 @@ static u32 psid_ssp_2_buf(const psid_ssp *psid_ssp,u8* buf,u32 len){
 	u32 encode_len;
 	int i;
 
-	if(len < 2)
+	if(len < 2){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = psid_encoding(mbuf,&psid_ssp->psid);
 	if(encode_len < 0)
@@ -806,8 +865,10 @@ static u32 psid_ssp_2_buf(const psid_ssp *psid_ssp,u8* buf,u32 len){
 	res += encode_len;
 
 	encode_len = varible_len_calculate(psid_ssp->service_specific_permissions.len);
-	if (size < encode_len + psid_ssp->service_specific_permissions.len)
+	if (size < encode_len + psid_ssp->service_specific_permissions.len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 	varible_len_encoding(mbuf,psid_ssp->service_specific_permissions.len);
 	mbuf += encode_len;
 
@@ -836,8 +897,10 @@ static u32 psid_ssp_array_2_buf(const psid_ssp_array *psid_ssp_array,u8* buf,u32
 	u32 min_len;
 	int i;
 
-	if(len < 1)
+	if(len < 1){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = psid_ssp_array->type;
 	mbuf++;
@@ -847,8 +910,10 @@ static u32 psid_ssp_array_2_buf(const psid_ssp_array *psid_ssp_array,u8* buf,u32
 	switch(psid_ssp_array->type){
 		case ARRAY_TYPE_SPECIFIED:
 			min_len = varible_len_calculate(psid_ssp_array->u.permissions_list.len*2);
-			if (size < min_len + psid_ssp_array->u.permissions_list.len*2)
+			if (size < min_len + psid_ssp_array->u.permissions_list.len*2){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 
 			mbuf_beg = mbuf;
 			u32 data_len = 0;
@@ -864,8 +929,10 @@ static u32 psid_ssp_array_2_buf(const psid_ssp_array *psid_ssp_array,u8* buf,u32
 			res += data_len;
 
 			encode_len = varible_len_calculate(data_len);
-			if(size < encode_len)
+			if(size < encode_len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 
 			mbuf = mbuf_end + encode_len;
 			while(mbuf_beg != mbuf_end){
@@ -881,8 +948,10 @@ static u32 psid_ssp_array_2_buf(const psid_ssp_array *psid_ssp_array,u8* buf,u32
 			return res;
 		default:
 			encode_len = varible_len_calculate(psid_ssp_array->u.other_permissions.len);
-			if (size < encode_len + psid_ssp_array->u.other_permissions.len)
+			if (size < encode_len + psid_ssp_array->u.other_permissions.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,psid_ssp_array->u.other_permissions.len);
 			mbuf += encode_len;
 	
@@ -906,8 +975,10 @@ static u32 psid_priority_ssp_2_buf(const psid_priority_ssp *psid_priority_ssp,u8
 	u32 encode_len;
 	int i;
 
-	if(len < 3)
+	if(len < 3){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = psid_encoding(mbuf,&psid_priority_ssp->psid);
 	if(encode_len < 0)
@@ -922,8 +993,10 @@ static u32 psid_priority_ssp_2_buf(const psid_priority_ssp *psid_priority_ssp,u8
 	res++;
 
 	encode_len = varible_len_calculate(psid_priority_ssp->service_specific_permissions.len);
-	if (size < encode_len + psid_priority_ssp->service_specific_permissions.len)
+	if (size < encode_len + psid_priority_ssp->service_specific_permissions.len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 	varible_len_encoding(mbuf,psid_priority_ssp->service_specific_permissions.len);
 	mbuf += encode_len;
 
@@ -950,8 +1023,10 @@ static u32 psid_priority_ssp_array_2_buf(const psid_priority_ssp_array *psid_pri
 	u32 min_len;
 	int i;
 
-	if(len < 1)
+	if(len < 1){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = psid_priority_ssp_array->type;
 	mbuf++;
@@ -961,8 +1036,10 @@ static u32 psid_priority_ssp_array_2_buf(const psid_priority_ssp_array *psid_pri
 	switch(psid_priority_ssp_array->type){
 		case ARRAY_TYPE_SPECIFIED:	
 			min_len = varible_len_calculate(psid_priority_ssp_array->u.permissions_list.len*10);
-			if (size < min_len + psid_priority_ssp_array->u.permissions_list.len*10)
+			if (size < min_len + psid_priority_ssp_array->u.permissions_list.len*10){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 
 			mbuf_beg = mbuf;
 			u32 data_len = 0;
@@ -978,8 +1055,10 @@ static u32 psid_priority_ssp_array_2_buf(const psid_priority_ssp_array *psid_pri
 			res += data_len;
 
 			encode_len = varible_len_calculate(data_len);
-			if(size < encode_len)
+			if(size < encode_len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 
 			mbuf = mbuf_end + encode_len;
 			while(mbuf_beg != mbuf_end){
@@ -995,8 +1074,10 @@ static u32 psid_priority_ssp_array_2_buf(const psid_priority_ssp_array *psid_pri
 			return res;
 		default:
 			encode_len = varible_len_calculate(psid_priority_ssp_array->u.other_permissions.len);
-			if (size < encode_len + psid_priority_ssp_array->u.other_permissions.len)
+			if (size < encode_len + psid_priority_ssp_array->u.other_permissions.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,psid_priority_ssp_array->u.other_permissions.len);
 			mbuf += encode_len;
 
@@ -1020,12 +1101,16 @@ static u32 wsa_scope_2_buf(const wsa_scope *wsa_scope,u8* buf,u32 len){
 	u32 encode_len;
 	int i;
 
-	if(len < 3)
+	if(len < 3){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = varible_len_calculate(wsa_scope->name.len);
-	if (size < encode_len + wsa_scope->name.len)
+	if (size < encode_len + wsa_scope->name.len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 	varible_len_encoding(mbuf,wsa_scope->name.len);
 	mbuf += encode_len;
 
@@ -1063,12 +1148,16 @@ static u32 anonymous_scope_2_buf(const anonymous_scope *anonymous_scope,u8* buf,
 	u32 encode_len;
 	int i;
 
-	if(len < 5)
+	if(len < 5){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = varible_len_calculate(anonymous_scope->additionla_data.len);
-	if (size < encode_len + anonymous_scope->additionla_data.len)
+	if (size < encode_len + anonymous_scope->additionla_data.len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 	varible_len_encoding(mbuf,anonymous_scope->additionla_data.len);
 	mbuf += encode_len;
 
@@ -1105,12 +1194,16 @@ static u32 identified_scope_2_buf(const identified_scope *identified_scope,u8* b
 	u32 encode_len;
 	int i;
 
-	if(len < 3)
+	if(len < 3){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = varible_len_calculate(identified_scope->name.len);
-	if (size < encode_len + identified_scope->name.len)
+	if (size < encode_len + identified_scope->name.len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 	varible_len_encoding(mbuf,identified_scope->name.len);
 	mbuf += encode_len;
 
@@ -1148,12 +1241,16 @@ static u32 identified_not_localized_scope_2_buf(const identified_not_localized_s
 	u32 encode_len;
 	int i;
 
-	if(len < 2)
+	if(len < 2){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = varible_len_calculate(identified_not_localized_scope->name.len);
-	if (size < encode_len + identified_not_localized_scope->name.len)
+	if (size < encode_len + identified_not_localized_scope->name.len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 	varible_len_encoding(mbuf,identified_not_localized_scope->name.len);
 	mbuf += encode_len;
 
@@ -1183,12 +1280,16 @@ static u32 wsa_ca_scope_2_buf(const wsa_ca_scope *wsa_ca_scope,u8* buf,u32 len){
 	u32 encode_len;
 	int i;
 
-	if(len < 3)
+	if(len < 3){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = varible_len_calculate(wsa_ca_scope->name.len);
-	if (size < encode_len + wsa_ca_scope->name.len)
+	if (size < encode_len + wsa_ca_scope->name.len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 	varible_len_encoding(mbuf,wsa_ca_scope->name.len);
 	mbuf += encode_len;
 
@@ -1226,12 +1327,16 @@ static u32 sec_data_exch_ca_scope_2_buf(const sec_data_exch_ca_scope *sec_data_e
 	u32 encode_len;
 	int i;
 
-	if(len < 4)
+	if(len < 4){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = varible_len_calculate(sec_data_exch_ca_scope->name.len);
-	if (size < encode_len + sec_data_exch_ca_scope->name.len)
+	if (size < encode_len + sec_data_exch_ca_scope->name.len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 	varible_len_encoding(mbuf,sec_data_exch_ca_scope->name.len);
 	mbuf += encode_len;
 
@@ -1281,12 +1386,16 @@ static u32 root_ca_scope_2_buf(const root_ca_scope *root_ca_scope,u8* buf,u32 le
 	u32 encode_len;
 	int i;
 
-	if(len < 4)
+	if(len < 4){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = varible_len_calculate(root_ca_scope->name.len);
-	if (size < encode_len + root_ca_scope->name.len)
+	if (size < encode_len + root_ca_scope->name.len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 	varible_len_encoding(mbuf,root_ca_scope->name.len);
 	mbuf += encode_len;
 
@@ -1335,8 +1444,10 @@ static u32 root_ca_scope_2_buf(const root_ca_scope *root_ca_scope,u8* buf,u32 le
 
 	if((root_ca_scope->permitted_holder_types > 1<<6) && (root_ca_scope->permitted_holder_types & 1<<8)!=0){
 		encode_len = varible_len_calculate(root_ca_scope->flags_content.other_permissions.len);
-		if (size < encode_len + root_ca_scope->flags_content.other_permissions.len)
+		if (size < encode_len + root_ca_scope->flags_content.other_permissions.len){
+			wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 			return NOT_ENOUGHT;
+		}
 		varible_len_encoding(mbuf,root_ca_scope->flags_content.other_permissions.len);
 		mbuf += encode_len;
 
@@ -1368,8 +1479,10 @@ static u32 cert_specific_data_2_buf(const cert_specific_data *cert_specific_data
 	u32 encode_len;
 	int i;
 
-	if(len < 1)
+	if(len < 1){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	switch(holder_type){
 		case ROOT_CA:
@@ -1401,8 +1514,10 @@ static u32 cert_specific_data_2_buf(const cert_specific_data *cert_specific_data
 			return encode_len;
 		default:
 			encode_len = varible_len_calculate(cert_specific_data->u.other_scope.len);
-			if (size < encode_len + cert_specific_data->u.other_scope.len)
+			if (size < encode_len + cert_specific_data->u.other_scope.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,cert_specific_data->u.other_scope.len);
 			mbuf += encode_len;
 
@@ -1427,8 +1542,10 @@ static u32 tobesigned_certificate_2_buf(const tobesigned_certificate *tobesigned
 	u32 encode_len;
 	int i;
 
-	if(len < 12)		
+	if(len < 12){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = tobesigned_certificate->holder_type;
 	mbuf++;
@@ -1488,8 +1605,10 @@ static u32 tobesigned_certificate_2_buf(const tobesigned_certificate *tobesigned
 			break;
 		default:
 			encode_len = varible_len_calculate(tobesigned_certificate->version_and_type.other_key_material.len);
-			if (size < encode_len + tobesigned_certificate->version_and_type.other_key_material.len)
+			if (size < encode_len + tobesigned_certificate->version_and_type.other_key_material.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,tobesigned_certificate->version_and_type.other_key_material.len);
 			mbuf += encode_len;
 
@@ -1526,8 +1645,10 @@ static u32 tobesigned_certificate_2_buf(const tobesigned_certificate *tobesigned
 
 	if((tobesigned_certificate->cf & 0xf8)!=0){//本协议中cf为1字节
 		encode_len = varible_len_calculate(tobesigned_certificate->flags_content.other_cert_content.len);
-		if (size < encode_len + tobesigned_certificate->flags_content.other_cert_content.len)
+		if (size < encode_len + tobesigned_certificate->flags_content.other_cert_content.len){
+			wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 			return NOT_ENOUGHT;
+		}
 		varible_len_encoding(mbuf,tobesigned_certificate->flags_content.other_cert_content.len);
 		mbuf += encode_len;
 
@@ -1552,8 +1673,10 @@ static u32 certificate_2_buf(const certificate *certificate,u8* buf,u32 len){
 	u32 encode_len;
 	int i;
 
-	if(len < 14)
+	if(len < 14){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = certificate->version_and_type;
 	mbuf++;
@@ -1589,8 +1712,10 @@ static u32 certificate_2_buf(const certificate *certificate,u8* buf,u32 len){
 			return encode_len + res;
 		default:
 			encode_len = varible_len_calculate(certificate->u.signature_material.len);
-			if (size < encode_len + certificate->u.signature_material.len)
+			if (size < encode_len + certificate->u.signature_material.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,certificate->u.signature_material.len);
 			mbuf += encode_len;
 		
@@ -1617,8 +1742,10 @@ static u32 signer_identifier_2_buf(const signer_identifier *signer_identifier,u8
 	u32 min_len;
 	int i;
 
-	if(len < 1)
+	if(len < 1){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = signer_identifier->type;
 	mbuf++;
@@ -1641,8 +1768,10 @@ static u32 signer_identifier_2_buf(const signer_identifier *signer_identifier,u8
 			return encode_len + res;
 		case CERTIFICATE_CHAIN:
 			min_len = varible_len_calculate(signer_identifier->u.certificates.len*22);
-			if (size < min_len + signer_identifier->u.certificates.len*22)
+			if (size < min_len + signer_identifier->u.certificates.len*22){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 
 			mbuf_beg = mbuf;
 			u32 data_len = 0;
@@ -1658,8 +1787,10 @@ static u32 signer_identifier_2_buf(const signer_identifier *signer_identifier,u8
 			res += data_len;
 
 			encode_len = varible_len_calculate(data_len);
-			if(size < encode_len)
+			if(size < encode_len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 
 			mbuf = mbuf_end + encode_len;
 			while(mbuf_beg != mbuf_end){
@@ -1683,8 +1814,10 @@ static u32 signer_identifier_2_buf(const signer_identifier *signer_identifier,u8
 			return encode_len + res;
 		default:
 			encode_len = varible_len_calculate(signer_identifier->u.id.len);
-			if (size < encode_len + signer_identifier->u.id.len)
+			if (size < encode_len + signer_identifier->u.id.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,signer_identifier->u.id.len);
 			mbuf += encode_len;
 		
@@ -1706,8 +1839,10 @@ static u32 crl_request_2_buf(const crl_request *crl_request,u8* buf,u32 len){
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
-	if(len < 16)
+	if(len < 16){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = hashedid8_2_buf(&crl_request->issuer,mbuf,size);
 	if(encode_len < 0)
@@ -1738,8 +1873,10 @@ static u32 certid10_2_buf(const certid10 *certid10,u8* buf,u32 len){
 	u32 res = 0;
 	int i;
 
-	if(len < 10)
+	if(len < 10){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	for(i=0;i<10;i++){
 		*mbuf++ = *(certid10->certid10 + i);
@@ -1758,8 +1895,10 @@ static u32 id_and_date_2_buf(const id_and_date *id_and_date,u8* buf,u32 len){
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
-	if(len < 14)
+	if(len < 14){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = certid10_2_buf(&id_and_date->id,mbuf,size);
 	if(encode_len < 0)
@@ -1787,8 +1926,10 @@ static u32 tobesigned_crl_2_buf(const tobesigned_crl *tobesigned_crl,u8* buf,u32
 	u32 encode_len;
 	int i;
 
-	if(len < 30)
+	if(len < 30){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = tobesigned_crl->type;
 	mbuf++;
@@ -1830,8 +1971,10 @@ static u32 tobesigned_crl_2_buf(const tobesigned_crl *tobesigned_crl,u8* buf,u32
 	switch(tobesigned_crl->type){
 		case ID_ONLY:
 			encode_len = varible_len_calculate(tobesigned_crl->u.entries.len*10);
-			if (size < encode_len + tobesigned_crl->u.entries.len*10)
+			if (size < encode_len + tobesigned_crl->u.entries.len*10){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,tobesigned_crl->u.entries.len*10);
 			mbuf += encode_len;
 			size -= encode_len;
@@ -1848,8 +1991,10 @@ static u32 tobesigned_crl_2_buf(const tobesigned_crl *tobesigned_crl,u8* buf,u32
 			return res;
 		case ID_AND_EXPIRY:
 			encode_len = varible_len_calculate(tobesigned_crl->u.expiring_entries.len*14);
-			if (size < encode_len + tobesigned_crl->u.expiring_entries.len*14)
+			if (size < encode_len + tobesigned_crl->u.expiring_entries.len*14){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,tobesigned_crl->u.expiring_entries.len*14);
 			mbuf += encode_len;
 			size -= encode_len;
@@ -1866,8 +2011,10 @@ static u32 tobesigned_crl_2_buf(const tobesigned_crl *tobesigned_crl,u8* buf,u32
 			return res;
 		default:
 			encode_len = varible_len_calculate(tobesigned_crl->u.other_entries.len);
-			if (size < encode_len + tobesigned_crl->u.other_entries.len)
+			if (size < encode_len + tobesigned_crl->u.other_entries.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,tobesigned_crl->u.other_entries.len);
 			mbuf += encode_len;
 
@@ -1891,8 +2038,10 @@ static u32 crl_2_buf(const crl *crl,u8* buf,u32 len){
 	u32 encode_len;
 	int n;
 
-	if(len < 33)
+	if(len < 33){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = crl->version;
 	mbuf++;
@@ -1957,6 +2106,9 @@ static u32 crl_2_buf(const crl *crl,u8* buf,u32 len){
 					return encode_len;
 			}
 			return encode_len + res;
+		default:
+			wave_error_printf("signer.type不符 %s %d",__FILE__,__LINE__);
+			return -1;
 	}
 }
 
@@ -1971,8 +2123,10 @@ static u32 tobe_encrypted_certificate_response_acknowledgment_2_buf(const tobe_e
 	u32 res = 0;
 	int i;
 
-	if(len < 10)
+	if(len < 10){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	for(i=0;i<10;i++){
 		*mbuf++ = *(tobe_encrypted_certificate_response_acknowledgment->response_hash + i);
@@ -1994,8 +2148,10 @@ static u32 tobe_encrypted_certificate_request_error_2_buf(const tobe_encrypted_c
 	u32 encode_len;
 	int i;
 
-	if(len < 13)
+	if(len < 13){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = signer_identifier_2_buf(&tobe_encrypted_certificate_request_error->signer,mbuf,size);
 	if(encode_len < 0)
@@ -2029,6 +2185,7 @@ static u32 tobe_encrypted_certificate_request_error_2_buf(const tobe_encrypted_c
 				return encode_len;
 			return encode_len + res;
 		default:
+			wave_error_printf("version_and_type不符 %s %d",__FILE__,__LINE__);
 			return res;
 	}
 }
@@ -2050,12 +2207,16 @@ static u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certif
 	int i;
 	int n;
 
-	if(len < 3)
+	if(len < 3){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
-	
+	}
+
 	min_len = varible_len_calculate(tobe_encrypted_certificate_response->certificate_chain.len*22);
-	if (size < min_len + tobe_encrypted_certificate_response->certificate_chain.len*22)
+	if (size < min_len + tobe_encrypted_certificate_response->certificate_chain.len*22){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	mbuf_beg = mbuf;
 	data_len = 0;
@@ -2071,8 +2232,10 @@ static u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certif
 	res += data_len;
 
 	encode_len = varible_len_calculate(data_len);
-	if(size < encode_len)
+	if(size < encode_len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	mbuf = mbuf_end + encode_len;
 	while(mbuf_beg != mbuf_end){
@@ -2091,8 +2254,10 @@ static u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certif
 			break;
 		case 3:
 			encode_len = varible_len_calculate(tobe_encrypted_certificate_response->u.recon_priv.len);
-			if (size < encode_len + tobe_encrypted_certificate_response->u.recon_priv.len)
+			if (size < encode_len + tobe_encrypted_certificate_response->u.recon_priv.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,tobe_encrypted_certificate_response->u.recon_priv.len);
 			mbuf += encode_len;
 
@@ -2104,8 +2269,10 @@ static u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certif
 			break;
 		default:
 			encode_len = varible_len_calculate(tobe_encrypted_certificate_response->u.other_material.len);
-			if (size < encode_len + tobe_encrypted_certificate_response->u.other_material.len)
+			if (size < encode_len + tobe_encrypted_certificate_response->u.other_material.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,tobe_encrypted_certificate_response->u.other_material.len);
 			mbuf += encode_len;
 
@@ -2118,8 +2285,10 @@ static u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certif
 	}
 	
 	min_len = varible_len_calculate(tobe_encrypted_certificate_response->crl_path.len*34);
-	if (size < min_len + tobe_encrypted_certificate_response->crl_path.len*34)
+	if (size < min_len + tobe_encrypted_certificate_response->crl_path.len*34){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	mbuf_beg = mbuf;
 	data_len = 0;
@@ -2135,8 +2304,10 @@ static u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certif
 	res += data_len;
 
 	encode_len = varible_len_calculate(data_len);
-	if(size < encode_len)
+	if(size < encode_len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	mbuf = mbuf_end + encode_len;
 	while(mbuf_beg != mbuf_end){
@@ -2164,8 +2335,10 @@ static u32 tobesigned_certificate_request_2_buf(const tobesigned_certificate_req
 	u32 encode_len;
 	int i;
 
-	if(len < 17)
+	if(len < 17){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = tobesigned_certificate_request->version_and_type;
 	mbuf++;
@@ -2225,8 +2398,10 @@ static u32 tobesigned_certificate_request_2_buf(const tobesigned_certificate_req
 
 	if((tobesigned_certificate_request->cf & 0xf8)!=0){
 		encode_len = varible_len_calculate(tobesigned_certificate_request->flags_content.other_cert.len);
-		if (size < encode_len + tobesigned_certificate_request->flags_content.other_cert.len)
+		if (size < encode_len + tobesigned_certificate_request->flags_content.other_cert.len){
+			wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 			return NOT_ENOUGHT;
+		}
 		varible_len_encoding(mbuf,tobesigned_certificate_request->flags_content.other_cert.len);
 		mbuf += encode_len;
 
@@ -2263,9 +2438,10 @@ static u32 certificate_request_2_buf(const certificate_request *certificate_requ
 	u32 size = len;
 	u32 res = 0;
 	u32 encode_len;
-	if(len < 28)
+	if(len < 28){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
-
+	}
 
 	encode_len = signer_identifier_2_buf(&certificate_request->signer,mbuf,size);
 	if(encode_len < 0)
@@ -2303,7 +2479,8 @@ static u32 certificate_request_2_buf(const certificate_request *certificate_requ
 			}
 			return encode_len + res;
 		default:
-			return res;
+			wave_error_printf("signer.type不符 %s %d",__FILE__,__LINE__);
+			return -1;
 	}
 }
 
@@ -2321,8 +2498,10 @@ static u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,
 	u32 min_len;
 	int i;
 
-	if(len < 28)
+	if(len < 28){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = tobesigned_data->tf;
 	mbuf++;
@@ -2339,8 +2518,10 @@ static u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,
 			res += encode_len;
 			
 			encode_len = varible_len_calculate(tobesigned_data->u.type_signed.data.len);
-			if (size < encode_len + tobesigned_data->u.type_signed.data.len)
+			if (size < encode_len + tobesigned_data->u.type_signed.data.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,tobesigned_data->u.type_signed.data.len);
 			mbuf += encode_len;
 
@@ -2360,8 +2541,10 @@ static u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,
 			res += encode_len;
 			
 			encode_len = varible_len_calculate(tobesigned_data->u.type_signed_partical.ext_data.len);
-			if (size < encode_len + tobesigned_data->u.type_signed_partical.ext_data.len)
+			if (size < encode_len + tobesigned_data->u.type_signed_partical.ext_data.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,tobesigned_data->u.type_signed_partical.ext_data.len);
 			mbuf += encode_len;
 
@@ -2372,8 +2555,10 @@ static u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,
 			res = res + encode_len + tobesigned_data->u.type_signed_partical.ext_data.len;
 
 			encode_len = varible_len_calculate(tobesigned_data->u.type_signed_partical.data.len);
-			if (size < encode_len + tobesigned_data->u.type_signed_partical.data.len)
+			if (size < encode_len + tobesigned_data->u.type_signed_partical.data.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,tobesigned_data->u.type_signed_partical.data.len);
 			mbuf += encode_len;
 
@@ -2393,8 +2578,10 @@ static u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,
 			res += encode_len;
 
 			encode_len = varible_len_calculate(tobesigned_data->u.type_signed_external.ext_data.len);
-			if (size < encode_len + tobesigned_data->u.type_signed_external.ext_data.len)
+			if (size < encode_len + tobesigned_data->u.type_signed_external.ext_data.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,tobesigned_data->u.type_signed_external.ext_data.len);
 			mbuf += encode_len;
 
@@ -2407,8 +2594,10 @@ static u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,
 			break;
 		default:
 			encode_len = varible_len_calculate(tobesigned_data->u.data.len);
-			if (size < encode_len + tobesigned_data->u.data.len)
+			if (size < encode_len + tobesigned_data->u.data.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,tobesigned_data->u.data.len);
 			mbuf += encode_len;
 
@@ -2447,8 +2636,10 @@ static u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,
 	
 	if((tobesigned_data->tf & 1<<3)!=0){
 		min_len = varible_len_calculate(tobesigned_data->flags_content.extensions.len*2);
-		if (size < min_len + tobesigned_data->flags_content.extensions.len*2)
+		if (size < min_len + tobesigned_data->flags_content.extensions.len*2){
+			wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 			return NOT_ENOUGHT;
+		}
 
 		mbuf_beg = mbuf;
 		u32 data_len = 0;
@@ -2464,8 +2655,10 @@ static u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,
 		res += data_len;
 
 		encode_len = varible_len_calculate(data_len);
-		if(size < encode_len)
+		if(size < encode_len){
+			wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 			return NOT_ENOUGHT;
+		}
 
 		mbuf = mbuf_end + encode_len;
 		while(mbuf_beg != mbuf_end){
@@ -2481,8 +2674,10 @@ static u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,
 
 	if((tobesigned_data->tf & 0xf0)!=0){
 		encode_len = varible_len_calculate(tobesigned_data->flags_content.other_data.len);
-		if (size < encode_len + tobesigned_data->flags_content.other_data.len)
+		if (size < encode_len + tobesigned_data->flags_content.other_data.len){
+			wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 			return NOT_ENOUGHT;
+		}
 		varible_len_encoding(mbuf,tobesigned_data->flags_content.other_data.len);
 		mbuf += encode_len;
 	
@@ -2507,8 +2702,10 @@ static u32 signed_data_2_buf(const signed_data *signed_data,u8* buf,u32 len,cont
 	u32 encode_len;
 	int n;
 
-	if(len < 30)
+	if(len < 30){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = signer_identifier_2_buf(&signed_data->signer,mbuf,size);
 	if(encode_len < 0)
@@ -2572,6 +2769,9 @@ static u32 signed_data_2_buf(const signed_data *signed_data,u8* buf,u32 len,cont
 					return encode_len;
 				return encode_len + res;
 			}
+		default:
+			wave_error_printf("signer.type不符 %s %d",__FILE__,__LINE__);
+			return -1;
 	}
 }
 
@@ -2586,8 +2786,10 @@ static u32 tobe_encrypted_2_buf(const tobe_encrypted *tobe_encrypted,u8* buf,u32
 	u32 encode_len;
 	int i;
 
-	if(len < 2)
+	if(len < 2){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = tobe_encrypted->type;
 	mbuf++;
@@ -2597,8 +2799,10 @@ static u32 tobe_encrypted_2_buf(const tobe_encrypted *tobe_encrypted,u8* buf,u32
 	switch(tobe_encrypted->type){
 		case UNSECURED:
 			encode_len = varible_len_calculate(tobe_encrypted->u.plain_text.len);
-			if (size < encode_len + tobe_encrypted->u.plain_text.len)
+			if (size < encode_len + tobe_encrypted->u.plain_text.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,tobe_encrypted->u.plain_text.len);
 			mbuf += encode_len;
 
@@ -2650,8 +2854,10 @@ static u32 tobe_encrypted_2_buf(const tobe_encrypted *tobe_encrypted,u8* buf,u32
 			return encode_len + res;
 		default:
 			encode_len = varible_len_calculate(tobe_encrypted->u.data.len);
-			if (size < encode_len + tobe_encrypted->u.data.len)
+			if (size < encode_len + tobe_encrypted->u.data.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,tobe_encrypted->u.data.len);
 			mbuf += encode_len;
 
@@ -2675,8 +2881,10 @@ static u32 aes_ccm_ciphertext_2_buf(const aes_ccm_ciphertext *aes_ccm_ciphertext
 	u32 encode_len;
 	int i;
 
-	if(len < 13)
+	if(len < 13){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	for(i=0;i<12;i++){
 		*mbuf++ = *(aes_ccm_ciphertext->nonce + i);
@@ -2685,8 +2893,10 @@ static u32 aes_ccm_ciphertext_2_buf(const aes_ccm_ciphertext *aes_ccm_ciphertext
 	res += 12;
 
 	encode_len = varible_len_calculate(aes_ccm_ciphertext->ccm_ciphertext.len);
-	if (size < encode_len + aes_ccm_ciphertext->ccm_ciphertext.len)
+	if (size < encode_len + aes_ccm_ciphertext->ccm_ciphertext.len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 	varible_len_encoding(mbuf,aes_ccm_ciphertext->ccm_ciphertext.len);
 	mbuf += encode_len;
 
@@ -2711,8 +2921,10 @@ static u32 ecies_nist_p256_encrypted_key_2_buf(const ecies_nist_p256_encrypted_k
 	u32 encode_len;
 	int i;
 
-	if(len < 50)
+	if(len < 50){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = elliptic_curve_point_2_buf(&ecies_nist_p256_encrypted_key->v,mbuf,size);
 	if(encode_len < 0)
@@ -2722,8 +2934,10 @@ static u32 ecies_nist_p256_encrypted_key_2_buf(const ecies_nist_p256_encrypted_k
 	res += encode_len;
 
 	encode_len = varible_len_calculate(ecies_nist_p256_encrypted_key->c.len);
-	if (size < encode_len + ecies_nist_p256_encrypted_key->c.len)
+	if (size < encode_len + ecies_nist_p256_encrypted_key->c.len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 	varible_len_encoding(mbuf,ecies_nist_p256_encrypted_key->c.len);
 	mbuf += encode_len;
 
@@ -2752,8 +2966,10 @@ static u32 recipient_info_2_buf(const recipient_info *recipient_info,u8* buf,u32
 	u32 encode_len;
 	int i;
 
-	if(len < 9)
+	if(len < 9){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = hashedid8_2_buf(&recipient_info->cert_id,mbuf,size);
 	if(encode_len < 0)
@@ -2770,8 +2986,10 @@ static u32 recipient_info_2_buf(const recipient_info *recipient_info,u8* buf,u32
 			return encode_len + res;
 		default:
 			encode_len = varible_len_calculate(recipient_info->u.other_enc_key.len);
-			if (size < encode_len + recipient_info->u.other_enc_key.len)
+			if (size < encode_len + recipient_info->u.other_enc_key.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,recipient_info->u.other_enc_key.len);
 			mbuf += encode_len;
 
@@ -2799,8 +3017,10 @@ static u32 encrypted_data_2_buf(const encrypted_data *encrypted_data,u8* buf,u32
 	u32 min_len;
 	int i;
 
-	if(len < 3)
+	if(len < 3){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	*mbuf = encrypted_data->symm_algorithm;
 	mbuf++;
@@ -2808,8 +3028,10 @@ static u32 encrypted_data_2_buf(const encrypted_data *encrypted_data,u8* buf,u32
 	res++;
 	
 	min_len = varible_len_calculate(encrypted_data->recipients.len*9);
-	if (size < min_len + encrypted_data->recipients.len*9)
+	if (size < min_len + encrypted_data->recipients.len*9){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	mbuf_beg = mbuf;
 	u32 data_len = 0;
@@ -2825,8 +3047,10 @@ static u32 encrypted_data_2_buf(const encrypted_data *encrypted_data,u8* buf,u32
 	res += data_len;
 
 	encode_len = varible_len_calculate(data_len);
-	if(size < encode_len)
+	if(size < encode_len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	mbuf = mbuf_end + encode_len;
 	while(mbuf_beg != mbuf_end){
@@ -2847,8 +3071,10 @@ static u32 encrypted_data_2_buf(const encrypted_data *encrypted_data,u8* buf,u32
 			return encode_len + res;
 		default:
 			encode_len = varible_len_calculate(encrypted_data->u.other_ciphertext.len);
-			if (size < encode_len + encrypted_data->u.other_ciphertext.len)
+			if (size < encode_len + encrypted_data->u.other_ciphertext.len){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
+			}
 			varible_len_encoding(mbuf,encrypted_data->u.other_ciphertext.len);
 			mbuf += encode_len;
 
@@ -2875,12 +3101,16 @@ static u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32
 	u32 min_len;
 	int i;
 
-	if(len < 30)
+	if(len < 30){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = varible_len_calculate(tobesigned_wsa->permission_indices.len);
-	if (size < encode_len + tobesigned_wsa->permission_indices.len)
+	if (size < encode_len + tobesigned_wsa->permission_indices.len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 	varible_len_encoding(mbuf,tobesigned_wsa->permission_indices.len);
 	mbuf += encode_len;
 
@@ -2896,8 +3126,10 @@ static u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32
 	res++;
 
 	encode_len = varible_len_calculate(tobesigned_wsa->data.len);
-	if (size < encode_len + tobesigned_wsa->data.len)
+	if (size < encode_len + tobesigned_wsa->data.len){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 	varible_len_encoding(mbuf,tobesigned_wsa->data.len);
 	mbuf += encode_len;
 
@@ -2928,8 +3160,10 @@ static u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32
 	
 	if((tobesigned_wsa->tf & 1<<3)!=0){
 		min_len = varible_len_calculate(tobesigned_wsa->flags_content.extension.len*2);
-		if (size < min_len + tobesigned_wsa->flags_content.extension.len*2)
+		if (size < min_len + tobesigned_wsa->flags_content.extension.len*2){
+			wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 			return NOT_ENOUGHT;
+		}
 	
 		mbuf_beg = mbuf;
 		u32 data_len = 0;
@@ -2945,8 +3179,10 @@ static u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32
 		res += data_len;
 
 		encode_len = varible_len_calculate(data_len);
-		if(size < encode_len)
+		if(size < encode_len){
+			wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 			return NOT_ENOUGHT;
+		}
 
 		mbuf = mbuf_end + encode_len;
 		while(mbuf_beg != mbuf_end){
@@ -2962,8 +3198,10 @@ static u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32
 	
 	if((tobesigned_wsa->tf & 0xf0)!=0){
 		encode_len = varible_len_calculate(tobesigned_wsa->flags_content.other_data.len);
-		if (size < encode_len + tobesigned_wsa->flags_content.other_data.len)
+		if (size < encode_len + tobesigned_wsa->flags_content.other_data.len){
+			wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 			return NOT_ENOUGHT;
+		}
 		varible_len_encoding(mbuf,tobesigned_wsa->flags_content.other_data.len);
 		mbuf += encode_len;
 
@@ -2988,8 +3226,10 @@ static u32 signed_wsa_2_buf(const signed_wsa *signed_wsa,u8* buf,u32 len){
 	u32 encode_len;
 	int n;
 
-	if(len < 32)
+	if(len < 32){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
+	}
 
 	encode_len = signer_identifier_2_buf(&signed_wsa->signer,mbuf,size);
 	if(encode_len < 0)
@@ -3035,8 +3275,10 @@ u32 sec_data_2_buf(const sec_data *sec_data,u8* buf,u32 len){
 	u32 encode_len;
 	int i;
 
-    if(len < 3)
+    if(len < 3){
+		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
         return NOT_ENOUGHT;
+	}
 
     *mbuf = sec_data->protocol_version;
     mbuf++;
@@ -3050,8 +3292,10 @@ u32 sec_data_2_buf(const sec_data *sec_data,u8* buf,u32 len){
     switch(sec_data->type){
         case UNSECURED:
             encode_len = varible_len_calculate(sec_data->u.data.len);
-            if(encode_len + sec_data->u.data.len > size)
+            if(encode_len + sec_data->u.data.len > size){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
                 return NOT_ENOUGHT;
+			}
             varible_len_encoding(mbuf,sec_data->u.data.len);
             mbuf += encode_len;
             
@@ -3092,8 +3336,10 @@ u32 sec_data_2_buf(const sec_data *sec_data,u8* buf,u32 len){
             return encode_len + res;
         default:
             encode_len = varible_len_calculate(sec_data->u.other_data.len);
-            if(encode_len + sec_data->u.other_data.len > size)
+            if(encode_len + sec_data->u.other_data.len > size){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
                 return NOT_ENOUGHT;
+			}
             varible_len_encoding(mbuf,sec_data->u.other_data.len);
             mbuf += encode_len;
             

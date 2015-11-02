@@ -59,11 +59,11 @@ typedef enum result{
 }result;
 
 #define be_to_host16(n) be16toh(n)
-#define be_to_host32(n) (__force u32)be32toh(n)//
-#define be_to_host64(n) (__force u64)be64toh(n)
-#define host_to_be16(n) (__force u16)htobe16(n)
-#define host_to_be32(n) (__force u32)htobe32(n)
-#define host_to_be64(n) (__force u64)htobe64(n)
+#define be_to_host32(n) (u32)be32toh(n)
+#define be_to_host64(n) (u64)be64toh(n)
+#define host_to_be16(n) (u16)htobe16(n)
+#define host_to_be32(n) (u32)htobe32(n)
+#define host_to_be64(n) (u64)htobe64(n)
 
 /**这里的兼容行不好，后面改成系统的那写uint8**/
 typedef unsigned char u8;
