@@ -81,7 +81,6 @@ typedef enum result{
     FUTURE_DATA = 74,
 }result;
 
-
 #define be_to_host16(n) be16toh(n)
 #define be_to_host32(n) (u32)be32toh(n)
 #define be_to_host64(n) (u64)be64toh(n)
