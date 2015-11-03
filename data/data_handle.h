@@ -1,6 +1,7 @@
 #ifndef DATA_HANDLE_H
 #define DATA_HANDLE_H
 #include "data.h"
+#include "../utils/string.h"
 //定义三种返回的状态.
 u32 NOT_ENOUGHT = -2;
 /**
@@ -41,7 +42,7 @@ int certificate_2_string(certificate* cert,string* data);
 int string_2_certificate(string* data,certificate* cert);
 
 int signed_data_2_string(signed_data* s_data,string* data);
-int string_2_signed_data(string* data,signed_data* s_data);\
+int string_2_signed_data(string* data,signed_data* s_data);
 
 void certificate_cpy(certificate *dst,certificate *src);
 

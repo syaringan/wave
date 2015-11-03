@@ -9,11 +9,17 @@ enum{
   MSG_DEBUG,MSG_INFO,MSG_WARNING,MSG_ERROR  
 };
 
+#ifdef DEBUG
 extern int wave_debug_level;
 void wave_printf(int level,const char *fmt,...);
 void wave_printf_fl(int level,const char* fmt,...);
 void wave_error_printf(const char*fmt,...);
-inline void wave_malloc_error(){
+static inline void wave_malloc_error(){
     printf("内存分配失败  %s %d\n",__FILE__,__LINE__);
 }
+#else
+#define wave_printf(args...) do{}while(0)
+#define wave_error_printf(args...) do{}while(0)
+
+#endif 
 #endif

@@ -20,8 +20,6 @@
  * YGH 1
  */
 static void array_free(void **addr){
-	if(*addr == 0)
-		printf("array_free buf == null\n");
 	free(*addr);
 	*addr = NULL;
 }
@@ -106,7 +104,7 @@ static void geographic_region_free(geographic_region* geographic_region){
 			ARRAY_FREE(&geographic_region->u.rectangular_region);
 			break;
 		case POLYGON:
-			free(geographic_region->u.polygonal_region);
+			ARRAY_FREE(&geographic_region->u.polygonal_region);
 			break;
 		case NONE:
 			break;
