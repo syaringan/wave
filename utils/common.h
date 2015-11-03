@@ -80,6 +80,7 @@ typedef enum result{
     UNKNOWN_CERTIFICATE = 73,
     FUTURE_DATA = 74,
     START_DATE_NOT_BEFORE_ISSUE_DATE = 75,
+    INCONSISTENT_CA_PERMISSIONS = 76,
 }result;
 
 #define be_to_host16(n) be16toh(n)
