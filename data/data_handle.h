@@ -1,6 +1,7 @@
 #ifndef DATA_HANDLE_H
 #define DATA_HANDLE_H
 #include "data.h"
+#include "../utils/string.h"
 //定义三种返回的状态.
 u32 NOT_ENOUGHT = -2;
 /**

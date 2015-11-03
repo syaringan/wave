@@ -645,10 +645,25 @@ static u32 geographic_region_2_buf(const geographic_region *geographic_region,u8
 			return res;
 
 		case POLYGON:
-			encode_len = two_d_location_2_buf(geographic_region->u.polygonal_region,mbuf,size);
-			if(encode_len < 0)
-				return encode_len;
-			return encode_len + res;
+			encode_len = varible_len_calculate(geographic_region->u.polygonal_region.len*8);
+			if(size < encode_len + geographic_region->u.polygonal_region.len*8){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
+				return NOT_ENOUGHT;
+			}
+			varible_len_encoding(mbuf,geographic_region->u.polygonal_region.len*8);
+			mbuf += encode_len;
+			size -= encode_len;
+			res += encode_len;
+
+			for(i=0;i < geographic_region->u.polygonal_region.len;i++){
+				encode_len = two_d_location_2_buf(geographic_region->u.polygonal_region.buf + i,mbuf,size);
+				if(encode_len < 0)
+					return encode_len;
+				mbuf += encode_len;
+				size -= encode_len;
+				res += encode_len;
+			}
+			return res;
 		case NONE:
 			return res;
 		default:
