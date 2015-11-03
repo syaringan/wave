@@ -1298,6 +1298,218 @@ end:
     
     
 }
+result sec_crl_verification(struct sec_db* sdb,string* crl,time32 overdue_crl_tolerance,
+        
+                        struct time32_array* last_crl_times,
+                        struct time32_array* next_crl_times,
+                        certificate* send_cert){
+    result res = SUCCESS;
+
+    struct certificate_chain certs_chain,temp_certs_chain;
+    struct cme_permissions_array permissions_array;
+    struct geographic_region_array geo_scopes;
+    struct verified_array verifieds;
+    struct time32_array times;
+    string digest,identifier,temp_string;
+    time32 start_validity;
+    hashedid8 cert_hashedid8;
+    enum identifier_type id_type;
+    certificate* cert;
+    struct crl mycrl;
+    time_t now;
+    int i;
+
+    INIT(certs_chain);
+    INIT(temp_certs_chain);
+    INIT(permissions_array);
+    INIT(geo_scopes);
+    INIT(verifieds);
+    INIT(mycrl);
+    INIT(identifier);
+    INIT(times);
+    INIT(cert_hashedid8);
+    INIT(temp_string);
+
+    if( string_2_crl(crl,&mycrl)){
+        wave_error_printf("编码失败哦 %s %d",__FILE__,__LINE__);
+        res = FAILURE;
+        goto end;
+    }
+   if(mycrl.unsigned_crl.start_period > mycrl.unsigned_crl.issue_date){
+        res = START_DATE_NOT_BEFORE_ISSUE_DATE;
+        goto end;
+   } 
+   if(mycrl.unsigned_crl.issue_date > mycrl.unsigned_crl.next_crl){
+        res = ISSUE_DATE_NOT_BEFORE_NEXT_CRL_DATE;
+        goto end;
+   }
+   /*******************接下来的代码 和协议进行比较有较大的改动，请后面的人在核实下，**********/
+   /**请参照
+    * 协议  137 页d 和 100页 这里和协议的有矛盾。
+    */
+   if(mycrl.signer.type != CERTIFICATE_DIGEST_WITH_ECDSAP256){
+        wave_error_printf("这里是协议一个没看懂的地方，感觉是矛盾的，这里很可能存在bug，请修改应该是什么算法 %s %d",__FILE__,__LINE__);
+        res = INVAILD_CA_SIGNATURE_ALGORITHM;
+        goto end;
+   }
+
+   switch(mycrl.signer.type){
+       case CERTIFICATE_DIGEST_WITH_ECDSAP256:
+       case CERTIFICATE_DIGEST_WITH_ECDSAP224:
+           id_type = ID_HASHEDID8;
+           hashedid8_2_string(&mycrl.signer.u.digest,&identifier);
+           res = cme_construct_certificate_chain(sdb,id_type,&identifier,NULL,false,255,&certs_chain,&permissions_array,
+                   &geo_scopes,last_crl_times,&times,&verifieds);
+           
+           break;
+       case CERTIFICATE:
+           id_type = ID_CERTIFICATE;
+           temp_certs_chain.len = 1;
+           if( temp_certs_chain.certs = (certificate*)malloc(sizeof(certificate) * 1)){
+                wave_malloc_error();
+                res = FAILURE;
+                goto end;
+           }
+           certificate_cpy(temp_certs_chain.certs,&mycrl.signer.u.certificate);
+           res = cme_construct_certificate_chain(sdb,id_type,NULL,&temp_certs_chain,false,255,&certs_chain,&permissions_array,
+                   &geo_scopes,last_crl_times,&times,&verifieds);
+
+           break;
+       case CERTIFICATE_CHAIN:
+           id_type = ID_CERTIFICATE;
+           temp_certs_chain.len = mycrl.signer.u.certificates.len;
+           if( temp_certs_chain.certs = (certificate*)malloc(sizeof(certificate) * temp_certs_chain.len)){
+                wave_malloc_error();
+                res = FAILURE;
+                goto end;
+           }
+           for(i = 0;i<temp_certs_chain.len;i++){
+                certificate_cpy(temp_certs_chain.certs+i,mycrl.signer.u.certificates.buf+i);
+           }
+           res = cme_construct_certificate_chain(sdb,id_type,NULL,&temp_certs_chain,false,255,&certs_chain,&permissions_array,
+                   &geo_scopes,last_crl_times,&times,&verifieds);
+           break;
+       default:
+           wave_error_printf("出现了不可能的指 %s %d",__FILE__,__LINE__);
+           res = FAILURE;
+           goto end;
+   }
+   /*******************和协议进行比较有较大改动,请核实哈*********************/
+    if(next_crl_times != NULL){
+        next_crl_times->len = times.len;
+        if( next_crl_times->times = (time32*)malloc(times.len * sizeof(time32))){
+            res = FAILURE;
+            wave_malloc_error();
+            goto end;
+        }
+        memcpy(next_crl_times->times,times.times,sizeof(time32) * times.len);
+    }
+    if(res != SUCCESS)
+       goto end;
+    res = sec_check_certificate_chain_consistency(sdb,&certs_chain,&permissions_array,&geo_scopes);
+    if(res != SUCCESS)
+       goto end;
+    time(&now);
+    for(i=0;i<times.len;i++){
+        if(*(times.times+i) < now - overdue_crl_tolerance){
+            res = OVERDUE_CRL;
+            wave_printf(MSG_WARNING,"time : %d  now :%d overdue %d %s %d",*(times.times+i),now,overdue_crl_tolerance);
+            goto end;
+        }
+    }    
+    cert = certs_chain.certs;
+    if( certificate_get_start_time(cert,&start_validity)){
+        res = FAILURE;
+        goto end;
+    }
+    if(mycrl.unsigned_crl.issue_date < start_validity){
+        res = FUTURE_CERTIFICATE_AT_GENERATION_TIME;
+        goto end;
+    }
+    if(mycrl.unsigned_crl.issue_date > cert->unsigned_certificate.expiration){
+        res = EXPIER_CERTIFICATE_AT_GENERATION_TIME;
+        goto end;
+    }
+    if(cert->unsigned_certificate.holder_type != SDE_CA && 
+            cert->unsigned_certificate.holder_type != ROOT_CA &&
+            cert->unsigned_certificate.holder_type != CRL_SIGNER){
+        res = INVALID_CERTIFICATE_TYPE;
+        goto end;
+    }
+    if(cert->unsigned_certificate.holder_type == CRL_SIGNER){
+        for(i=0;i<cert->unsigned_certificate.scope.u.responsible_series.len;i++){
+            if(mycrl.unsigned_crl.crl_series == 
+                    *(cert->unsigned_certificate.scope.u.responsible_series.buf+i)){
+                break;
+            }
+        }
+        if(i == cert->unsigned_certificate.scope.u.responsible_series.len){
+            res = CERTIFICATE_NOT_AUTHORIZED_FOR_SPECIFIED_CRL_SERIES;
+            goto end;
+        }
+        if( hashedid8_equal(&cert->unsigned_certificate.u.no_root_ca.signer_id,&mycrl.unsigned_crl.ca_id) == false){
+            res = CERTIFICATE_NOT_AUTHORIZED_TO_ISSUE_CRL_FOR_SPECIFIC_CA;
+            goto end;
+        }
+    }
+    else{
+        if( certificate_2_hashedid8(cert,&cert_hashedid8)){
+            res = FAILURE;
+            goto end;
+        }
+        if(hashedid8_equal(&cert_hashedid8,&mycrl.unsigned_crl.ca_id) == false){
+            res = WRONG_CA_ID_IN_CRL;
+            goto end;
+        }
+    }
+
+    if(unsigned_crl_2_string(&mycrl.unsigned_crl,&temp_string)){
+        res = FAILURE;
+        goto end;
+    }
+    if( hash_with_certificate(cert,&temp_string,&digest)){
+        res = FAILURE;
+        goto end;
+    }
+    res = sec_verify_chain_signature(sdb,&certs_chain,&verifieds,&digest,&mycrl.signature);
+    if(res != SUCCESS)
+        goto end;
+    cme_add_crlinfo(sdb,mycrl.unsigned_crl.type,mycrl.unsigned_crl.crl_series,&mycrl.unsigned_crl.ca_id,
+                            mycrl.unsigned_crl.crl_serial,mycrl.unsigned_crl.start_period,mycrl.unsigned_crl.issue_date,
+                            mycrl.unsigned_crl.next_crl);
+    
+    switch(mycrl.unsigned_crl.type){
+        case ID_ONLY:
+            for(i=0;i<mycrl.unsigned_crl.u.entries.len;i++){
+                cme_add_certificate_revocation(sdb,mycrl.unsigned_crl.u.entries.buf+i,&mycrl.unsigned_crl.ca_id,
+                        mycrl.unsigned_crl.crl_series,0);
+            }
+            break;
+        case ID_AND_EXPIRY:
+            for(i=0;i<mycrl.unsigned_crl.u.expiring_entries.len;i++){
+                cme_add_certificate_revocation(sdb,&((mycrl.unsigned_crl.u.expiring_entries.buf+i)->id),&mycrl.unsigned_crl.ca_id,
+                        mycrl.unsigned_crl.crl_series,(mycrl.unsigned_crl.u.expiring_entries.buf+i)->expiry);
+            }
+            break;
+        default:
+            wave_error_printf("有来一个不可能的至，至少我现在不支持 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+    }
+    goto end;
+end:
+    certificate_chain_free(&certs_chain);
+    certificate_chain_free(&temp_certs_chain);
+    cme_permissionsi_array_free(&permissions_array);
+    geographic_region_array_free(&geo_scopes);
+    verified_array_free(&verifieds);
+    string_free(&digest);
+    string_free(&identifier);
+    crl_free(&mycrl);
+    time32_array_free(&times);
+    string_free(&temp_string);
+    return res;
+}
 
 //未测
 result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permissions,time32 life_time,string* signed_wsa){

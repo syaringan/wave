@@ -79,6 +79,7 @@ typedef enum result{
     FAIL_ON_ALL_CERTIFICATES = 72,
     UNKNOWN_CERTIFICATE = 73,
     FUTURE_DATA = 74,
+    START_DATE_NOT_BEFORE_ISSUE_DATE = 75,
 }result;
 
 #define be_to_host16(n) be16toh(n)

@@ -137,11 +137,11 @@ result sec_signed_data_verification(struct sec_db* sdb,
 /**
  * crl的签名验证
  */
-result sec_crl_verification(struct sec_db* sdb,string* crl,time64 overdue_crl_tolerance,
+result sec_crl_verification(struct sec_db* sdb,string* crl,time32 overdue_crl_tolerance,
                         
-                time64* last_crl_time,
-                time64* next_crl_time,
-                certificate* cert);
+                struct time32_array* last_crl_times,
+                struct time32_array* next_crl_times,
+                certificate* send_cert);
 
 enum transfer_type{
     EXPLICT = 1,

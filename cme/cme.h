@@ -197,6 +197,7 @@ int find_cert_prikey_by_cmh(struct sec_db * sdb,cmh cmh,certificate* cert,string
 
 
 int certificate_2_hash8(struct certificate *cert, string *hash8);
+int certificate_2_hashedid8(struct certificate* cert,hashedid8* hashedid8);
 int cert_not_expired(struct sec_db *sdb, void *value);
 int cert_not_revoked(struct sec_db *sdb, enum identifier_type type, string *identifier);
 int certificate_get_elliptic_curve_point(certificate* cert,elliptic_curve_point* point);
