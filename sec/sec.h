@@ -183,7 +183,7 @@ result sec_certficate_response_processing(struct sec_db* sdb,
                 certificate_request_error_code* error,
                 certificate* certificate,
                 string* rec_value,
-                bool ack_request
+                bool *ack_request
                 );
 
 result sec_signed_wsa(struct sec_db* sdb,

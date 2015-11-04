@@ -115,7 +115,7 @@ static int hash_with_certificate(certificate* cert,string* message,string* hashe
                        }  
                        break;
                     case ECDSA_NISTP256_WITH_SHA256:
-                       if( crypto_HASH256(&message,&hashed))
+                       if( crypto_HASH256(message,hashed))
                            goto fail;
                        break;
                     case ECIES_NISTP256:
@@ -1990,7 +1990,121 @@ end:
     certificate_chain_free(&cert_chain);
     return res;
 }
+result sec_certficate_response_processing(struct sec_db* sdb,cmh cmh,string* data,
+                
+                content_type *type,
+                certid10* request_hash,
+                certificate_request_error_code* error,
+                certificate* cert,
+                string* rec_value,
+                bool *ack_request){
+    result res;
+    content_type m_type;
+    encrypted_data* ed=NULL;
+    tobe_encrypted_certificate_response tbscr;
+    sec_data s_data;
+    string temp_string,de_data;
+    tobe_encrypted_certificate_request_error cert_req_error;
+    tobe_encrypted_certificate_response cert_resp;
 
+    INIT(tbscr);
+    INIT(s_data);
+    INIT(temp_string);
+    INIT(de_data);
+    INIT(cert_req_error);
+    INIT(cert_resp);
+
+    if( string_2_sec_data(data,&s_data)){
+        wave_error_printf("解码 失败 %s %d",__FILE__,__LINE__);
+        res = FAILURE;
+        goto end;
+    }
+    if(s_data.type == ENCRYPTED){
+        ed = &s_data.u.encrypted_data;
+    }
+    else{
+        wave_error_printf("这个数据不应该出现其他类型哈 %s %d",__FILE__,__LINE__);
+        res = FAILURE;
+        goto end;
+    }
+    if( encrypted_data_2_string(ed,&temp_string) ){
+        res = FAILURE;
+        goto end;
+    }
+    if( res = sec_decrypt_data(sdb,&temp_string,cmh, &m_type,&de_data)){
+        goto end;
+    }
+    if( type != NULL)
+        *type = m_type;
+    if( m_type != CERTIFICATE_RESPONSE && m_type != CERTIFICATE_REQUSET_ERROR){
+        res = UNEXPECTED_TYPE;
+        wave_error_printf("出现了不可能的指 %s %d",__FILE__,__LINE__);
+        goto end;
+    }
+    if(m_type == CERTIFICATE_REQUSET_ERROR){
+        if( string_2_tobe_encrypted_certificate_request_error(&de_data,&cert_req_error)){
+            res = FAILURE;
+            wave_error_printf("解码错误 %s %d",__FILE__,__LINE__);
+            goto end;
+        }
+        res = sec_certificate_request_error_verification(sdb,&cert_req_error);
+        if(res != SUCCESS)
+            goto end;
+        if(request_hash != NULL){
+            memcpy(request_hash->certid10,cert_req_error.request_hash,10);
+        }
+       if( error != NULL){
+           *error = cert_req_error.reason;
+       }
+       goto end;
+    }
+    if(m_type == CERTIFICATE_RESPONSE){
+        if(string_2_tobe_encrypted_certificate_response(&de_data,&cert_resp)){
+            res = FAILURE;
+            wave_error_printf("解码错误 %s %d",__FILE__,__LINE__);
+            goto end;
+        }
+        res = sec_certificate_response_verification(sdb,&cert_resp);
+        if(res != SUCCESS)
+            goto end;
+        if(cert != NULL){
+            certificate_cpy(cert,cert_resp.certificate_chain.buf);
+        }
+        if(rec_value != NULL){
+            if(s_data.type == 3){
+                rec_value->len = cert_resp.u.recon_priv.len;
+                if( rec_value->buf = (u8*)malloc(rec_value->len)){
+                    res = FAILURE;
+                    wave_malloc_error();
+                    goto end;
+                }
+                memcpy(rec_value->buf,cert_resp.u.recon_priv.buf,rec_value->len);
+            }
+            else{
+                res = FAILURE;
+                wave_error_printf("出现了我认为不该出现的指 %s %d",__FILE__,__LINE__);
+                goto end;
+            }
+        }
+        if(ack_request != NULL){
+            if(cert_resp.f == 0){
+                *ack_request = true;
+            }
+            else{
+                *ack_request = false;
+            }
+        }
+        goto end;
+    }
+end:
+    tobe_encrypted_certificate_response_free(&tbscr);
+    sec_data_free(&s_data);
+    string_free(&temp_string);
+    string_free(&de_data);
+    tobe_encrypted_certificate_response_free(&cert_req_error);
+    tobe_encrypted_certificate_request_error_free(&cert_resp);
+    return res;
+}
 //未测
 result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permissions,time32 life_time,string* signed_wsa){
     result ret = SUCCESS;
