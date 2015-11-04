@@ -1512,8 +1512,22 @@ static u32 cert_specific_data_2_buf(const cert_specific_data *cert_specific_data
 			encode_len = wsa_ca_scope_2_buf(&cert_specific_data->u.wsa_ca_scope,mbuf,size);
 			return encode_len;
 		case CRL_SIGNER:
-			tobuf32(mbuf,*cert_specific_data->u.responsible_series);
-			res += 4;
+			encode_len = varible_len_calculate(cert_specific_data->u.responsible_series.len*4);
+			if (size < encode_len + cert_specific_data->u.responsible_series.len*4){
+				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
+				return NOT_ENOUGHT;
+			}
+			varible_len_encoding(mbuf,cert_specific_data->u.responsible_series.len*4);
+			mbuf += encode_len;
+			size -= encode_len;
+			res += encode_len;
+
+			for(i=0;i < cert_specific_data->u.responsible_series.len;i++){
+				tobuf32(mbuf,*(cert_specific_data->u.responsible_series.buf + i));
+				mbuf += 4;
+				size -= 4;
+				res += 4;
+			}
 			return res;
 		case SDE_IDENTIFIED_NOT_LOCALIZED:
 			encode_len = identified_not_localized_scope_2_buf(&cert_specific_data->u.id_non_loc_scope,mbuf,size);
