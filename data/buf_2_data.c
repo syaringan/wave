@@ -1506,6 +1506,9 @@ static u32 buf_2_cert_specific_data(  u8* buf,  u32 len,cert_specific_data* cert
 	u32 identified_scope_length;
 	u32 anonymous_scope_length;
     u32 wsa_scope_length;
+	u32 data_length;
+	u32 decode_len_sum;
+	int i;
 
 	if(size<1 ){
 		wave_error_printf("填充数据不足 %s %d",__FILE__,__LINE__);
@@ -1540,10 +1543,33 @@ static u32 buf_2_cert_specific_data(  u8* buf,  u32 len,cert_specific_data* cert
 			return len-size;
 
 		case CRL_SIGNER:
-			*cert_specific_data->u.responsible_series= get32(mbuf);
-			*cert_specific_data->u.responsible_series=be_to_host32(*cert_specific_data->u.responsible_series);
-			mbuf+=4;
-			size-=4;
+			bitnum=head_bit_num(mbuf);
+			data_length = variablelength_data_num(mbuf,bitnum);
+			cert_specific_data->u.responsible_series.len = data_length/4;
+
+			if(size < data_length + bitnum){
+				wave_error_printf("填充数据不足 %s %d",__FILE__,__LINE__);
+				return -1;
+			}
+			mbuf+=bitnum;
+			size-=bitnum;
+
+			cert_specific_data->u.responsible_series.buf=(crl_series*)malloc(sizeof(crl_series)*1);
+			if(NULL == cert_specific_data->u.responsible_series.buf){
+				return -1;
+			}
+
+			for(decode_len_sum=0,i=0;decode_len_sum < data_length;i++){
+				cert_specific_data->u.responsible_series.buf=(crl_series*)realloc(
+						cert_specific_data->u.responsible_series.buf,sizeof(crl_series)*(i+1));
+				*(cert_specific_data->u.responsible_series.buf + i)= get32(mbuf);
+				*(cert_specific_data->u.responsible_series.buf + i)= be_to_host32(*(cert_specific_data->u.responsible_series.buf + i));
+
+				mbuf += 4;
+				decode_len_sum += 4;
+			}
+			size -= data_length;
+			return len - size;
 
 		case SDE_IDENTIFIED_NOT_LOCALIZED:
 			identified_not_localized_scope_length= buf_2_identified_not_localized_scope(mbuf,size,&cert_specific_data->u.id_non_loc_scope);

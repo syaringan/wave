@@ -319,7 +319,8 @@ static void cert_specific_data_free(cert_specific_data* cert_specific_data,holde
 			   wsa_ca_scope_free(&cert_specific_data->u.wsa_ca_scope);
 			   break;
 			case CRL_SIGNER:
-			   free(cert_specific_data->u.responsible_series);
+			   if(NULL != cert_specific_data->u.responsible_series.buf)
+				   ARRAY_FREE(&cert_specific_data->u.responsible_series);
 			   break;
 			case SDE_IDENTIFIED_NOT_LOCALIZED:
 			   identified_not_localized_scope_free(&cert_specific_data->u.id_non_loc_scope);

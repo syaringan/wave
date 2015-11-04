@@ -400,7 +400,7 @@ typedef struct cert_specific_data{
         root_ca_scope root_ca_scope;
         sec_data_exch_ca_scope sde_ca_scope;
         wsa_ca_scope wsa_ca_scope;
-        ARRAY(crl_series,responsible_series);
+		ARRAY(crl_series,responsible_series);
         identified_not_localized_scope id_non_loc_scope;
         identified_scope id_scope;
         anonymous_scope anonymous_scope;
