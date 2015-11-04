@@ -53,16 +53,16 @@ int hashedid8_2_string(hashedid8* hashed,string* data);
 int string_2_hashedid8(string* data,hashedid8* hashed);
 bool hashedid8_equal(hashedid8* a,hashedid8* b);
 
-int unsigned_crl_2_string(unsigned_crl* us_crl,string* data);
+int tobesigned_crl_2_string(tobesigned_crl* tbs_crl,string* data);
+int string_2_tobesigned_crl(string* data,tobesigned_crl* tbs_crl);
 
-
-void certificate_cpy(certificate *dst,certificate *src);
+int certificate_cpy(certificate *dst,certificate *src);
 
 bool certificate_equal(certificate* a,certificate* b);
 
-void elliptic_curve_point_cpy(elliptic_curve_point* src,elliptic_curve_point* dst);
+int elliptic_curve_point_cpy(elliptic_curve_point* src,elliptic_curve_point* dst);
 
-void public_key_cpy(public_key* a,public_key* b);
+int public_key_cpy(public_key* a,public_key* b);
 
 int tobesigned_certificate_request_2_string(tobesigned_certificate_request* tbs,string* data);
 int certificate_request_2_string(certificate_request* cert_req,string* data);
