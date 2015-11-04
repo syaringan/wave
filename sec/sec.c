@@ -11,6 +11,7 @@
 #include "../cme/cme.h"
 #include <time.h>
 #include <math.h>
+#include "../crypto/crypto.h"
 #define INIT(m) memset(&m,0,sizeof(m))
 #define US_TO_S 1000000
 #define LOG_STD_DEV_BASE 1.134666
@@ -326,10 +327,14 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
                        if( crypto_HASH224(&encoded_tbs,&hashed_tbs) ){
                             goto fail;
                        }  
+                       if(crypto_ECDSA224_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
+                           goto fail;
                        break;
                     case ECDSA_NISTP256_WITH_SHA256:
                        algorithm = ECDSA_NISTP256_WITH_SHA256;
                        if( crypto_HASH256(&encoded_tbs,&hashed_tbs))
+                           goto fail;
+                       if(crypto_ECDSA256_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
                            goto fail;
                        break;
                     case ECIES_NISTP256:
@@ -337,8 +342,6 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
                        goto fail;
                        break;
                 }
-                if(crypto_ECDSA_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
-                           goto fail;
             }
             else{
                 switch(cert.unsigned_certificate.u.no_root_ca.signature_alg){
@@ -346,11 +349,15 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
                        algorithm = ECDSA_NISTP224_WITH_SHA224;
                        if( crypto_HASH224(&encoded_tbs,&hashed_tbs) ){
                             goto fail;
-                       }  
+                       } 
+                       if(crypto_ECDSA224_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
+                           goto fail; 
                        break;
                     case ECDSA_NISTP256_WITH_SHA256:
                        algorithm = ECDSA_NISTP256_WITH_SHA256;
                        if( crypto_HASH256(&encoded_tbs,&hashed_tbs))
+                           goto fail;
+                       if(crypto_ECDSA256_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
                            goto fail;
                        break;
                     case ECIES_NISTP256:
@@ -358,8 +365,6 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
                        goto fail;
                        break;
                 }
-                if(crypto_ECDSA_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
-                           goto fail;
             }
             break;
         case 3:
@@ -369,14 +374,14 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
                        if( crypto_HASH224(&encoded_tbs,&hashed_tbs) ){
                             goto fail;
                        }  
-                       if(crypto_ECDSA_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
+                       if(crypto_ECDSA224_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
                             goto fail;
                        break;
                     case ECDSA_NISTP256_WITH_SHA256:
                        algorithm = ECDSA_NISTP256_WITH_SHA256;
                        if( crypto_HASH256(&encoded_tbs,&hashed_tbs))
                            goto fail;
-                       if(crypto_ECDSA_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
+                       if(crypto_ECDSA256_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
                             goto fail;
                        break;
                     case ECIES_NISTP256:
@@ -1896,11 +1901,11 @@ result sec_get_certificate_request(struct sec_db* sdb,signer_identifier_type typ
     switch(algorithm){
         case ECDSA_NISTP256_WITH_SHA256:
             crypto_HASH256(&temp_string,&hashed_string);
-            crypto_ECDSA_sign_message(&hashed_string,&prikey,&signature_string);
+            crypto_ECDSA256_sign_message(&hashed_string,&prikey,&signature_string);
             break;
         case ECDSA_NISTP224_WITH_SHA224:
             crypto_HASH224(&temp_string,&hashed_string);
-            crypto_ECDSA_sign_message(&hashed_string,&prikey,&signature_string);
+            crypto_ECDSA224_sign_message(&hashed_string,&prikey,&signature_string);
         default:
             wave_error_printf("出现了不可能的指 %s %d",__FILE__,__LINE__);
             res = FAILURE;
