@@ -15,10 +15,12 @@
 #define US_TO_S 1000000
 #define LOG_STD_DEV_BASE 1.134666
 
-static bool three_d_location_in_region(three_d_location* location,geographic_region* region){
-   
-   return true; 
-};
+extern u32 certificate_request_permissions_max_length;//配置变量，配置证书申请最大的长度
+extern struct region_type_array certificate_request_support_region_types;//配置变量，表示支持的类型
+extern u32 certificate_request_rectangle_max_length;
+extern u32 certificate_request_polygonal_max_length;
+
+
 static bool cme_permissions_contain_psid_with_ssp(struct cme_permissions* permission,psid psid,string* ssp){
     int i,j;
     psid_ssp *ps;
@@ -1508,6 +1510,479 @@ end:
     crl_free(&mycrl);
     time32_array_free(&times);
     string_free(&temp_string);
+    return res;
+}
+static bool cme_permissions_consisitent_with_cme_permissions(struct cme_permissions* permissions,
+                    struct cme_permissions* ca_permissions){
+    //这个函数的调用只能被证书申请调用，因为，我默认认为permissions的类型是psid_priority_ssp
+    int i,j;
+    for(i=0;i< permissions->u.psid_priority_ssp_array.len;i++){
+            switch(ca_permissions->type){
+            case PSID:
+                for(j=0;j<ca_permissions->u.psid_array.len;j++){
+                    if((permissions->u.psid_priority_ssp_array.buf+i)->psid == 
+                            *(ca_permissions->u.psid_array.buf+j) ){
+                        return false;
+                    }
+                }
+                if(j == ca_permissions->u.psid_array.len){
+                    return false; 
+                }
+                break;
+            case PSID_PRIORITY:
+                for(j=0;j<ca_permissions->u.psid_priority_array.len;j++){
+                    if((permissions->u.psid_priority_ssp_array.buf+i)->psid == 
+                            (ca_permissions->u.psid_priority_array.buf+j)->psid ){
+                        return false;
+                    }
+                }
+                if(j == ca_permissions->u.psid_priority_array.len){
+                    return false;
+                }
+                break;
+            case PSID_PRIORITY_SSP:
+                for(j=0;j<ca_permissions->u.psid_priority_ssp_array.len;j++){
+                    if((permissions->u.psid_priority_ssp_array.buf+i)->psid == 
+                            (ca_permissions->u.psid_priority_ssp_array.buf+j)->psid ){
+                        return false;
+                    }
+                }
+                if(j == ca_permissions->u.psid_priority_ssp_array.len){
+                    return false;
+                }
+                break;
+            case PSID_SSP:
+                for(j=0;j<ca_permissions->u.psid_ssp_array.len;j++){
+                    if((permissions->u.psid_priority_ssp_array.buf+i)->psid == 
+                            (ca_permissions->u.psid_ssp_array.buf+j)->psid ){
+                        return false;
+                    }
+                }
+                if(j == ca_permissions->u.psid_ssp_array.len){
+                    return false;
+                }
+                break;
+            default:
+                wave_error_printf("出现了不可能的指 %s %d",__FILE__,__LINE__);
+                return false;
+        }
+    }
+    return true;
+
+}
+
+result sec_get_certificate_request(struct sec_db* sdb,signer_identifier_type type,
+                cmh cmh,
+                holder_type cert_type,
+                enum transfer_type transfer_type,
+                struct cme_permissions* permissions,
+                string* identifier,
+                geographic_region* region,
+                bool start_validity,
+                bool life_time_duration,
+                time32 start_time,
+                time32 expiry_time,
+                public_key* veri_pub_key,
+                public_key* enc_pub_key,
+                public_key* respon_enc_key,
+                certificate* ca_cert,
+                
+                string* cert_request_string,
+                certid10* request_hash){
+    int i,j;
+    result res = SUCCESS;
+    struct cme_permissions ca_permissions,csr_cert_permissions;
+    holder_type_flags ca_holder_types,csr_cert_holder_types;
+    geographic_region ca_scope,csr_cert_scope;
+    certificate csr_cert;
+    string temp_string,pubkey_x,pubkey_y,prikey,hashed_string,signature_string;
+    certificate_request cert_request;
+    tobesigned_certificate_request* tbs;
+    pk_algorithm algorithm = 100;
+    elliptic_curve_point point;
+    struct certificate_chain cert_chain;
+    time_t now;
+
+    INIT(ca_permissions);
+    INIT(point);
+    INIT(csr_cert_permissions);
+    INIT(ca_holder_types);
+    INIT(csr_cert_holder_types);
+    INIT(ca_scope);
+    INIT(csr_cert_scope);
+    INIT(csr_cert);
+    INIT(temp_string);
+    INIT(pubkey_x);
+    INIT(pubkey_y);
+    INIT(prikey);
+    INIT(hashed_string);
+    INIT(signature_string);
+    INIT(cert_request);
+    INIT(cert_chain);
+    
+    if(type == CERTIFICATE){
+        if( find_cert_prikey_by_cmh(sdb,cmh,&csr_cert,&prikey)){
+            res = FAILURE;
+            goto end;
+        }
+        if(csr_cert.version_and_type != 2){
+            res = FAILURE;
+            wave_error_printf("你叫我怎么提取认证钥匙 %s %d",__FILE__,__LINE__);
+            goto end;
+        }
+        algorithm = csr_cert.unsigned_certificate.version_and_type.verification_key.algorithm;
+    }
+    if( certificate_2_string(ca_cert,&temp_string)){
+        res = FAILURE;
+        goto end;
+    }
+    res = cme_certificate_info_request(sdb,ID_CERTIFICATE,&temp_string,NULL,&ca_permissions,
+                        &ca_scope,NULL,NULL,NULL,NULL);
+    if(ca_cert->unsigned_certificate.holder_type != ROOT_CA){
+        wave_error_printf("我个人觉得应该不会出现这个提示，如果出现请核实下是否是我的理解有错误 因为这个后后面的代码香光 %s %d",__FILE__,__LINE__);
+        res = FAILURE;
+        goto end;
+    }
+    switch(ca_cert->unsigned_certificate.holder_type){
+        case ROOT_CA:
+            ca_holder_types = ca_cert->unsigned_certificate.scope.u.root_ca_scope.permitted_holder_types;
+            break;
+        case SDE_CA:
+        case SDE_ENROLMENT:
+            ca_holder_types = ca_cert->unsigned_certificate.scope.u.sde_ca_scope.permitted_holder_types;
+            break;
+        default:
+            wave_error_printf("这个类型就没有这个指，请核实哈 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+    }
+    if(res != SUCCESS)
+        goto end;
+    if(ca_holder_types & cert_type == 0){
+        res = INCONSISTENT_CA_PERMISSIONS;
+        goto end;
+    }
+    if( permissions->type != PSID_PRIORITY_SSP){
+        wave_error_printf("我觉得这个地方应该只有这种类型，我个人现在认为证书的申请只有cmp能调用 %s %d ",__FILE__,__LINE__);
+        res = FAILURE;
+        goto end;
+    }
+    if( cme_permissions_consisitent_with_cme_permissions(permissions,&ca_permissions) == false){
+        res = INCONSISTENT_CA_PERMISSIONS;
+        goto end;
+    }
+   
+    if( geographic_region_in_geographic_region(region,&ca_scope) == false){
+        res = INCONSISTENT_CA_PERMISSIONS;
+        goto end;
+    }
+    if(type == CERTIFICATE){
+        string_free(&temp_string);
+        if( certificate_2_string(&csr_cert,&temp_string)){
+            res = FAILURE;
+            goto end;
+        }
+        if( res = cme_certificate_info_request(sdb,ID_CERTIFICATE,&temp_string,NULL,&csr_cert_permissions,
+                    &csr_cert_scope,NULL,NULL,NULL,NULL)){
+            goto end;
+        }
+        switch(csr_cert.unsigned_certificate.holder_type){
+            case ROOT_CA:
+                csr_cert_holder_types = csr_cert.unsigned_certificate.scope.u.root_ca_scope.permitted_holder_types;
+                break;
+            case SDE_CA:
+            case SDE_ENROLMENT:
+                csr_cert_holder_types = csr_cert.unsigned_certificate.scope.u.sde_ca_scope.permitted_holder_types;
+                break;
+            default:
+                wave_error_printf("这个类型就没有这个指，请核实哈 %s %d",__FILE__,__LINE__);
+                res = FAILURE;
+                goto end;
+        }
+        if(csr_cert_holder_types & cert_type == 0){
+            res = INCONSISTENT_CA_PERMISSIONS;
+            goto end;
+        }
+        if(cme_permissions_consisitent_with_cme_permissions(permissions,&csr_cert_permissions) == false){
+            res = INCONSISTENT_CA_PERMISSIONS;
+            goto end;
+        }
+        if( geographic_region_in_geographic_region(region,&csr_cert_scope) == false){
+            res = INCONSISTENT_CA_PERMISSIONS;
+            goto end;
+        } 
+    }
+    if( type == SELF){
+        if( find_keypaire_by_cmh(sdb,cmh,&pubkey_x,&pubkey_y,&prikey,&algorithm)){
+            wave_error_printf("钥匙没有找到 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+        }
+        if( veri_pub_key->algorithm != algorithm ){
+            res = INCONSISITENT_KEYS_IN_REQUEST;
+            goto end;
+        }
+        switch(algorithm){
+            case ECDSA_NISTP256_WITH_SHA256:
+                for(i=0;i<pubkey_x.len;i++){
+                    if( *(veri_pub_key->u.public_key.x.buf +i) != *(pubkey_x.buf+i)){
+                        break;
+                    }
+                }
+                if( i == pubkey_x.len){
+                    res = INCONSISITENT_KEYS_IN_REQUEST;
+                    goto end;
+                }
+                //y怎么比较 怎么压缩，怎么解压
+                break;
+            case ECDSA_NISTP224_WITH_SHA224:
+                for(i=0;i<pubkey_x.len;i++){
+                    if( *(veri_pub_key->u.public_key.x.buf +i) != *(pubkey_x.buf+i))
+                        break;
+                }
+                if( i == pubkey_x.len){
+                    res = INCONSISITENT_KEYS_IN_REQUEST;
+                    goto end;
+                }
+                //y怎么比较 怎么压缩，怎么解压
+                break;
+            default:
+               wave_error_printf("出现了不可能的指 %s %d",__FILE__,__LINE__);
+               res = FAILURE;
+               goto end; 
+        }
+    }
+    switch(permissions->type){
+        case PSID:
+            if(permissions->u.psid_array.len > certificate_request_permissions_max_length){
+                wave_error_printf("申请的长度超出了我们规定的最大的长度 %s %d",__FILE__,__LINE__);
+                res = TOO_MANY_ENTRIES_IN_PERMISSON_ARRAY;
+                goto end;
+            }
+            break;
+        case PSID_PRIORITY_SSP:
+            if( permissions->u.psid_priority_ssp_array.len > certificate_request_permissions_max_length){
+                wave_error_printf("申请的长度超出了我们规定的最大的长度 %s %d",__FILE__,__LINE__);
+                res = TOO_MANY_ENTRIES_IN_PERMISSON_ARRAY;
+                goto end;
+            }
+            break;
+        case PSID_SSP:
+            if( permissions->u.psid_ssp_array.len > certificate_request_permissions_max_length){
+                wave_error_printf("申请的长度超出了我们规定的最大的长度 %s %d",__FILE__,__LINE__);
+                res = TOO_MANY_ENTRIES_IN_PERMISSON_ARRAY;
+                goto end;
+            }
+            break;
+        case PSID_PRIORITY:
+            if( permissions->u.psid_priority_array.len > certificate_request_permissions_max_length){
+                wave_error_printf("申请的长度超出了我们规定的最大的长度 %s %d",__FILE__,__LINE__);
+                res = TOO_MANY_ENTRIES_IN_PERMISSON_ARRAY;
+                goto end; 
+            }
+            break;
+        default:
+            wave_error_printf("出现了不可能的指 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+    }
+    for(i=0;i<certificate_request_support_region_types.len;i++){
+        if( region->region_type == *(certificate_request_support_region_types.types+i) ){
+            break;
+        }
+    }
+    if( i == certificate_request_support_region_types.len ){
+        wave_error_printf("申请的地址类型不是我们支持的类型 %s %d",__FILE__,__LINE__);
+        res = UNSUPPORTED_REGION_TYPE_IN_CERTIFICATE;
+        goto end;
+    }
+    if(region->region_type == RECTANGLE){
+        if( region->u.rectangular_region.len > certificate_request_rectangle_max_length){
+            wave_error_printf("支持的RECTANGLE的长度超出了我们规定的最大长度 %s %d",__FILE__,__LINE__);
+            res = TOO_MANY_ENTRIES_IN_RECTANGULAR_GEOGRAPHIC_SCOPE;
+            goto end;
+        }
+    }
+    if(region->region_type == POLYGON){
+        if( region->u.polygonal_region.len > certificate_request_polygonal_max_length){
+            wave_error_printf("支持的polygon的长度超出了我们规定的最大长度 %s %d",__FILE__,__LINE__);
+            res = TOO_MANY_ENTRIES_IN_POLYGONAL_GEOGRAPHIC_SCOPE;
+            goto end;
+        }
+    }
+    tbs = &cert_request.unsigned_csr;
+    tbs->version_and_type = transfer_type;
+    if(start_validity){
+        tbs->cf |= USE_START_VALIDITY;
+        tbs->flags_content.start_validity = start_time;
+    }
+    if(life_time_duration){
+        tbs->cf |= LIFETIME_IS_DURATION;
+        tbs->flags_content.lifetime = expiry_time - start_time;
+    }
+    if(enc_pub_key != NULL){
+        tbs->cf |= ENCRYPTION_KEY;
+        public_key_cpy(&tbs->flags_content.encryption_key,enc_pub_key); 
+    }
+    time(&now);
+    tbs->request_time = now;
+    tbs->holder_type = cert_type;
+    switch(cert_type){
+        case ROOT_CA:
+            if(identifier != NULL)
+                wave_printf(MSG_WARNING,"这里没有identifier 即使你填写也没用 %s %d",__FILE__,__LINE__);
+            wave_error_printf("这里应该不会出现这个指 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+            //tbs->type_specific_data.u.root_ca_scope;
+            break;
+        case SDE_CA:
+        case SDE_ENROLMENT:
+            wave_error_printf("这里应该不会出现这个指 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+            //tbs->type_specific_data.u.sde_ca_scope;
+            break;
+        case SDE_IDENTIFIED_NOT_LOCALIZED:
+            wave_error_printf("这里应该不会出现这个指 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+            //tbs->type_specific_data.u.id_non_loc_scope;
+            break;
+        case SDE_ANONYMOUS:
+            wave_error_printf("这里应该不会出现这个指 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+            //tbs->type_specific_data.u.anonymous_scope;
+            break;
+        case WSA:
+            if(identifier != NULL)
+                wave_printf(MSG_WARNING,"这里没有identifier 即使你填写也没用 %s %d",__FILE__,__LINE__);
+            tbs->type_specific_data.u.wsa_scope.permissions.type = ARRAY_TYPE_SPECIFIED;
+            tbs->type_specific_data.u.wsa_scope.permissions.u.permissions_list.len =
+                        permissions->u.psid_priority_ssp_array.len;
+            if( tbs->type_specific_data.u.wsa_scope.permissions.u.permissions_list.buf = 
+                        (psid_priority_ssp*)malloc(sizeof(psid_priority_ssp) * permissions->u.psid_priority_ssp_array.len)){
+                wave_malloc_error();
+                res = FAILURE;
+                goto end;
+            }
+            memcpy(tbs->type_specific_data.u.wsa_scope.permissions.u.permissions_list.buf,
+                        permissions->u.psid_priority_ssp_array.buf,sizeof(psid_priority_ssp) * permissions->u.psid_priority_ssp_array.len);
+
+            if(region != NULL)
+                wave_printf(MSG_WARNING,"你填写了region 但是我们这里没有填写进去 %s %d",__FILE__,__LINE__);
+            break;
+        case WSA_CA:
+        case WSA_ENROLMENT:
+            wave_error_printf("这里应该不会出现这个指 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+            //tbs->type_specific_data.u.wsa_ca_scope;
+            break;
+        default:
+            wave_error_printf("出现了我觉得不可能的指 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+    }
+    public_key_cpy(&tbs->verification_key,veri_pub_key);
+    public_key_cpy(&tbs->response_encryption_key,respon_enc_key);
+
+    string_free(&temp_string);
+    if( tobesigned_certificate_request_2_string(tbs,&temp_string)){
+        res = FAILURE;
+        goto end;
+    }
+    switch(algorithm){
+        case ECDSA_NISTP256_WITH_SHA256:
+            crypto_HASH256(&temp_string,&hashed_string);
+            crypto_ECDSA_sign_message(&hashed_string,&prikey,&signature_string);
+            break;
+        case ECDSA_NISTP224_WITH_SHA224:
+            crypto_HASH224(&temp_string,&hashed_string);
+            crypto_ECDSA_sign_message(&hashed_string,&prikey,&signature_string);
+        default:
+            wave_error_printf("出现了不可能的指 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
+    }
+    
+    cert_request.signer.type = type;
+    if(type == CERTIFICATE){
+        certificate_cpy(&cert_request.signer.u.certificate,&csr_cert);
+    }
+    if( cert_request.signature.u.ecdsa_signature.s.buf = (u8*)malloc(signature_string.len) ){
+        wave_malloc_error();
+        res = FAILURE;
+        goto end;
+    }
+    memcpy(cert_request.signature.u.ecdsa_signature.s.buf,signature_string.buf,signature_string.len);
+    cert_request.signature.u.ecdsa_signature.s.len = signature_string.len;
+
+    if(type == CERTIFICATE){
+        if( certificate_get_elliptic_curve_point(&csr_cert,&point)){
+            res = FAILURE;
+            goto end;
+        }
+    }
+    else if(type == SELF){
+        point.type = UNCOMPRESSED;
+        point.x.len = pubkey_x.len;
+        point.u.y.len = pubkey_y.len;
+        if( point.x.buf = (u8*)malloc(point.x.len)  ){
+            wave_malloc_error();
+            res = FAILURE;
+            goto end;
+        }
+        if( point.u.y.buf = (u8*)malloc(point.u.y.len)){
+            wave_malloc_error();
+            res = FAILURE;
+            goto end;
+        }
+        memcpy(point.x.buf,pubkey_x.buf,pubkey_x.len);
+        memcpy(point.u.y.buf,pubkey_y.buf,pubkey_y.len);
+    }
+    else{
+        wave_error_printf("怎么半  应该不会有其他指的吧  %s %d",__FILE__,__LINE__);
+        res = FAILURE;
+        goto end;
+    }
+    elliptic_curve_point_cpy(&cert_request.signature.u.ecdsa_signature.r,&point);
+    
+    string_free(&temp_string);
+    string_free(&hashed_string);
+    certificate_request_2_string(&cert_request,&temp_string);
+    crypto_HASH256(&temp_string,&hashed_string);
+
+    if(request_hash != NULL){    
+        memcpy(request_hash->certid10,hashed_string.buf + hashed_string.len - 10,10);
+    }
+    cert_chain.len = 1;
+    if( cert_chain.certs = (certificate*)malloc(sizeof(certificate) * 1) ){
+        wave_malloc_error();
+        res = FAILURE;
+        goto end;
+    }
+    certificate_cpy(cert_chain.certs,ca_cert);
+    if( res = sec_encrypted_data(sdb,CERTIFICATE_REQUEST,&temp_string,&cert_chain,true,0,cert_request_string,NULL)){
+        goto end;
+    }
+    goto end;
+end:
+    cme_permissions_free(&ca_permissions);
+    cme_permissions_free(&csr_cert_permissions);
+    geographic_region_free(&ca_scope);
+    geographic_region_free(&csr_cert_scope);
+    certificate_free(&csr_cert);
+    string_free(&temp_string);
+    string_free(&pubkey_x);
+    string_free(&pubkey_y);
+    string_free(&prikey);
+    string_free(&signature_string);
+    string_free(&hashed_string);
+    elliptic_curve_point_free(&point);
+    certificate_request_free(&cert_request);
+    certificate_chain_free(&cert_chain);
     return res;
 }
 

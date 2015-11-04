@@ -194,7 +194,7 @@ result certificate_get_expired_time(certificate* cert,time32 *expired_time);
  * */
 int find_cert_by_cmh(struct sec_db *sdb, void *value, struct certificate *cert);
 int find_cert_prikey_by_cmh(struct sec_db * sdb,cmh cmh,certificate* cert,string *privatekey);
-
+int find_keypaire_by_cmh(struct sec_db* sdb,cmh cmh,string* pubkey_x,string* pubkey_y,string* prikey,pk_algorithm* algorithm);
 
 int certificate_2_hash8(struct certificate *cert, string *hash8);
 int certificate_2_hashedid8(struct certificate* cert,hashedid8* hashedid8);
@@ -216,4 +216,8 @@ int get_permission_from_certificate(certificate *cert,
                                     geographic_region *scope);
 
 int get_region(geographic_region *src, geographic_region *dst, enum holder_type type);
+
+
+bool geographic_region_in_geographic_region(geographic_region *a,geographic_region* b);
+bool three_d_location_in_region(three_d_location* loc,geographic_region* region);
 #endif

@@ -26,8 +26,12 @@ typedef struct result_array{
     u32 len;
 }result_array;
 
+struct region_type_array{
+    region_type* types;
+    u32 len;
+};
 
-/**
+/*
  * 签名数据
  *
  * @type：只能是signed signed_partial_payload signed_external_payload,其他返回错误。
@@ -162,9 +166,9 @@ result sec_get_certificate_request(struct sec_db* sdb,signer_identifier_type typ
                 bool life_time_duration,
                 time32 start_time,
                 time32 expiry_time,
-                string* veri_pub_key,
-                string* enc_pub_key,
-                string* respon_enc_key,
+                public_key* veri_pub_key,
+                public_key* enc_pub_key,
+                public_key* respon_enc_key,
                 certificate* ca_cert,
                 
                 string* cert_request,
