@@ -441,7 +441,7 @@ static void tobesigned_crl_free(tobesigned_crl* tobesigned_crl){
 /**
  *YGH 27
  */
-static void crl_free(crl* crl){
+void crl_free(crl* crl){
 	int n = crl->signer.u.certificates.len - 1;
 	tobesigned_crl_free(&crl->unsigned_crl);
 	
@@ -503,7 +503,7 @@ static void tobe_encrypted_certificate_request_error_free(tobe_encrypted_certifi
  *YGH 29
  *@version_and_type由证书链中最后一个证书得到
  */
-static void tobe_encrypted_certificate_response_free(tobe_encrypted_certificate_response* 
+void tobe_encrypted_certificate_response_free(tobe_encrypted_certificate_response* 
 				tobe_encrypted_certificate_response){
 	int i;
 	int n = tobe_encrypted_certificate_response->certificate_chain.len - 1;
@@ -559,7 +559,7 @@ static void tobesigned_certificate_request_free(tobesigned_certificate_request*
 /**
  *YGH 31
  */
-static void certificate_request_free(certificate_request* certificate_request){
+void certificate_request_free(certificate_request* certificate_request){
 	switch(certificate_request->signer.type){
 		case SELF:
 			signature_free(&certificate_request->signature,
@@ -623,7 +623,7 @@ static void tobesigned_data_free(tobesigned_data* tobesigned_data, content_type 
 /**
  *YGH 33
  */
-static void signed_data_free(signed_data* signed_data, content_type type){
+void signed_data_free(signed_data* signed_data, content_type type){
 
 	int n = signed_data->signer.u.certificates.len - 1;
 
@@ -736,7 +736,7 @@ static void recipient_info_free(recipient_info* recipient_info, pk_algorithm alg
  *YGH 38
  *@recipient_info_free 本协议仅支持ECIES_NISTP256,其他算法暂不考虑
  */
-static void  encrypted_data_free(encrypted_data* encrypted_data){
+void  encrypted_data_free(encrypted_data* encrypted_data){
 	int i;
 	if(NULL != encrypted_data->recipients.buf){
 		for(i = 0;i<encrypted_data->recipients.len;i++){
