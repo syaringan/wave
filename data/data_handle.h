@@ -66,7 +66,7 @@ int elliptic_curve_point_cpy(elliptic_curve_point* dst,elliptic_curve_point* src
 int public_key_cpy(public_key* dst,public_key* src);
 
 int tobesigned_certificate_request_2_string(tobesigned_certificate_request* tbs,string* data);
-//int string_2_tobesigned_certificate_request_error(string* data,tobesigned_certificate_request_error* tbs);
-//int string_2_tobesigned_certificate_response(string* data,tobesigned_certificate_response* cert_resp);
+//int string_2_tobe_encrypted_certificate_request_error(string* data,tobe_encrypted_certificate_request_error tbs);
+//int string_2_tobe_encrypted_certificate_response(string* data,tobe_encrypted_certificate_response* cert_resp);
 int certificate_request_2_string(certificate_request* cert_req,string* data);
 #endif

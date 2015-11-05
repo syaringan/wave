@@ -71,20 +71,22 @@ result cme_lsis_request(struct sec_db* sdb,cme_lsis* lsis);
 
 result cme_cmh_request(struct sec_db* sdb,cmh* cmh);
 
-result cme_generate_keypair(struct sec_db* sdb,const cmh cmh,
-                        const pk_algorithm algorithm,
-                        string* pub_key);
+result cme_generate_keypair(struct sec_db* sdb,  cmh cmh,
+                          pk_algorithm algorithm,
+                        string* pub_key_x,
+                        string* pub_key_y);
 
-result cme_store_keypair(struct sec_db* sdb,const cmh cmh,
-                            const pk_algorithm algorithm,
-                            const string* pub_key,
-                            const string* pri_key);
+result cme_store_keypair(struct sec_db* sdb,  cmh cmh,
+                              pk_algorithm algorithm,
+                              string* pub_key_x,
+                              string* pub_key_y,
+                              string* pri_key);
 
-result cme_store_cert(struct sec_db* sdb,const cmh cmh,
-                            const certificate* cert,
-                            const string* transfor);
-result cme_store_cert_key(struct sec_db* sdb,const certificate* cert,
-                            const string* pri_key);
+result cme_store_cert(struct sec_db* sdb,  cmh cmh,
+                              certificate* cert,
+                              string* transfor);
+result cme_store_cert_key(struct sec_db* sdb,  certificate* cert,
+                              string* pri_key);
 
 
 
