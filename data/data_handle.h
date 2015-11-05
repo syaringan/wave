@@ -31,7 +31,7 @@ u32 buf_2_sec_data(const u8* buf,u32 len, sec_data* sec);
 void sec_data_free(sec_data* sec_data);
 void signed_data_free(signed_data* signed_data);
 void crl_free(crl* crl);
-void certificate_request_free(certificate_request* cert_request);
+//void certificate_request_free(certificate_request* cert_request);
 //void encrypted_data_free(encrypted_data* data);
 //void tobe_encrypted_certificate_response_free(tobe_encrypted_certificate_response* data);
 /******************这后面请在data_helper.c里面实现******************/
@@ -54,16 +54,16 @@ int hashedid8_2_string(hashedid8* hashed,string* data);
 int string_2_hashedid8(string* data,hashedid8* hashed);
 bool hashedid8_equal(hashedid8* a,hashedid8* b);
 
-int tobesigned_clr_2_string(tobesigned_clr* us_crl,string* data);
+int tobesigned_crl_2_string(tobesigned_crl* tbs_crl,string* data);
+int string_2_tobesigned_crl(string* data,tobesigned_crl* tbs_crl);
 
-
-void certificate_cpy(certificate *dst,certificate *src);
+int certificate_cpy(certificate *dst,certificate *src);
 
 bool certificate_equal(certificate* a,certificate* b);
 
-void elliptic_curve_point_cpy(elliptic_curve_point* dst,elliptic_curve_point* src);
+int elliptic_curve_point_cpy(elliptic_curve_point* dst,elliptic_curve_point* src);
 
-void public_key_cpy(public_key* a,public_key* b);
+int public_key_cpy(public_key* dst,public_key* src);
 
 int tobesigned_certificate_request_2_string(tobesigned_certificate_request* tbs,string* data);
 //int string_2_tobesigned_certificate_request_error(string* data,tobesigned_certificate_request_error* tbs);
