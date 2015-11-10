@@ -17,7 +17,7 @@ void wave_printf_fl(int level,const char *fmt,...){
     va_start(ap,fmt);
     if(level > wave_debug_level){
         vprintf(fmt,ap);
-        printf("  %s %d\n",__file__,__line__);
+        printf("  %s %d\n",__FILE__,__LINE__);
     }
 }
 void wave_error_printf(const char* fmt,...){
@@ -26,7 +26,7 @@ void wave_error_printf(const char* fmt,...){
     va_start(ap,fmt);
     if(level > wave_debug_level){
         vprintf(fmt,ap);
-        printf("  %s %d\n",__file__,__line__);
+        printf("  %s %d\n",__FILE__,__LINE__);
     }
 }
 

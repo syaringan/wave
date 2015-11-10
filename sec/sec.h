@@ -26,7 +26,12 @@ typedef struct result_array{
     u32 len;
 }result_array;
 
-/**
+struct region_type_array{
+    region_type* types;
+    u32 len;
+};
+
+/*
  * 签名数据
  *
  * @type：只能是signed signed_partial_payload signed_external_payload,其他返回错误。
@@ -80,7 +85,7 @@ result sec_encrypted_data(struct sec_db* sdb,
                 string* data,
                 struct certificate_chain* certs,
                 bool compressed,
-                u64 time,
+                time64 time,
                 
                 string* encrypted_data,
                 struct certificate_chain* failed_certs);
@@ -94,7 +99,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,
                 string* data,
                 string* signed_data,
                 psid *psid,
-                struct cme_permissions  *permissions,
+                string* ssp,
                 bool* set_generation_time,
                 time64_with_standard_deviation *generation_time,
                 bool* set_expiry_time,
@@ -109,7 +114,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,
  */
 result sec_signed_data_verification(struct sec_db* sdb,
                 cme_lsis lsis,
-                psid psid,
+                psid *psid,
                 content_type type,
                 string* signed_data,
                 string* external_data,
@@ -128,15 +133,19 @@ result sec_signed_data_verification(struct sec_db* sdb,
                 two_d_location* location,
                 u32 validity_distance,
                 three_d_location* generation_location,
-                time64 overdue_crl_tolerance);
+                time64 overdue_crl_tolerance,
+                
+                struct time32_array *last_recieve_crl_times,
+                struct time32_array *next_expected_crl_times,
+                certificate* send_cert);
 /**
  * crl的签名验证
  */
-result sec_crl_verification(struct sec_db* sdb,string* crl,time64 overdue_crl_tolerance,
+result sec_crl_verification(struct sec_db* sdb,string* crl,time32 overdue_crl_tolerance,
                         
-                time64* last_crl_time,
-                time64* next_crl_time,
-                certificate* cert);
+                struct time32_array* last_crl_times,
+                struct time32_array* next_crl_times,
+                certificate* send_cert);
 
 enum transfer_type{
     EXPLICT = 1,
@@ -157,9 +166,9 @@ result sec_get_certificate_request(struct sec_db* sdb,signer_identifier_type typ
                 bool life_time_duration,
                 time32 start_time,
                 time32 expiry_time,
-                string* veri_pub_key,
-                string* enc_pub_key,
-                string* respon_enc_key,
+                public_key* veri_pub_key,
+                public_key* enc_pub_key,
+                public_key* respon_enc_key,
                 certificate* ca_cert,
                 
                 string* cert_request,
@@ -174,7 +183,7 @@ result sec_certficate_response_processing(struct sec_db* sdb,
                 certificate_request_error_code* error,
                 certificate* certificate,
                 string* rec_value,
-                bool ack_request
+                bool *ack_request
                 );
 
 result sec_signed_wsa(struct sec_db* sdb,
@@ -187,7 +196,7 @@ result sec_signed_wsa(struct sec_db* sdb,
 result sec_signed_wsa_verification(struct sec_db* sdb,
                 string* wsa,
                 
-                result_array *result;
+                result_array *result,
                 string* wsa_data,
                 psid_priority_ssp_array* permissions,
                 time64_with_standard_deviation* generation_time,
@@ -215,7 +224,7 @@ result sec_check_chain_geographic_consistency(struct sec_db* sdb,
 
 result sec_verify_chain_signature(struct sec_db* sdb,
                 struct certificate_chain* cert_chain,
-                bool* verified_array,u32 len,
+                struct verified_array* verified_array,
                 string* digest,
                 signature* signature);
 
@@ -233,7 +242,7 @@ result sec_certificate_response_verification(struct sec_db* sdb,
                 tobe_encrypted_certificate_response* cert_resp);
 
 /***************这后面的函数都是certificate的一些帮助接口，方便获取证书的相关信息******/
-int get_current_location(two_d_location *td_location);
-
-
+result get_current_location(two_d_location *td_location);
+bool two_d_location_in_geographic_region(two_d_location* loc,geographic_region* region);
+u32 distance_with_two_d_location(two_d_location* a,two_d_location* b);
 #endif 

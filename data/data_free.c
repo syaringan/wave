@@ -64,12 +64,11 @@ static void ecdsa_signature_free(ecdsa_signature* ecdsa_signature){
 static void signature_free(signature* signature, pk_algorithm algorithm  ){
 	switch(algorithm){
 		case ECDSA_NISTP224_WITH_SHA224:
-			break;
 		case ECDSA_NISTP256_WITH_SHA256:
 			ecdsa_signature_free(&signature->u.ecdsa_signature);
 			break;
 		default:
-			ARRAY_FREE(&signature);
+			ARRAY_FREE(&signature->u.signature);
 	}			
 }
 /*
@@ -79,7 +78,6 @@ static void signature_free(signature* signature, pk_algorithm algorithm  ){
 static void public_key_free(public_key* public_key){
 	switch(public_key->algorithm){
 		case ECDSA_NISTP224_WITH_SHA224:
-			break;
 		case ECDSA_NISTP256_WITH_SHA256:
 			elliptic_curve_point_free(&public_key->u.public_key);
 			break;
@@ -106,7 +104,7 @@ static void geographic_region_free(geographic_region* geographic_region){
 			ARRAY_FREE(&geographic_region->u.rectangular_region);
 			break;
 		case POLYGON:
-			free(geographic_region->u.polygonal_region);
+			ARRAY_FREE(&geographic_region->u.polygonal_region);
 			break;
 		case NONE:
 			break;
@@ -116,12 +114,11 @@ static void geographic_region_free(geographic_region* geographic_region){
 }
 
 /**
- * YGH 8
+ * YGH 8    该结构体无指针
  */
 
-static void psid_priority_free(psid_priority*  psid_priority){
-	free(&psid_priority->psid);
-}
+//static void psid_priority_free(psid_priority*  psid_priority){
+//}
 
 /**
  * YGH 9
@@ -130,6 +127,8 @@ static void psid_priority_free(psid_priority*  psid_priority){
 static void psid_priority_array_free(psid_priority_array*  psid_priority_array){
     switch(psid_priority_array->type){
         case ARRAY_TYPE_SPECIFIED:
+			if(NULL != psid_priority_array->u.permissions_list.buf)
+				ARRAY_FREE(&psid_priority_array->u.permissions_list);
 			break;
 		case ARRAY_TYPE_FROM_ISSUER:
 			break;
@@ -162,7 +161,6 @@ static void psid_array_free(psid_array* psid_array){
  *YGH 11
  */
 static void psid_ssp_free(psid_ssp* psid_ssp){
-	  free(&psid_ssp->psid);
 	  if(NULL!=psid_ssp->service_specific_permissions.buf)
 		  ARRAY_FREE(&psid_ssp->service_specific_permissions);
 }
@@ -171,10 +169,15 @@ static void psid_ssp_free(psid_ssp* psid_ssp){
  *YGH 12
  */
 static void psid_ssp_array_free(psid_ssp_array* psid_ssp_array){
+	int i;
 	 switch(psid_ssp_array->type){
 		 case ARRAY_TYPE_SPECIFIED:
-			if(NULL!=psid_ssp_array->u.permissions_list.buf)
+			if(NULL!=psid_ssp_array->u.permissions_list.buf){
+				for(i = 0;i<psid_ssp_array->u.permissions_list.len;i++){
+					psid_ssp_free(psid_ssp_array->u.permissions_list.buf + i);
+				}
 				ARRAY_FREE(&psid_ssp_array->u.permissions_list);
+			}
 			break;
 		 case ARRAY_TYPE_FROM_ISSUER:
 			break;
@@ -189,7 +192,6 @@ static void psid_ssp_array_free(psid_ssp_array* psid_ssp_array){
  */
 
 static void psid_priority_ssp_free(psid_priority_ssp* psid_priority_ssp){
-	 free(&psid_priority_ssp->psid);
       if(NULL!=psid_priority_ssp->service_specific_permissions.buf)
 		  ARRAY_FREE(&psid_priority_ssp->service_specific_permissions);
 }
@@ -197,11 +199,16 @@ static void psid_priority_ssp_free(psid_priority_ssp* psid_priority_ssp){
  *YGH 14
  */
 static void psid_priority_ssp_array_free(psid_priority_ssp_array* psid_priority_ssp_array){
+	int i;
         switch(psid_priority_ssp_array->type){
 			case ARRAY_TYPE_SPECIFIED:
-				if(NULL!=psid_priority_ssp_array->u.permissions_list.buf)
-					ARRAY_FREE(&psid_priority_ssp_array->u.permissions_list);
-			 break;
+				if(NULL!=psid_priority_ssp_array->u.permissions_list.buf){
+					for(i = 0;i<psid_priority_ssp_array->u.permissions_list.len;i++){					
+						psid_priority_ssp_free(psid_priority_ssp_array->u.permissions_list.buf + i);				
+					}				
+					ARRAY_FREE(&psid_priority_ssp_array->u.permissions_list);			
+				}
+				break;
 			case ARRAY_TYPE_FROM_ISSUER:
 			 break;
 			default: 
@@ -276,10 +283,22 @@ static void sec_data_exch_ca_scope_free(sec_data_exch_ca_scope* sec_data_exch_ca
 static void root_ca_scope_free(root_ca_scope* root_ca_scope){
       if(NULL!=root_ca_scope->name.buf)
 		  ARRAY_FREE(&root_ca_scope->name);
-      psid_array_free(&root_ca_scope->flags_content.secure_data_permissions);
-	  psid_priority_array_free (&root_ca_scope->flags_content.wsa_permissions);
-	  if(NULL!=root_ca_scope->flags_content.other_permissions.buf)
-		  ARRAY_FREE(&root_ca_scope->flags_content.other_permissions);
+	  if((root_ca_scope->permitted_holder_types & 1<<0)!=0 ||
+			(root_ca_scope->permitted_holder_types & 1<<1)!=0 ||
+			(root_ca_scope->permitted_holder_types & 1<<2)!=0 ||
+			(root_ca_scope->permitted_holder_types & 1<<3)!=0 ||
+			(root_ca_scope->permitted_holder_types & 1<<6)!=0){
+		  psid_array_free(&root_ca_scope->flags_content.secure_data_permissions);
+	  }
+	  if((root_ca_scope->permitted_holder_types & 1<<4)!=0 ||
+			(root_ca_scope->permitted_holder_types & 1<<5)!=0 ||
+			((root_ca_scope->permitted_holder_types > 1<<6) && (root_ca_scope->permitted_holder_types & 1<<7)!=0)){
+		  psid_priority_array_free (&root_ca_scope->flags_content.wsa_permissions);
+	  }
+	  if((root_ca_scope->permitted_holder_types > 1<<6) && (root_ca_scope->permitted_holder_types & 1<<8)!=0){
+		  if(NULL!=root_ca_scope->flags_content.other_permissions.buf)
+			  ARRAY_FREE(&root_ca_scope->flags_content.other_permissions);
+	  }
 	  geographic_region_free(&root_ca_scope->region);
 }
 /**
@@ -300,7 +319,8 @@ static void cert_specific_data_free(cert_specific_data* cert_specific_data,holde
 			   wsa_ca_scope_free(&cert_specific_data->u.wsa_ca_scope);
 			   break;
 			case CRL_SIGNER:
-			   free(cert_specific_data->u.responsible_series);
+			   if(NULL != cert_specific_data->u.responsible_series.buf)
+				   ARRAY_FREE(&cert_specific_data->u.responsible_series);
 			   break;
 			case SDE_IDENTIFIED_NOT_LOCALIZED:
 			   identified_not_localized_scope_free(&cert_specific_data->u.id_non_loc_scope);
@@ -324,32 +344,29 @@ static void cert_specific_data_free(cert_specific_data* cert_specific_data,holde
  *@uint8 外部数据结构传入
  */
 static void tobesigned_certificate_free(tobesigned_certificate* tobesigned_certificate,u8 version_and_type){
-	switch(tobesigned_certificate->holder_type){
-    	case ROOT_CA:
-	      	break;
-		default:
-	    	break;
-	
-	}
 	cert_specific_data_free(&tobesigned_certificate->scope,tobesigned_certificate->holder_type);
 	switch(version_and_type){
 		case 2:
-	public_key_free(&tobesigned_certificate->version_and_type.verification_key);
+			public_key_free(&tobesigned_certificate->version_and_type.verification_key);
 		   break;
 	    case 3:
 	   	 break;
 		default:
 		if(NULL!=tobesigned_certificate->version_and_type.other_key_material.buf)
-			ARRAY_FREE(&tobesigned_certificate->version_and_type.other_key_material);}
-	    public_key_free(&tobesigned_certificate->flags_content.encryption_key);
+			ARRAY_FREE(&tobesigned_certificate->version_and_type.other_key_material);
+	}
+	if((tobesigned_certificate->cf & 1<<2)!=0){
+		public_key_free(&tobesigned_certificate->flags_content.encryption_key);
+	}
+	if((tobesigned_certificate->cf & 0xf8)!=0){
 		if(NULL!=tobesigned_certificate->flags_content.other_cert_content.buf)
 			ARRAY_FREE(&tobesigned_certificate->flags_content.other_cert_content);
+	}
 }
 /**
  *YGH 24
  */
-static void certificate_free(certificate* certificate){
-   tobesigned_certificate_free(&certificate->unsigned_certificate,certificate->version_and_type);
+static void certificate_free(certificate* certificate){ 
    switch(certificate->version_and_type){
 	   case 2:
          switch(certificate->unsigned_certificate.holder_type){
@@ -358,7 +375,7 @@ static void certificate_free(certificate* certificate){
 				 break;
 			  default:
 				 signature_free(&certificate->u.signature,certificate->unsigned_certificate.u.no_root_ca.signature_alg);
-		 }	;	 //  signature_free(&certificate->u.signature);
+		 }
 		   break;
 		case 3:
 		 elliptic_curve_point_free(&certificate->u.reconstruction_value);
@@ -367,6 +384,7 @@ static void certificate_free(certificate* certificate){
 		 if(NULL!=certificate->u.signature_material.buf)
 			 ARRAY_FREE(&certificate->u.signature_material);
    }
+   tobesigned_certificate_free(&certificate->unsigned_certificate,certificate->version_and_type);
 }
 
 /**
@@ -453,6 +471,8 @@ static void crl_free(crl* crl){
 				signature_free(&crl->signature,
 					(crl->signer.u.certificates.buf + n)->unsigned_certificate.u.no_root_ca.signature_alg);
 			break;
+		default:
+			break;
 	}
 	signer_identifier_free(&crl->signer);
 
@@ -525,11 +545,13 @@ static void tobesigned_certificate_request_free(tobesigned_certificate_request*
 
 	cert_specific_data_free(&tobesigned_certificate_request->type_specific_data,
 			tobesigned_certificate_request->holder_type);
-	public_key_free(&tobesigned_certificate_request->flags_content.encryption_key);
-
-	if(NULL != tobesigned_certificate_request->flags_content.other_cert.buf)
-		ARRAY_FREE(&tobesigned_certificate_request->flags_content.other_cert);
-
+	if((tobesigned_certificate_request->cf & 1<<2)!=0){
+		public_key_free(&tobesigned_certificate_request->flags_content.encryption_key);
+	}
+	if((tobesigned_certificate_request->cf & 0xf8)!=0){
+		if(NULL != tobesigned_certificate_request->flags_content.other_cert.buf)
+			ARRAY_FREE(&tobesigned_certificate_request->flags_content.other_cert);
+	}
 	public_key_free(&tobesigned_certificate_request->verification_key);
 	public_key_free(&tobesigned_certificate_request->response_encryption_key);
 }
@@ -560,25 +582,22 @@ static void certificate_request_free(certificate_request* certificate_request){
 }
 
 /**
- *YGH 32??????/////////////现不写，保留下
+ *  YGH 32
  */
 static void tobesigned_data_free(tobesigned_data* tobesigned_data, content_type type){
 	int i;
 	switch(type){
 		case SIGNED:	
-			free(&tobesigned_data->u.type_signed.psid);
 			if(NULL != tobesigned_data->u.type_signed.data.buf)
 				ARRAY_FREE(&tobesigned_data->u.type_signed.data);
 			break;
 		case SIGNED_PARTIAL_PAYLOAD:
-			free(&tobesigned_data->u.type_signed.psid);
 			if(NULL != tobesigned_data->u.type_signed_partical.ext_data.buf)
 				ARRAY_FREE(&tobesigned_data->u.type_signed_partical.ext_data);
 			if(NULL != tobesigned_data->u.type_signed_partical.data.buf)
 				ARRAY_FREE(&tobesigned_data->u.type_signed_partical.data);
 			break;
 		case SIGNED_EXTERNAL_PAYLOAD:
-			free(&tobesigned_data->u.type_signed_external.psid);
 			if(NULL != tobesigned_data->u.type_signed_external.ext_data.buf)
 				ARRAY_FREE(&tobesigned_data->u.type_signed_external.ext_data);
 			break;
@@ -587,14 +606,18 @@ static void tobesigned_data_free(tobesigned_data* tobesigned_data, content_type 
 				ARRAY_FREE(&tobesigned_data->u.data);
 			break;
 	}
-	if(NULL != tobesigned_data->flags_content.extensions.buf){
-		for(i = 0;i<tobesigned_data->flags_content.extensions.len;i++){
-			tbsdata_extension_free(tobesigned_data->flags_content.extensions.buf + i);
+	if((tobesigned_data->tf & 1<<3)!=0){
+		if(NULL != tobesigned_data->flags_content.extensions.buf){
+			for(i = 0;i<tobesigned_data->flags_content.extensions.len;i++){
+				tbsdata_extension_free(tobesigned_data->flags_content.extensions.buf + i);
+			}
+			ARRAY_FREE(&tobesigned_data->flags_content.extensions);
 		}
-		ARRAY_FREE(&tobesigned_data->flags_content.extensions);
 	}
-	if(NULL != tobesigned_data->flags_content.other_data.buf)
-		ARRAY_FREE(&tobesigned_data->flags_content.other_data);
+	if((tobesigned_data->tf & 0xf0)!=0){
+		if(NULL != tobesigned_data->flags_content.other_data.buf)
+			ARRAY_FREE(&tobesigned_data->flags_content.other_data);
+	}
 }
 
 /**
@@ -630,6 +653,8 @@ static void signed_data_free(signed_data* signed_data, content_type type){
 				signature_free(&signed_data->signature,
 						(signed_data->signer.u.certificates.buf + n)->unsigned_certificate.u.no_root_ca.signature_alg);
 			break;
+		default:
+			break;
 	}
 	signer_identifier_free(&signed_data->signer);
 	tobesigned_data_free(&signed_data->unsigned_data,type);
@@ -660,7 +685,6 @@ static void tobe_encrypted_free(tobe_encrypted* tobe_encrypted){
 			tobe_encrypted_certificate_request_error_free(&tobe_encrypted->u.request_error);
 			break;
 		case CONTENT_TYPE_CRL_REQUEST:
-//			crl_request_free(&tobe_encrypted->u.crl_request);
 			break;
 		case CRL:
 			crl_free(&tobe_encrypted->u.crl);
@@ -741,12 +765,16 @@ static void tobesigned_wsa_free(tobesigned_wsa* tobesigned_wsa){
 	if(NULL != tobesigned_wsa->data.buf)
 		ARRAY_FREE(&tobesigned_wsa->data);
 
-	if(NULL != tobesigned_wsa->flags_content.extension.buf){
-		tbsdata_extension_free(tobesigned_wsa->flags_content.extension.buf);
-		ARRAY_FREE(&tobesigned_wsa->flags_content.extension);
+	if((tobesigned_wsa->tf & 1<<3)!=0){
+		if(NULL != tobesigned_wsa->flags_content.extension.buf){
+			tbsdata_extension_free(tobesigned_wsa->flags_content.extension.buf);
+			ARRAY_FREE(&tobesigned_wsa->flags_content.extension);
+		}
 	}
-	if(NULL != tobesigned_wsa->flags_content.other_data.buf)
-		ARRAY_FREE(&tobesigned_wsa->flags_content.other_data);
+	if((tobesigned_wsa->tf & 0xf0)!=0){
+		if(NULL != tobesigned_wsa->flags_content.other_data.buf)
+			ARRAY_FREE(&tobesigned_wsa->flags_content.other_data);
+	}
 }
 
 /**
@@ -754,8 +782,13 @@ static void tobesigned_wsa_free(tobesigned_wsa* tobesigned_wsa){
  */
 static void signed_wsa_free(signed_wsa* signed_wsa){
 	int n = signed_wsa->signer.u.certificates.len - 1;
-	signature_free(&signed_wsa->signature,
-			(signed_wsa->signer.u.certificates.buf + n)->unsigned_certificate.version_and_type.verification_key.algorithm);
+	if((signed_wsa->signer.type == CERTIFICATE_CHAIN) &&
+			((signed_wsa->signer.u.certificates.buf + n)->version_and_type == 2)){
+		signature_free(&signed_wsa->signature,
+				(signed_wsa->signer.u.certificates.buf + n)->unsigned_certificate.version_and_type.verification_key.algorithm);
+	}else{
+		signature_free(&signed_wsa->signature,ECDSA_NISTP256_WITH_SHA256);
+	}
 	signer_identifier_free(&signed_wsa->signer);
 	tobesigned_wsa_free(&signed_wsa->unsigned_wsa);
 }
@@ -774,7 +807,7 @@ void sec_data_free(sec_data* sec_data){
         case SIGNED:
         case SIGNED_EXTERNAL_PAYLOAD:
         case SIGNED_PARTIAL_PAYLOAD:
-            ARRAY_FREE(&sec_data->u.signed_data);
+			signed_data_free(&sec_data->u.signed_data,sec_data->type);
             break;
         case SIGNED_WSA:
             signed_wsa_free(&sec_data->u.signed_wsa);
@@ -783,10 +816,9 @@ void sec_data_free(sec_data* sec_data){
             encrypted_data_free(&sec_data->u.encrypted_data);
             break;
         case CONTENT_TYPE_CRL_REQUEST:
-//			crl_request_free(&sec_data->u.crl_request);
             break;
         case CRL:
-            ARRAY_FREE(&sec_data->u.crl);
+			crl_free(&sec_data->u.crl);
             break;
         default:
 			ARRAY_FREE(&sec_data->u.other_data);

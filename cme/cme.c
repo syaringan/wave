@@ -203,7 +203,7 @@ int find_cert_by_cmh(struct sec_db *sdb, void *value, struct certificate *cert){
 }
 int find_cert_prikey_by_cmh(struct sec_db* sdb,cmh cmh,certificate* cert,string* privatekey){
     struct cmh_key_cert *p = NULL;
-    if(privatekey == NULL || privatekey.buf != NULL){
+    if(privatekey == NULL || privatekey->buf != NULL){
         wave_error_printf("string 里面可能有野指针");
         return -1;
     }
@@ -215,7 +215,7 @@ int find_cert_prikey_by_cmh(struct sec_db* sdb,cmh cmh,certificate* cert,string*
             return -1;
         }
         certificate_cpy(cert, p->cert);
-        string_cpy(privatekey,p->private_key);
+        string_cpy(privatekey,&p->private_key);
         lock_unlock(&sdb->cme_db.lock);
         return 0;
     }
@@ -275,45 +275,80 @@ result cme_cmh_request(struct sec_db* sdb,cmh* cmh){
     wave_printf(MSG_DEBUG,"分配的cmh：%d\n",*cmh);
     return SUCCESS;
 }
-result cme_generate_keypair(struct sec_db* sdb,const cmh cmh,
-                const pk_algorithm algorithm,
-                string* pub_key){
-    string mpuk,mprk;
-    struct cme_db *cdb;
-    struct list_head *cmh_init_head,*cmh_key_head;
-    struct cmh_init *cmh_init_node;
-    struct cmh_keypaired *cmh_keys_node,*new_keys_node;
-    INIT(mpuk);
-    INIT(mprk);
-    if(pub_key == NULL || pub_key->buf != NULL)
-        return FAILURE;
-    cdb = &sdb->cme_db;
-    //按照二哥提供的算法，我们生成一对密钥和公要
+result cme_generate_keypair(struct sec_db* sdb,  cmh cmh,
+                  pk_algorithm algorithm,
+                string* pub_key_x,string* pub_key_y){
+    string mprk;
+    result res = SUCCESS;
 
-  
-    pub_key->buf = (u8*)malloc(mpuk.len);
-    if(pub_key->buf == NULL){
-        wave_error_printf("内存分配失败");
-        return FAILURE;
+    INIT(mprk);
+
+    if(pub_key_x == NULL || pub_key_x->buf != NULL ||
+            pub_key_y == NULL || pub_key_y->buf != NULL){
+        wave_error_printf("参数部队 %s %d",__FILE__,__LINE__ );
+        res = FAILURE;
+        goto end;
     }
-    if( cme_store_keypair(sdb,cmh,algorithm,&mpuk,&mprk) == FAILURE){
-        string_free(pub_key);
-        return FAILURE;
+    //按照二哥提供的算法，我们生成一对密钥和公要
+    switch(algorithm){
+        case ECDSA_NISTP224_WITH_SHA224:
+            if( crypto_ECDSA224_get_privatekey(&mprk)){
+                res = FAILURE;
+                goto end;
+            }
+            if( crypto_ECDSA224_get_publickey(&mprk,pub_key_x,pub_key_y)){
+                res = FAILURE;
+                goto end;
+            }
+            break;
+        case ECDSA_NISTP256_WITH_SHA256:
+            if( crypto_ECDSA256_get_privatekey(&mprk)){
+                res = FAILURE;
+                goto end;
+            }
+            if( crypto_ECDSA256_get_publickey(&mprk,pub_key_x,pub_key_y)){
+                res = FAILURE;
+                goto end;
+            }
+            break;
+        case ECIES_NISTP256:
+            if( crypto_ECIES256_get_privatekey(&mprk)){
+                res = FAILURE;
+                goto end;
+            }
+            if( crypto_ECIES256_get_publickey(&mprk,pub_key_x,pub_key_y)){
+                res = FAILURE;
+                goto end;
+            }
+            break;
+        default:
+            wave_error_printf("出现了不应该有的指 %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            goto end;
     }
-    string_cpy(pub_key,&mpuk);
-    return SUCCESS;
+    if( res = cme_store_keypair(sdb,cmh,algorithm,pub_key_x,pub_key_y,&mprk) ){
+        res = FAILURE;
+        goto end;
+    }
+    goto end;
+end:
+    string_free(&mprk);
+    return res;
 }
-result cme_store_keypair(struct sec_db* sdb,const cmh cmh,
-                            const pk_algorithm algorithm,
-                            const string* pub_key,
-                            const string* pri_key){
+result cme_store_keypair(struct sec_db* sdb,  cmh cmh,
+                              pk_algorithm algorithm,
+                              string* pub_key_x,
+                              string* pub_key_y,
+                              string* pri_key){
     struct cme_db *cdb;
     struct list_head *cmh_init_head,*cmh_key_head;
     struct cmh_chain *cmh_init_node;
     struct cmh_keypaired *cmh_keys_node,*new_keys_node;
-    if(pub_key == NULL || pub_key->buf == NULL || pri_key == NULL
-            ||pri_key->buf == NULL)
+    if(pub_key_x == NULL || pub_key_x->buf == NULL || pub_key_y == NULL || pub_key_y->buf == NULL || 
+            pri_key == NULL || pri_key->buf == NULL){
+        wave_error_printf("参数有问题 %s %d",__FILE__,__LINE__);
         return FAILURE;
+    }
     cdb = &sdb->cme_db;
     lock_wrlock(&cdb->lock);
     cmh_init_head  = &cdb->cmhs.alloc_cmhs.cmh_init.list;
@@ -345,7 +380,8 @@ result cme_store_keypair(struct sec_db* sdb,const cmh cmh,
     new_keys_node->algorithm = algorithm;
     new_keys_node->cmh = cmh;
     string_cpy(&new_keys_node->private_key,pri_key);
-    string_cpy(&new_keys_node->public_key,pub_key);
+    string_cpy(&new_keys_node->public_key_x,pub_key_x);
+    string_cpy(&new_keys_node->public_key_y,pub_key_y);
 
     list_for_each_entry(cmh_keys_node,cmh_key_head,list){
         if(cmh_keys_node->cmh > cmh){
@@ -364,9 +400,9 @@ static result  cert_info_init(struct sec_db* sdb,struct cert_info* certinfo,stru
     //还有很多没有写。
     
 }
-result cme_store_cert(struct sec_db* sdb,const cmh cmh,
-                        const certificate* cert,
-                        const string* transfor){
+result cme_store_cert(struct sec_db* sdb,  cmh cmh,
+                          certificate* cert,
+                          string* transfor){
 
     struct list_head *cmh_keys_head,*cmh_key_cert_head;
     struct cmh_keypaired *cmh_keys_node;
@@ -445,8 +481,8 @@ fail:
     return FAILURE;
 }
 
-result cme_store_cert_key(struct sec_db* sdb,const certificate* cert,
-                            const string* pri_key){
+result cme_store_cert_key(struct sec_db* sdb,  certificate* cert,
+                              string* pri_key){
     struct cert_info* certinfo,root;
     struct certificate* mcert; 
     struct cme_db* cdb;
@@ -559,23 +595,23 @@ int get_permission_from_certificate(certificate *cert,
                         return -1;
                     }
                     for(i = 0; i < per_len; i++){
-                        permissions->u.psid_ssp_array.buf[i].psid = 
-                            cert->unsigned_certificate.scope.u.anonymous_scope.permissions.u.permissions_list.psid;
+                        permission->u.psid_ssp_array.buf[i].psid = 
+                            (cert->unsigned_certificate.scope.u.anonymous_scope.permissions.u.permissions_list.buf+i)->psid;
                     
-                        permissions->u.psid_ssp_array.buf[i].service_specific_permissions.len = 
-                    cert->unsigned_certificate.scope.u.anonymous_scope.permissions.u.permissions_list.service_specific_permissions.len;
+                        permission->u.psid_ssp_array.buf[i].service_specific_permissions.len = 
+                            (cert->unsigned_certificate.scope.u.anonymous_scope.permissions.u.permissions_list.buf+i)->service_specific_permissions.len;
 
-                        permissions->u.psid_ssp_array.buf[i].service_specific_permissions.buf = 
-                            malloc(sizeof(u8)*permissions->u.psid_ssp_array.buf[i].service_specific_permissions.len);
+                        permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf = 
+                            malloc(sizeof(u8)*permission->u.psid_ssp_array.buf[i].service_specific_permissions.len);
 
-                        if(!permissions->u.psid_ssp_array.buf[i].service_specific_permissions.buf){
+                        if(!permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf){
                             wave_error_printf("malloc error!");
                             return -1;
                         }
 
-                        memcpy(permissions->u.psid_ssp_array.buf[i].service_specific_permissions.buf, 
-                    cert->unsigned_certificate.scope.u.anonymous_scope.permissions.u.permissions_list.service_specific_permissions.buf,
-                    permissions->u.psid_ssp_array.buf[i].service_specific_permissions.len);
+                        memcpy(permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf, 
+                                    (cert->unsigned_certificate.scope.u.anonymous_scope.permissions.u.permissions_list.buf+i)->service_specific_permissions.buf,
+                                    permission->u.psid_ssp_array.buf[i].service_specific_permissions.len);
                     }
                 }
             }
@@ -588,12 +624,12 @@ int get_permission_from_certificate(certificate *cert,
             break;
         case SDE_IDENTIFIED_NOT_LOCALIZED:
             if(permission != NULL){
-                if(cert->unsigned_certificate.scope.u.identified_not_scope.permissions.type == FROM_ISSUER){
+                if(cert->unsigned_certificate.scope.u.id_non_loc_scope.permissions.type == FROM_ISSUER){
                     permission->type = INHERITED_NOT_FOUND;
                 }
                 else{
                     permission->type = PSID_SSP;
-                    per_len = cert->unsigned_certificate.scope.u.identified_not_scope.permissions.u.permissions_list.len;
+                    per_len = cert->unsigned_certificate.scope.u.id_non_loc_scope.permissions.u.permissions_list.len;
                     permission->u.psid_ssp_array.len = per_len;
                     permission->u.psid_ssp_array.buf = malloc(sizeof(psid_ssp)*per_len);
                     if(!permission->u.psid_array.buf){
@@ -602,10 +638,10 @@ int get_permission_from_certificate(certificate *cert,
                     }
                     for(i = 0; i < per_len; i++){
                         permissions->u.psid_ssp_array.buf[i].psid = 
-                            cert->unsigned_certificate.scope.u.identified_not_scope.permissions.u.permissions_list.psid;
+                            (cert->unsigned_certificate.scope.u.id_non_loc_scope.permissions.u.permissions_list.buf+i)->psid;
 
                         permissions->u.psid_ssp_array.buf[i].service_specific_permissions.len = 
-                 cert->unsigned_certificate.scope.u.identified_not_scope.permissions.u.permissions_list.service_specific_permissions.len;
+                            (cert->unsigned_certificate.scope.u.id_non_loc_scope.permissions.u.permissions_list.buf+i)->service_specific_permissions.len;
 
                         permissions->u.psid_ssp_array.buf[i].service_specific_permissions.buf = 
                             malloc(sizeof(u8)*permissions->u.psid_ssp_array.buf[i].service_specific_permissions.len);
@@ -616,8 +652,8 @@ int get_permission_from_certificate(certificate *cert,
                         }
 
                         memcpy(permissions->u.psid_ssp_array.buf[i].service_specific_permissions.buf, 
-                cert->unsigned_certificate.scope.u.identified_not_scope.permissions.u.permissions_list.service_specific_permissions.buf,
-                permissions->u.psid_ssp_array.buf[i].service_specific_permissions.len);
+                            (cert->unsigned_certificate.scope.u.id_non_loc_scope.permissions.u.permissions_list.buf+i)->service_specific_permissions.buf,
+                            permissions->u.psid_ssp_array.buf[i].service_specific_permissions.len);
                     }
                 }
             }
@@ -834,11 +870,11 @@ result cme_certificate_info_request(struct sec_db* sdb,
                     string *certificate,
                     struct cme_permissions* permissions,
                     geographic_region* scope,
-                    time64* last_crl_time,time64* next_crl_time,
+                    time32* last_crl_time,time32* next_crl_time,
                     bool* trust_anchor,bool* verified){
     result ret = FAILURE;
     bool trusted;
-    certificate cert_decoded;
+    struct certificate cert_decoded;
     struct cert_info cert_info;
     string signer_id;
 
@@ -873,7 +909,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
     }
     ret = FOUND;
     if(verified != NULL){
-        *verified = cert_info.verified
+        *verified = cert_info.verified;
     }
     if(certificate != NULL){
         if(certificate_2_string(cert_info.cert, certificate)){
@@ -1181,7 +1217,7 @@ construct_chain:
             goto fail;
         }
         for(j = 0; j < certificates->len; j++){
-            string_free(hash8);
+            string_free(&hash8);
             INIT(hash8);
             if(certificate_2_hash8(&certificates->certs[i],&hash8)){
                 wave_error_printf("证书转hash8失败");
@@ -1235,7 +1271,7 @@ fail:
 
 int certificate_2_hash8(struct certificate *cert,string *hash8){
 
-    if(hash8 == NULL || hash8.buf != NULL){
+    if(hash8 == NULL || hash8->buf != NULL){
         wave_error_printf("参数错误");
     }
     string c,hashed;
@@ -1247,13 +1283,13 @@ int certificate_2_hash8(struct certificate *cert,string *hash8){
     if( crypto_HASH256(&c,&hashed) ){
         goto fail;
     }
-    hash8.buf = (u8*)malloc(8);
-    if(hash8.buf == NULL){
+    hash8->buf = (u8*)malloc(8);
+    if(hash8->buf == NULL){
         wave_malloc_error();
         goto fail;
     }
     //什么是低字节，这个地方是低字节嘛
-    memcpy(hash8.buf,hashed.buf+hashed.len-8,8);
+    memcpy(hash8->buf,hashed.buf+hashed.len-8,8);
     wave_printf(MSG_DEBUG,"证书hash出来的低八字杰为：HASHEDID8_FORMAT",hash8.buf[0],hash8.buf[1],hash8.buf[2],hash8.buf[3],
                 hash8.buf[4],hash8.buf[5],hash8.buf[6],hash8.buf[7]);
     string_free(&c);

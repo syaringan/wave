@@ -16,41 +16,59 @@
 
 extern int ECDSA256_get_privatekey(char* privatekey_buf, int len);
 
-extern int ECDSA256_get_publickey(char* public_key_x_buf, char* public_key_y_buf,int pulen,
-				char* private_key_buf);
-extern int ECDSA256_sign_message(char* private_key_buf, char* mess_buf, int mess_len,
+extern int ECDSA256_get_publickey(char* public_key_x_buf,int xlen, char* public_key_y_buf,int ylen,
+				char* private_key_buf, int prilen);
+extern int ECDSA256_sign_message(char* private_key_buf,int prilen,  char* mess_buf, int mess_len,
 				char* signed_mess_buf, int signed_mess_len);
 
 
-extern int ECDSA256_verify_messagge(char* public_key_x_buf, char* public_key_y_buf,
+extern int ECDSA256_verify_messagge(char* public_key_x_buf, int xlen,char* public_key_y_buf,int ylen,
 				 char* signed_mess_buf, int signed_mess_len, char* mess_buf, int mess_len);
 
 extern int ECDSA224_get_privatekey(char* privatekey_buf, int len);
 
-extern int ECDSA224_get_publickey(char* public_key_x_buf, char* public_key_y_buf,int pulen,
-				char* private_key_buf);
-extern int ECDSA224_sign_message(char* private_key_buf, char* mess_buf, int mess_len,
+extern int ECDSA224_get_publickey(char* public_key_x_buf, int xlen, char* public_key_y_buf,int ylen,
+				char* private_key_buf, int prilen);
+extern int ECDSA224_sign_message(char* private_key_buf, int prilen , char* mess_buf, int mess_len,
 				char* signed_mess_buf, int signed_mess_len);
 
 
-extern int ECDSA224_verify_messagge(char* public_key_x_buf, char* public_key_y_buf,
+extern int ECDSA224_verify_messagge(char* public_key_x_buf, int xlen, char* public_key_y_buf, int ylen,
 				 char* signed_mess_buf, int signed_mess_len, char* mess_buf, int mess_len);
 
 
 
-extern int ECIES_get_private_key(char* private_key_buf, int prlen);
+extern int ECIES256_get_private_key(char* private_key_buf, int prlen);
 
-extern int ECIES_get_public_key(char* public_key_x_buf, char* public_key_y_buf,
-				int pulen, char* private_key_buf);
-
-
-extern int ECIES_encrypto_message(char* mess_buf, int mess_len, 
-			char* encrypto_mess_buf, int encrypto_mess_len, char* public_key_x_buf,
-			char* public_key_y_buf);
+extern int ECIES256_get_public_key(char* public_key_x_buf, int xlen, char* public_key_y_buf, int ylen, char* private_key_buf, int prilen);
 
 
-extern int ECIES_decrypto_message(char* encrypto_mess_buf, int encrypto_mess_len,
-			char* decrypto_mess_buf, int decrypto_mess_len, char* private_key_buf);
+extern int ECIES256_encrypto_message(char* mess_buf, int mess_len, 
+			char* encrypto_mess_buf, int encrypto_mess_len, char* public_key_x_buf,int xlen, 
+			char* public_key_y_buf, int ylen);
+
+
+extern int ECIES256_decrypto_message(char* encrypto_mess_buf, int encrypto_mess_len,
+			char* decrypto_mess_buf, int decrypto_mess_len, char* private_key_buf, int prilen);
+
+extern int ECIES224_get_private_key(char* private_key_buf, int prlen);
+
+extern int ECIES224_get_public_key(char* public_key_x_buf, int xlen, char* public_key_y_buf, int ylen, char* private_key_buf, int prilen);
+
+
+extern int ECIES224_encrypto_message(char* mess_buf, int mess_len, 
+			char* encrypto_mess_buf, int encrypto_mess_len, char* public_key_x_buf,int xlen, 
+			char* public_key_y_buf, int ylen);
+
+
+extern int ECIES224_decrypto_message(char* encrypto_mess_buf, int encrypto_mess_len,
+			char* decrypto_mess_buf, int decrypto_mess_len, char* private_key_buf, int prilen);
+
+
+
+
+
+
 
 extern int HASH256_message(char* message, int len , char* hash_message,
 				int hash_len);

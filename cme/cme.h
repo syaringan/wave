@@ -36,19 +36,13 @@ struct verified_array{
 
 void verified_array_free(struct verified_array *verified_array);
 
-struct last_crl_times_array{
-    time64* last_crl_time;
+struct time32_array{
+    time32* times;
     u32 len;
 };
 
-void last_crl_times_array_free(struct last_crl_times_array *array);
 
-struct next_crl_times_array{
-    time64 *next_crl_time;
-    u32 len;
-};
-
-void next_crl_times_array_free(struct last_crl_times_array *array);
+void time32_array_free(struct time32_array *array);
 
 struct cme_permissions_array{
     struct cme_permissions* cme_permissions;
@@ -77,20 +71,22 @@ result cme_lsis_request(struct sec_db* sdb,cme_lsis* lsis);
 
 result cme_cmh_request(struct sec_db* sdb,cmh* cmh);
 
-result cme_generate_keypair(struct sec_db* sdb,const cmh cmh,
-                        const pk_algorithm algorithm,
-                        string* pub_key);
+result cme_generate_keypair(struct sec_db* sdb,  cmh cmh,
+                          pk_algorithm algorithm,
+                        string* pub_key_x,
+                        string* pub_key_y);
 
-result cme_store_keypair(struct sec_db* sdb,const cmh cmh,
-                            const pk_algorithm algorithm,
-                            const string* pub_key,
-                            const string* pri_key);
+result cme_store_keypair(struct sec_db* sdb,  cmh cmh,
+                              pk_algorithm algorithm,
+                              string* pub_key_x,
+                              string* pub_key_y,
+                              string* pri_key);
 
-result cme_store_cert(struct sec_db* sdb,const cmh cmh,
-                            const certificate* cert,
-                            const string* transfor);
-result cme_store_cert_key(struct sec_db* sdb,const certificate* cert,
-                            const string* pri_key);
+result cme_store_cert(struct sec_db* sdb,  cmh cmh,
+                              certificate* cert,
+                              string* transfor);
+result cme_store_cert_key(struct sec_db* sdb,  certificate* cert,
+                              string* pri_key);
 
 
 
@@ -114,7 +110,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
                     string *certificate,
                     struct cme_permissions* permissions,
                     geographic_region* scope,
-                    time64* last_crl_time,time64* next_crl_time,
+                    time32* last_crl_time,time32* next_crl_time,
                     bool* trust_anchor,bool* verified);
 
 /**
@@ -186,8 +182,8 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
                 struct certificate_chain* certificate_chain,
                 struct cme_permissions_array* permissions_array,
                 struct geographic_region_array* regions,
-                struct last_crl_times_array* last_crl_time_array,
-                struct next_crl_times_array* next_crl_time_array,
+                struct time32_array* last_crl_time_array,
+                struct time32_array* next_crl_time_array,
                 struct verified_array *verified_array);
 
 
@@ -200,18 +196,19 @@ result certificate_get_expired_time(certificate* cert,time32 *expired_time);
  * */
 int find_cert_by_cmh(struct sec_db *sdb, void *value, struct certificate *cert);
 int find_cert_prikey_by_cmh(struct sec_db * sdb,cmh cmh,certificate* cert,string *privatekey);
-
+int find_keypaire_by_cmh(struct sec_db* sdb,cmh cmh,string* pubkey_x,string* pubkey_y,string* prikey,pk_algorithm* algorithm);
 
 int certificate_2_hash8(struct certificate *cert, string *hash8);
+int certificate_2_hashedid8(struct certificate* cert,hashedid8* hashedid8);
 int cert_not_expired(struct sec_db *sdb, void *value);
 int cert_not_revoked(struct sec_db *sdb, enum identifier_type type, string *identifier);
 int certificate_get_elliptic_curve_point(certificate* cert,elliptic_curve_point* point);
+int certificate_get_start_validity(certificate* cert,time32* start);
 int get_cert_expired_info_by_cmh(struct sec_db *sdb, void *value);
 
 int get_cert_info_by_certid(struct sec_db *sdb, enum identifier_type type, string *identifier,
                              
                             struct cert_info *cert_info);
-
 
 time64 get_next_crl_time_info(struct sec_db *sdb, crl_series crl_series, struct hashedid8 *id);
 
@@ -221,4 +218,8 @@ int get_permission_from_certificate(certificate *cert,
                                     geographic_region *scope);
 
 int get_region(geographic_region *src, geographic_region *dst, enum holder_type type);
+
+
+bool geographic_region_in_geographic_region(geographic_region *a,geographic_region* b);
+bool three_d_location_in_region(three_d_location* loc,geographic_region* region);
 #endif

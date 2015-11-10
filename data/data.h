@@ -77,6 +77,7 @@ typedef enum signer_identifier_type{
 
 typedef enum symm_algorithm{
     AES_128_CCM = 0,
+    SYMM_ALGORITHM_NOT_SET = 255,
 }symm_algorithm;
 
 typedef enum holder_type{
@@ -167,6 +168,7 @@ typedef enum pk_algorithm{
     ECDSA_NISTP224_WITH_SHA224 = 0,
     ECDSA_NISTP256_WITH_SHA256 = 1,
     ECIES_NISTP256 =2,
+    PK_ALGOTITHM_NOT_SET = 255,
 }pk_algorithm;
 /*
  * 3 free   buf_to 5
@@ -398,7 +400,7 @@ typedef struct cert_specific_data{
         root_ca_scope root_ca_scope;
         sec_data_exch_ca_scope sde_ca_scope;
         wsa_ca_scope wsa_ca_scope;
-        crl_series* responsible_series;
+		ARRAY(crl_series,responsible_series);
         identified_not_localized_scope id_non_loc_scope;
         identified_scope id_scope;
         anonymous_scope anonymous_scope;

@@ -1,6 +1,7 @@
 #ifndef DATA_HANDLE_H
 #define DATA_HANDLE_H
 #include "data.h"
+#include "../utils/string.h"
 //定义三种返回的状态.
 u32 NOT_ENOUGHT = -2;
 /**
@@ -25,30 +26,51 @@ u32 sec_data_2_buf(const sec_data* sec_data, u8* buf, u32 len);
 u32 buf_2_sec_data(const u8* buf,u32 len, sec_data* sec);
 
 /**
- * 释放这个sec_data，这里要递归的去释放。
+ *释放该数据结构内部的指针
  */
 void sec_data_free(sec_data* sec_data);
-
-
+void signed_data_free(signed_data* signed_data);
+void crl_free(crl* crl);
+//void certificate_request_free(certificate_request* cert_request);
+//void encrypted_data_free(encrypted_data* data);
+//void tobe_encrypted_certificate_response_free(tobe_encrypted_certificate_response* data);
 /******************这后面请在data_helper.c里面实现******************/
-/**
- * 证书的复制
- */
 int sec_data_2_string(sec_data* sec_data,string* data);
+int string_2_sec_data(string* data,sec_data* sec_data);
+
+int encrypted_data_2_string(encrypted_data* enc_data,string* data);
+int string_2_encrypted_data(string* data,encrypted_data* enc_data);
 
 int certificate_2_string(certificate* cert,string* data);
+int string_2_certificate(string* data,certificate* cert);
 
-int string_2_certificate(string *s, certificate *c);
+int signed_data_2_string(signed_data* s_data,string* data);
+int string_2_signed_data(string* data,signed_data* s_data);
 
-void certificate_cpy(certificate *dst,certificate *src);
+int crl_2_string(crl *crl,string* data);
+int string_2_crl(string* data,crl *crl);
+
+int hashedid8_2_string(hashedid8* hashed,string* data);
+int string_2_hashedid8(string* data,hashedid8* hashed);
+bool hashedid8_equal(hashedid8* a,hashedid8* b);
+
+int tobesigned_crl_2_string(tobesigned_crl* tbs_crl,string* data);
+int string_2_tobesigned_crl(string* data,tobesigned_crl* tbs_crl);
+
+int certificate_cpy(certificate *dst,certificate *src);
 
 bool certificate_equal(certificate* a,certificate* b);
 
-void elliptic_curve_point_cpy(elliptic_curve_point* src,elliptic_curve_point* dst);
+int elliptic_curve_point_cpy(elliptic_curve_point* dst,elliptic_curve_point* src);
 
-int hashedid8_2_string(hashedid8 *h, string *s);
+int public_key_cpy(public_key* dst,public_key* src);
 
-int tobesigned_wsa_cpy(tobesigned_wsa *dst, tobesigned_wsa *src);
 
-int signed_wsa_cpy(signed_wsa *dst, signed_wsa *src);
+//int tobesigned_wsa_cpy(tobesigned_wsa *dst, tobesigned_wsa *src);
+
+//int signed_wsa_cpy(signed_wsa *dst, signed_wsa *src);
+int tobesigned_certificate_request_2_string(tobesigned_certificate_request* tbs,string* data);
+//int string_2_tobe_encrypted_certificate_request_error(string* data,tobe_encrypted_certificate_request_error tbs);
+//int string_2_tobe_encrypted_certificate_response(string* data,tobe_encrypted_certificate_response* cert_resp);
+int certificate_request_2_string(certificate_request* cert_req,string* data);
 #endif

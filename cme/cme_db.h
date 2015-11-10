@@ -13,7 +13,8 @@ struct cmh_keypaired{
     struct list_head list;
     cmh cmh;
     pk_algorithm algorithm;
-    string public_key;
+    string public_key_x;
+    string public_key_y;
     string private_key;
 };
 struct cert_info{
@@ -94,7 +95,8 @@ static void inline cmh_keypaired_free(struct cmh_keypaired* cmh_keys){
     if(cmh_keys == NULL)
         return ;
     string_free(&cmh_keys->private_key);
-    string_free(&cmh_keys->public_key);
+    string_free(&cmh_keys->public_key_x);
+    string_free(&cmh_keys->public_key_y);
 }
 static void inline cert_info_free(struct cert_info* certinfo){
     if(certinfo == NULL)

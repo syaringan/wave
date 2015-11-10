@@ -750,7 +750,7 @@ void cmp_end(){
     cmp_db_2_file(cmdb,"./cmp_db.txt");
 }
 static int generate_cert_request(struct sec_db* sdb,struct cmp_db* cmdb,cme_lsis lsis,
-                            string* veri_pk,string* enc_pk,string* res_pk,
+                            public_key* veri_pk,public_key* enc_pk,public_key* res_pk,
                             string* data,certid10* request_hash){
     serviceinfo_array serviceinfos;
     struct cme_permissions permissions;
@@ -825,39 +825,74 @@ fail:
 //现在这个函数的处理逻辑是我只负责申请所有服务的一个证书，用来签证书，当信道拥挤的情况没有考虑。
 static void certificate_request_progress(struct cmp_db* cmdb,struct sec_db* sdb){
     cmh cert_cmh,key_pair_cmh;
-    string cert_pk,keypair_pk;
+    public_key cert_pk,keypair_pk;
+    string cert_pk_x,cert_pk_y,keypair_pk_x,keypair_pk_y;
     cme_lsis lsis = -1;
     string data;
     certid10 resquest_hash;
     int i;
+
     INIT(cert_pk);
+    INIT(cert_pk_x);
+    INIT(cert_pk_y);
     INIT(keypair_pk);
+    INIT(keypair_pk_x);
+    INIT(keypair_pk_y);
     INIT(data);
     INIT(resquest_hash);
 
     if(cme_cmh_request(sdb,&cert_cmh) || cme_cmh_request(sdb,&key_pair_cmh))
-        goto fail;
-    if(cme_generate_keypair(sdb,cert_cmh,ECDSA_NISTP256_WITH_SHA256,&cert_pk)||
-            cme_generate_keypair(sdb,key_pair_cmh,ECIES_NISTP256,&keypair_pk))
-        goto fail;
+        goto end;
+    if(cme_generate_keypair(sdb,cert_cmh,ECDSA_NISTP256_WITH_SHA256,&cert_pk_x,&cert_pk_y)||
+            cme_generate_keypair(sdb,key_pair_cmh,ECIES_NISTP256,&keypair_pk_x,&keypair_pk_y))
+        goto end;
+
+    cert_pk.algorithm = ECDSA_NISTP256_WITH_SHA256;
+    cert_pk.u.public_key.type = UNCOMPRESSED;
+    cert_pk.u.public_key.x.len = cert_pk_x.len;
+    if(cert_pk.u.public_key.x.buf = (u8*)malloc(cert_pk_x.len)){
+        wave_malloc_error();
+        goto end;
+    }
+    memcpy(cert_pk.u.public_key.x.buf,cert_pk_x.buf,cert_pk_x.len);
+    cert_pk.u.public_key.u.y.len = cert_pk_y.len;
+    if(cert_pk.u.public_key.u.y.buf = (u8*)malloc(cert_pk_y.len)){
+        wave_malloc_error();
+        goto end;
+    }
+    memcpy(cert_pk.u.public_key.u.y.buf,cert_pk_y.buf,cert_pk_y.len);
+   
+    keypair_pk.algorithm = ECIES_NISTP256;
+    keypair_pk.u.public_key.type = UNCOMPRESSED;
+    keypair_pk.u.public_key.x.len = keypair_pk_x.len;
+    if(keypair_pk.u.public_key.x.buf = (u8*)malloc(keypair_pk_x.len)){
+        wave_malloc_error();
+        goto end;
+    }
+    memcpy(keypair_pk.u.public_key.x.buf,keypair_pk_x.buf,keypair_pk_x.len);
+    keypair_pk.u.public_key.u.y.len = keypair_pk_y.len;
+    if(keypair_pk.u.public_key.u.y.buf = (u8*)malloc(keypair_pk_y.len)){
+        wave_malloc_error();
+        goto end;
+    }
+    memcpy(keypair_pk.u.public_key.u.y.buf,keypair_pk_y.buf,keypair_pk_y.len);
+   
     if(generate_cert_request(sdb,cmdb,lsis,&cert_pk,NULL,&keypair_pk,&data,&resquest_hash))
-        goto fail;
+        goto end;
     pthread_mutex_lock(&cmdb->lock);
     ca_write(cmdb->socket,data.buf,data.len);
     cmdb->req_cert_cmh = cert_cmh;
     cmdb->req_cert_enc_cmh  = key_pair_cmh;
     pthread_mutex_unlock(&cmdb->lock);
     
-    string_free(&cert_pk);
-    string_free(&keypair_pk);
+end:
+    string_free(&cert_pk_x);
+    string_free(&cert_pk_y);
+    string_free(&keypair_pk_x);
+    string_free(&keypair_pk_y);
     string_free(&data);
-    certid10_free(&resquest_hash);
-    return;
-
-fail:
-    string_free(&cert_pk);
-    string_free(&keypair_pk);
-    string_free(&data);
+    public_key_free(&cert_pk);
+    public_key_free(&keypair_pk);
     certid10_free(&resquest_hash);
     return ;
     
@@ -957,9 +992,9 @@ static void crl_recieve_progress(struct sec_db* sdb,struct cmp_db* cmdb,string* 
                 unsigned_crl->issue_date,
                 unsigned_crl->next_crl);
 
-    crl_free(&sdata);
+    sec_data_free(&sdata);
 fail:
-    crl_free(&sdata);
+    sec_data_free(&sdata);
 }
 static void cert_responce_recieve_progress(struct sec_db* sdb,struct cmp_db* cmdb,string* data){
     cmh cert_cmh,respon_cmh;
@@ -1090,7 +1125,7 @@ void cmp_do_crl_req(crl_series crl_series,hashedid8* issuer){
     pthread_mutex_unlock(&cmdb->lock);
 }
 //一个一直等待手数据的线程
-void read_progress(void* socket){
+void* read_progress(void* socket){
     int fd = *(int*)socket;
     while(1){
         ca_read(fd);
