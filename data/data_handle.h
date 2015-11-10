@@ -65,6 +65,10 @@ int elliptic_curve_point_cpy(elliptic_curve_point* dst,elliptic_curve_point* src
 
 int public_key_cpy(public_key* dst,public_key* src);
 
+
+//int tobesigned_wsa_cpy(tobesigned_wsa *dst, tobesigned_wsa *src);
+
+//int signed_wsa_cpy(signed_wsa *dst, signed_wsa *src);
 int tobesigned_certificate_request_2_string(tobesigned_certificate_request* tbs,string* data);
 
 int string_2_tobe_encrypted_certificate_request_error(string* data,tobe_encrypted_certificate_request_error* cert_requ);
