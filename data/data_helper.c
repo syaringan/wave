@@ -28,7 +28,7 @@ int sec_data_2_string(sec_data* sec_data,string* data){
 	}while(res == NOT_ENOUGHT);
 
 	data->buf = (u8*)malloc(res);
-	if(data->buf == NULL){
+	if(data-buf == NULL){
 		wave_malloc_error();
 		goto fail;
 	}
@@ -255,36 +255,17 @@ int hashedid8_2_string(hashedid8* hashed,string* data){
 		return -1;
 	}
 	int res;
-	char *buf = NULL;
-	int len = 8;
 
-	do{
-		if(buf != NULL)
-			free(buf);
-		buf = (char*)malloc(len);
-		if(buf == NULL){
-			wave_malloc_error();
-			goto fail;
-		}
-		res = hashedid8_2_buf(hashed,buf,len);
-		if(res == -1)
-			goto fail;
-		len *= 2;
-	}while(res == NOT_ENOUGHT);
-
-	data->buf = (u8*)malloc(res);
+	data->len = 8;
+	data->buf = (u8*)malloc(data->len);
 	if(data->buf == NULL){
 		wave_malloc_error();
-		goto fail;
+		return -1;;
 	}
-	data->len = res;
-	memcpy(data->buf,buf,res);
-	free(buf);
-	return 0;
-fail:
-	if(buf != NULL)
-		free(buf);
-	return -1;
+
+	res = hashedid8_2_buf(hashed,data->buf,len);
+
+	return res;
 }
 
 int string_2_hashedid8(string* data,hashedid8* hashed){
@@ -382,31 +363,44 @@ end:
 
 /**
  * 该函数实现调用了certificate_2_string和string_2_certificate,并不高效
+ *
+ * 该函数返回类型为bool,但应注意certificate_2_string转换失败时也会返回false
  */
 bool certificate_equal(certificate* a,certificate* b){
-	string* str_a;
-	string* str_b;
-	int res;
-	int i = 0;
+	string str_a;
+	string str_b;
+	int temp;
+	int i;
+	bool res = false;
 
-	res = certificate_2_string(a,str_a);
-	if(res != 0){
+	INIT(str_a);
+	INIT(str_b);
+
+	temp = certificate_2_string(a,&str_a);
+	if(temp != 0){
 		wave_error_printf("certificate_2_string失败");
-		return res;
+		goto end;
 	}
-	res = certificate_2_string(b,str_b);
-	if(res != 0){
+	temp = certificate_2_string(b,&str_b);
+	if(temp != 0){
 		wave_error_printf("certificate_2_string失败");
-		return res;
+		goto end;
 	}
-	if(str_a->len != str_b->len)
-		return false;
-	while(i < str_b->len){
-		if(*(str_a->buf + i) != *(str_b->buf + i))
-			return false;
-		i++;
+	if(str_a.len != str_b.len){
+		goto end;
 	}
-	return true;
+	for(i=0;i<str_b.len;i++){
+		if(*(str_a.buf + i) != *(str_b.buf + i)){
+			goto end;
+		}
+	}
+	res = true;
+	goto end;
+
+end:
+	string_free(&str_a);
+	string_free(&str_b);
+	return res;
 }
 
 
@@ -431,28 +425,31 @@ int elliptic_curve_point_cpy(elliptic_curve_point* dst,elliptic_curve_point* src
 	return 0;
 }
 
-int public_key_cpy(public_key* a,public_key* b){
+int public_key_cpy(public_key* dst,public_key* src){
 	int res;
 
-	a->algorithm = b->algorithm;
-	switch(b->algorithm){
+	dst->algorithm = src->algorithm;
+	switch(src->algorithm){
 		case ECDSA_NISTP224_WITH_SHA224:
 		case ECDSA_NISTP256_WITH_SHA256:
-			res = elliptic_curve_point_cpy(&a->u.public_key,&b->u.public_key);
+			res = elliptic_curve_point_cpy(&dst->u.public_key,&src->u.public_key);
 			if(res == -1)
 				return -1;
 			break;
 		case ECIES_NISTP256:
-			a->u.ecies_nistp256.supported_symm_alg = b->u.ecies_nistp256.supported_symm_alg;
+			dst->u.ecies_nistp256.supported_symm_alg = src->u.ecies_nistp256.supported_symm_alg;
+			res = elliptic_curve_point_cpy(&dst->u.ecies_nistp256.public_key,&src->u.ecies_nistp256.public_key);
+			if(res == -1)
+				return -1;
 			break;
 		default:
-			a->u.other_key.len = b->u.other_key.len;
-			a->u.other_key.buf = (u8*)malloc(b->u.other_key.len);
-			if(a->u.other_key.buf == NULL){
+			dst->u.other_key.len = src->u.other_key.len;
+			dst->u.other_key.buf = (u8*)malloc(src->u.other_key.len);
+			if(dst->u.other_key.buf == NULL){
 				wave_malloc_error();
 				return -1;
 			}
-			memcpy(a->u.other_key.buf,b->u.other_key.buf,b->u.other_key.len);
+			memcpy(dst->u.other_key.buf,src->u.other_key.buf,src->u.other_key.len);
 	}
 	return 0;
 }
@@ -494,6 +491,27 @@ fail:
 	if(buf != NULL)
 		free(buf);
 	return -1;
+}
+
+int string_2_tobe_encrypted_certificate_request_error(string* data,
+		tobe_encrypted_certificate_request_error* cert_requ){
+	if(data->buf == NULL){
+		wave_error_printf("输入参数有误，请检查");
+		return -1;
+	}
+	int res;
+	res = buf_2_tobe_encrypted_certificate_request_error(data->buf,data->len,cert_requ);
+	return res;
+}
+
+int string_2_tobe_encrypted_certificate_response(string* data,tobe_encrypted_certificate_response* cert_resp){
+	if(data->buf == NULL){
+		wave_error_printf("输入参数有误，请检查");
+		return -1;
+	}
+	int res;
+	res = buf_2_tobe_encrypted_certificate_response(data->buf,data->len,cert_resp);
+	return res;
 }
 
 int certificate_request_2_string(certificate_request* cert_req,string* data){

@@ -31,9 +31,9 @@ u32 buf_2_sec_data(const u8* buf,u32 len, sec_data* sec);
 void sec_data_free(sec_data* sec_data);
 void signed_data_free(signed_data* signed_data);
 void crl_free(crl* crl);
-//void certificate_request_free(certificate_request* cert_request);
-//void encrypted_data_free(encrypted_data* data);
-//void tobe_encrypted_certificate_response_free(tobe_encrypted_certificate_response* data);
+void certificate_request_free(certificate_request* cert_request);
+void encrypted_data_free(encrypted_data* data);
+void tobe_encrypted_certificate_response_free(tobe_encrypted_certificate_response* data);
 /******************这后面请在data_helper.c里面实现******************/
 int sec_data_2_string(sec_data* sec_data,string* data);
 int string_2_sec_data(string* data,sec_data* sec_data);
@@ -66,7 +66,10 @@ int elliptic_curve_point_cpy(elliptic_curve_point* dst,elliptic_curve_point* src
 int public_key_cpy(public_key* dst,public_key* src);
 
 int tobesigned_certificate_request_2_string(tobesigned_certificate_request* tbs,string* data);
-//int string_2_tobe_encrypted_certificate_request_error(string* data,tobe_encrypted_certificate_request_error tbs);
-//int string_2_tobe_encrypted_certificate_response(string* data,tobe_encrypted_certificate_response* cert_resp);
+
+int string_2_tobe_encrypted_certificate_request_error(string* data,tobe_encrypted_certificate_request_error* cert_requ);
+
+int string_2_tobe_encrypted_certificate_response(string* data,tobe_encrypted_certificate_response* cert_resp);
+
 int certificate_request_2_string(certificate_request* cert_req,string* data);
 #endif
