@@ -233,7 +233,7 @@ result sec_certificate_response_verification(struct sec_db* sdb,
                 tobe_encrypted_certificate_response* cert_resp);
 
 /***************这后面的函数都是certificate的一些帮助接口，方便获取证书的相关信息******/
-result get_current_location(two_d_location *td_location);
+int get_current_location(two_d_location *td_location);
 
 
 #endif 

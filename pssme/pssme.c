@@ -81,6 +81,7 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
             struct pssme_local_cert *p_add = malloc(sizeof(struct pssme_local_cert));
             if(p_add == NULL){
                 wave_error_printf("内存分配失败");
+                result ret = FAILURE;
                 goto fail;
             }
             p_add->cmh = p->cmh;
@@ -88,6 +89,7 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
             p_add->lsis_array.lsis = malloc(sizeof(pssme_lsis)*p_add->lsis_array.len);
             if(p_add->lsis_array.lsis == NULL){
                 wave_error_printf("内存分配失败");
+                result ret = FAILURE;
                 goto fail;
             }
             memcpy(p_add->lsis_array.lsis, p->lsis_array.lsis, sizeof(pssme_lsis)*p_add->lsis_array.len);
@@ -108,8 +110,9 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
         if(get_cert_expired_info_by_cmh(sdb, &p->cmh))
             continue;
         //是否需要每次循环都填充为0
-        if(certificate_2_buf(&c,cert_encoded)){
+        if(certificate_2_string(&c,&cert_encoded)){
             wave_error_printf("证书编码失败");
+            result ret = FAILURE;
             goto fail;
         }
        
@@ -121,11 +124,13 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
             permission_ind->len = se_array->len;
             if(permission_ind->buf != NULL){
                 wave_error_printf("permission_ind的buf已经被填充");
+                ret = FAILURE;
                 goto fail;
             }
             permission_ind->buf = malloc(sizeof(u8)*se_array->len);
             if(permission_ind->buf == NULL){
                 wave_error_printf("内存分配失败");
+                ret = FAILURE;
                 goto fail;
             }
             memset(permission_ind->buf, 0, sizeof(u8)*se_array->len);

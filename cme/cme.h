@@ -212,7 +212,6 @@ int get_cert_info_by_certid(struct sec_db *sdb, enum identifier_type type, strin
                              
                             struct cert_info *cert_info);
 
-void certificate_2_hash8(struct certificate *cert, string *hash8);
 
 time64 get_next_crl_time_info(struct sec_db *sdb, crl_series crl_series, struct hashedid8 *id);
 

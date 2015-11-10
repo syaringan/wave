@@ -507,21 +507,35 @@ fail:
 }
 //未测
 result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permissions,time32 life_time,string* signed_wsa){
-    result ret = SUCCESS;
+    if(!signed_wsa){
+        wave_error_printf("返回值指针为空，没有内容可以填充");
+        return FAILURE;
+    }
+    if(signed_wsa->buf != NULL){
+        wave_error_printf("signed wsa中的buf指针没有初始化！");
+        return FAILURE;
+    }
+    result ret = FAILURE;
     struct certificate_chain chain;
     string permission_indices;
     cmh cmh;
     two_d_location td_location;
     tobesigned_wsa tbs_wsa;
+    signed_wsa wsa;
+    sec_data sec_data;
 
     INIT(chain);
     INIT(permission_indices);
     INIT(td_location);
     INIT(tbs_wsa);
+    INIT(wsa);
+    INIT(sec_data);
 
-    ret = get_current_location(&td_location);
-    if(ret != SUCCESS)
+    if(get_current_location(&td_location)){
+        wave_error_printf("获取当前地理位置失败");
+        ret = FAILURE;
         goto fail;
+    }
 
     ret = pssme_cryptomaterial_handle(sdb, permissions, &td_location, &permission_indices, &cmh, &chain);
     if(ret != SUCCESS)
@@ -530,7 +544,8 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
     //填充tobesigned_wsa中的permission_indices
     tbs_wsa.permission_indices.len = permission_indices.len;
     tbs_wsa.permission_indices.buf = malloc(sizeof(u8)*permission_indices.len);
-    if(tbs_wsa.permission_indices.buf == NULL){
+    if(!tbs_wsa.permission_indices.buf){
+        wave_error_printf("分配内存失败");
         ret = FAILURE;
         goto fail;
     }
@@ -542,7 +557,8 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
     //填充data
     tbs_wsa.data.len = data->len;
     tbs_wsa.data.buf = malloc(sizeof(u8)*data->len);
-    if(tbs_wsa.data.buf == NULL){
+    if(!tbs_wsa.data.buf){
+        wave_error_printf("malloc error!");
         ret = FAILURE;
         goto fail;
     }
@@ -553,13 +569,47 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
     tbs_wsa.expire_time = life_time;
     tbs_wsa.tf = tbs_wsa.tf & EXPIRES;
 
-    //对tobesigned_wsa进行编码，然后签名，填充signed_wsa，暂时没有
+    wsa.signer.type = CERTIFICATE_CHAIN;
+    wsa.signer.u.certificates.len = chain.len;
+    wsa.signer.u.certificates.buf = malloc(sizeof(certificate)*chain.len);
+    if(!wsa.signer.u.certificates.buf){
+        wave_error_printf("分配内存失败!");
+        ret = FAILURE;
+        goto fail;
+    }
+    int i = 0;
+    for(i = 0; i < chain.len; i++)
+        certificate_cpy(&wsa.signer.u.certificates.buf[i], &chain.certs[i]);
+   if(tobesigned_wsa_cpy(&wsa.signer.unsigned_wsa, &tbs_wsa)){
+       wave_error_printf("tobesigned wsa copy失败!");
+       ret = FAILURE;
+       goto fail;
+   }
+
+   //填充signature
+   
+   //填充1609dot2结构体
+   sec_data.protocol_version = 2;
+   sec_data.type = SIGNED_WSA;
+   if(signed_wsa(&sec_data.u.signed_wsa, &wsa)){
+       wave_error_printf("sec_data cpu fail!");
+       ret = FAILURE;
+       goto fail;
+   }
+   if(sec_data_2_string(&sec_data, signed_wsa)){
+       wave_error_printf("sec data 编码失败");
+       ret = FAILURE;
+       goto fail;
+   }
+   ret = SUCCESS;
 
 fail:
     certificate_chain_free(&chain);
     string_free(&permission_indices);
     two_d_location_free(&td_location);
     tobesigned_wsa_free(&tbs_wsa);
+    signed_wsa_free(&wsa);
+    sec_data_free(&sec_data);
     return ret;
 }
 

@@ -35,7 +35,10 @@ void sec_data_free(sec_data* sec_data);
  * 证书的复制
  */
 int sec_data_2_string(sec_data* sec_data,string* data);
+
 int certificate_2_string(certificate* cert,string* data);
+
+int string_2_certificate(string *s, certificate *c);
 
 void certificate_cpy(certificate *dst,certificate *src);
 
@@ -43,4 +46,9 @@ bool certificate_equal(certificate* a,certificate* b);
 
 void elliptic_curve_point_cpy(elliptic_curve_point* src,elliptic_curve_point* dst);
 
+int hashedid8_2_string(hashedid8 *h, string *s);
+
+int tobesigned_wsa_cpy(tobesigned_wsa *dst, tobesigned_wsa *src);
+
+int signed_wsa_cpy(signed_wsa *dst, signed_wsa *src);
 #endif

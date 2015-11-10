@@ -850,7 +850,11 @@ result cme_certificate_info_request(struct sec_db* sdb,
         ret = CERTIFICATE_NOT_FOUND;
         if(type == ID_CERTIFICATE){
             if(next_crl_time != NULL){
-                string_2_certificate(identifier, &cert_decoded);//是不是这么用的
+                if(string_2_certificate(identifier, &cert_decoded)){
+                    wave_error_printf("证书解码失败!");
+                    ret = FAILURE;
+                    goto fail;
+                }
                 *next_crl_time = get_next_crl_time_info(sdb, cert_decoded.unsigned_certificate.crl_series, 
                         &cert_decoded.unsigned_certificate.u.no_root_ca.signer_id);
             }
@@ -872,8 +876,9 @@ result cme_certificate_info_request(struct sec_db* sdb,
         *verified = cert_info.verified
     }
     if(certificate != NULL){
-        if(certificate_2_buf(cert_info.cert, certificate)){
+        if(certificate_2_string(cert_info.cert, certificate)){
             wave_error_printf("证书编码失败");
+            ret = FAILURE;
             goto fail;
         }
     }
@@ -886,6 +891,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
 
     if(get_permission_from_certificate(cert_info->cert, permissions, scope)){
         wave_error_printf("提取证书权限失败");
+        ret = FAILURE;
         goto fail;
     }
     if(trust_anchor != NULL){
@@ -922,6 +928,8 @@ result cme_certificate_info_request(struct sec_db* sdb,
                 break;
             default:
                 wave_error_printf("错误的permission type");
+                ret = FAILURE;
+                goto fail;
         }
     }
 
@@ -970,7 +978,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
         goto fail;
     }
 
-    if(hash_2_string(cert_info.cert->unsigned_certificate.u.no_root_ca.signer_id, &signer_id)){
+    if(hashided8_2_string(&cert_info.cert->unsigned_certificate.u.no_root_ca.signer_id, &signer_id)){
         wave_error_printf("hash to string fail!");
         goto fail;
     }
@@ -1030,20 +1038,18 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
 
     INIT(sign_id);
     INIT(hash8);
-    cert_encoded.len = 0;
-    cert_encoded.buf = malloc(sizeof(500));
-    if(!cert_encoded.buf){
-    }
-    memset(cert_encoded.buf, 0, 500);
+    INIT(cert_encoded);
 
     if(certificate_chain != NULL){
         if(certificate_chain->certs != NULL){
             wave_error_printf("证书链中buf已经被填充");
+            ret = FAILURE;
             goto fail;
         }
         certificate_chain->certs = malloc(sizeof(struct certificate)*max_chain_len);
         if(!certificate_chain->certs){
             wave_error_printf("内存分配失败");
+            ret = FAILURE;
             goto fail;
         }
         memset(certificate_chain->certs, 0, sizeof(struct certificate)*max_chain_len);
@@ -1053,11 +1059,13 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
     if(permissions_array != NULL){
         if(permissions_array->cme_permissions != NULL){
             wave_error_printf("permissions中buf已经被填充");
+            ret = FAILURE;
             goto fail;
         }
         permissions_array->cme_permissions = malloc(sizeof(struct cme_permissions)*max_chain_len);
         if(!permissions_array->cme_permissions){
             wave_error_printf("内存分配失败");
+            ret = FAILURE;
             goto fail;
         }
         memset(permissions_array->cme_permissions, 0, sizeof(struct cme_permissions)*max_chain_len);
@@ -1067,11 +1075,13 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
     if(regions != NULL){
         if(regions->regions != NULL){
             wave_error_printf("regions的buf已经被填充");
+            ret = FAILURE;
             goto fail;
         }
         regions->regions = malloc(sizeof(struct geographic_region)*max_chain_len);
         if(!regions->regions){
             wave_error_printf("内存分配失败");
+            ret = FAILURE;
             goto fail;
         }
         memset(regions->regions, 0, sizeof(struct geographic_region)*max_chain_len);
@@ -1081,11 +1091,13 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
     if(last_crl_times_array != NULL){
         if(last_crl_times_array->last_crl_time != NULL){
             wave_error_printf("last crl中的buf已经被填充");
+            ret = FAILURE;
             goto fail;
         }
         last_crl_times_array->last_crl_time = malloc(sizeof(time64)*max_chain_len);
         if(!last_crl_times_array->last_crl_time){
             wave_error_printf("内存分配失败");
+            ret = FAILURE;
             goto fail;
         }
         memset(last_crl_times_array->last_crl_time, 0, sizeof(time64)*max_chain_len);
@@ -1095,11 +1107,13 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
     if(next_crl_times_array != NULL){
         if(next_crl_times_array->next_crl_time != NULL){
             wave_error_printf("next crl的buf已经被填充");
+            ret = FAILURE;
             goto fail;
         }
         next_crl_times_array->next_crl_time = malloc(sizeof(time64)*max_chain_len);
         if(!next_crl_times_array->next_crl_time){
             wave_error_printf("内存分配失败");
+            ret = FAILURE;
             goto fail;
         }
         memset(next_crl_times_array->next_crl_time, 0, sizeof(time64)*max_chain_len);
@@ -1109,11 +1123,13 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
     if(verified_array != NULL){
         if(verified_array->verified != NULL){
             wave_error_printf("verified中的buf已经被填充");
+            ret = FAILURE;
             goto fail;
         }
         verified_array->verified = malloc(sizeof(bool)*max_chain_len);
         if(!verified_array->verified){
             wave_error_printf("内存分配失败");
+            ret = FAILURE;
             goto fail;
         }
         memset(verified_array->verified, 0, sizeof(bool)*max_chain_len);
@@ -1128,20 +1144,29 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
 construct_chain:
     if(i != 0){
         sign_id.len = 8;
-        if(sign_id.buf == NULL)
-            sign_id.buf = malloc(sizeof(8));
-        if(sign_id.buf == NULL)
+        if(sign_id.buf != NULL){
+            free(sign_id.buf);
+            sign_id.buf = NULL;
+        }
+        sign_id.buf = malloc(sizeof(u8)*8);
+        if(sign_id.buf == NULL){
+            wave_error_printf("内存分配失败!");
+            ret = FAILURE;
             goto fail;
+        }
         memcpy(sign_id.buf, certificate->unsigned_certificate.u.no_root_ca.signer_id.hashedid8, 8);
         certificate = NULL;
     }
+
+    string_free(&cert_encoded);
+    INIT(cert_encoded);
 
     if(certificate == NULL)
         ret = cme_certificate_info_request(sdb, ID_HASHEDID8, &sign_id, &cert_encoded, &(permissions_array->cme_permissions[i]), 
                 &(regions->regions[i]), &(last_crl_times_array->last_crl_time[i]), &(next_crl_times_array->next_crl_time[i]), 
                 &trust_anchor, &(verified_array->verified[i]));
     else{
-        certificate_2_buf(certificate, cert_encoded.buf, 500);
+        certificate_2_string(certificate, &cert_encoded);
         ret = cme_certificate_info_request(sdb, ID_CERTIFICATE, &cert_encoded, &cert_encoded, &(permissions_array->cme_permissions[i]), 
                 &(regions->regions[i]), &(last_crl_times_array->last_crl_time[i]), &(next_crl_times_array->next_crl_time[i]), 
                 &trust_anchor, &(verified_array->verified[i]));
@@ -1158,7 +1183,11 @@ construct_chain:
         for(j = 0; j < certificates->len; j++){
             string_free(hash8);
             INIT(hash8);
-            certificate_2_hash8(&certificates->certs[i],&hash8);//i need this
+            if(certificate_2_hash8(&certificates->certs[i],&hash8)){
+                wave_error_printf("证书转hash8失败");
+                ret = FAILURE;
+                goto fail;
+            }
             if(string_cmp(&hash8, &sign_id) == 0){
                 if(certificates->certs[i].unsigned_certificate.holder_type == ROOT_CA){
                     ret = CHAINE_ENDED_AT_UNKNOWN_ROOT;
