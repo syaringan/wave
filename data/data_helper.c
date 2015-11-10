@@ -454,6 +454,80 @@ int public_key_cpy(public_key* dst,public_key* src){
 	return 0;
 }
 
+int tbsdata_extension_cpy(tbsdata_extension* dst,tbsdata_extension* src){
+	dst->type = src->type;
+	dst->value.len = src->value.len;
+	dst->value.buf = (u8*)malloc(src->value.len);
+	if(dst->value.buf == NULL){
+		wave_malloc_error();
+		return -1;
+	}
+	memcpy(dst->value.buf,src->value.buf,src->value.len);
+	return 0;
+}
+
+int tobesigned_wsa_cpy(tobesigned_wsa* dst,tobesigned_wsa* src){
+	int i;
+
+	dst->permission_indices.len = src->permission_indices.len;
+	dst->permission_indices.buf = (u8*)malloc(src->permission_indices.len);
+	if(dst->permission_indices.buf == NULL){
+		wave_malloc_error();
+		return -1;
+	}
+	memcpy(dst->permission_indices.buf,src->permission_indices.buf,src->permission_indices.len);
+
+	dst->tf = src->tf;
+
+	dst->data.len = src->data.len;
+	dst->data.buf = (u8*)malloc(src->data.len);
+	if(dst->data.buf == NULL){
+		wave_malloc_error();
+		return -1;
+	}
+	memcpy(dst->data.buf,src->data.buf,src->data.len);
+
+	dst->generation_time.time = src->generation_time.time;
+	dst->generation_time.long_std_dev = src->generation_time.long_std_dev;
+	dst->expire_time = src->expire_time;
+
+	dst->generation_location.latitude = src->generation_location.latitude;
+	dst->generation_location.longitude = src->generation_location.longitude;
+	memcpy(dst->generation_location.elevation,src->generation_location.elevation,2);
+
+	if((src->tf & 1<<3)!=0){
+		dst->flags_content.extension.len = src->flags_content.extension.len;
+		dst->flags_content.extension.buf = (tbsdata_extension*)malloc(sizeof(tbsdata_extension)*src->flags_content.extension.len);
+		if(dst->flags_content.extension.buf == NULL){
+			wave_malloc_error();
+			return -1;
+		}
+		for(i=0;i<src->flags_content.extension.len;i++){
+			if(tbsdata_extension_cpy(dst->flags_content.extension.buf+i,src->flags_content.extension.buf+i))
+				wave_error_printf("tbsdata_extension复制失败")；
+				return -1;
+		}
+	}
+
+	if((src->tf & 0xf0)!=0){
+		dst->flags_content.other_data.len = src->flags_content.other_data.len;
+		dst->flags_content.other_data.buf = (u8*)malloc(src->flags_content.other_data.len);
+		if(dst->flags_content.other_data.buf == NULL){
+			wave_malloc_error();
+			return -1;
+		}
+		memcpy(dst->flags_content.other_data.buf,src->flags_content.other_data.buf,src->flags_content.other_data.len);
+	}
+	return 0;
+}
+
+////////////////////////////////////////////////////////////
+int signed_wsa_cpy(signed_wsa* dst,signed_wsa* src){
+
+}
+
+
+
 int tobesigned_certificate_request_2_string(tobesigned_certificate_request* tbs,string* data){
 	if(data == NULL || data->buf != NULL){
 		wave_error_printf("输入参数有误，请检查");
