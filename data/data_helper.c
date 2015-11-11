@@ -28,7 +28,7 @@ int sec_data_2_string(sec_data* sec_data,string* data){
 	}while(res == NOT_ENOUGHT);
 
 	data->buf = (u8*)malloc(res);
-	if(data-buf == NULL){
+	if(data->buf == NULL){
 		wave_malloc_error();
 		goto fail;
 	}
@@ -257,13 +257,13 @@ int hashedid8_2_string(hashedid8* hashed,string* data){
 	int res;
 
 	data->len = 8;
-	data->buf = (u8*)malloc(data->len);
+	data->buf = (u8*)malloc(8);
 	if(data->buf == NULL){
 		wave_malloc_error();
 		return -1;;
 	}
 
-	res = hashedid8_2_buf(hashed,data->buf,len);
+	res = hashedid8_2_buf(hashed,data->buf,8);
 
 	return res;
 }
@@ -504,7 +504,7 @@ int tobesigned_wsa_cpy(tobesigned_wsa* dst,tobesigned_wsa* src){
 		}
 		for(i=0;i<src->flags_content.extension.len;i++){
 			if(tbsdata_extension_cpy(dst->flags_content.extension.buf+i,src->flags_content.extension.buf+i))
-				wave_error_printf("tbsdata_extension复制失败")；
+				wave_error_printf("tbsdata_extension复制失败");
 				return -1;
 		}
 	}
@@ -521,12 +521,79 @@ int tobesigned_wsa_cpy(tobesigned_wsa* dst,tobesigned_wsa* src){
 	return 0;
 }
 
-////////////////////////////////////////////////////////////
-int signed_wsa_cpy(signed_wsa* dst,signed_wsa* src){
+int signed_wsa_2_string(signed_wsa* sw,string* data){
+	if(data == NULL || data->buf != NULL){
+		wave_error_printf("输入参数有误，请检查");
+		return -1;
+	}
+	int res;
+	char *buf = NULL;
+	int len = 1024;
 
+	do{
+		if(buf != NULL)
+			free(buf);
+		buf = (char*)malloc(len);
+		if(buf == NULL){
+			wave_malloc_error();
+			goto fail;
+		}
+		res = signed_wsa_2_buf(sw,buf,len);
+		if(res == -1)
+			goto fail;
+		len *= 2;
+	}while(res == NOT_ENOUGHT);
+
+	data->buf = (u8*)malloc(res);
+	if(data->buf == NULL){
+		wave_malloc_error();
+		goto fail;
+	}
+	data->len = res;
+	memcpy(data->buf,buf,res);
+	free(buf);
+	return 0;
+
+fail:
+	if(buf != NULL)
+		free(buf);
+	return -1;
 }
 
+int string_2_signed_wsa(string* data,signed_wsa* sw){
+	if(data->buf == NULL){
+		wave_error_printf("输入参数有误，请检查");
+		return -1;
+	}
+	int res;
+	res = buf_2_signed_wsa(data->buf,data->len,sw);
+	return res;
+}
 
+/**
+ * 该函数实现调用了signed_wsa_2_string和string_2_signed_wsa,并不高效
+ */
+int signed_wsa_cpy(signed_wsa* dst,signed_wsa* src){
+	string data;
+	int res;
+    
+    INIT(data);
+
+	res = signed_wsa_2_string(src,&data);
+	if(res != 0){
+		wave_error_printf("signed_wsa_2_string失败");
+        goto end;
+	}
+	res = string_2_signed_wsa(&data,dst);
+	if(res != 0){
+		wave_error_printf("string_2_signed_wsa失败");
+        goto end;
+	}
+    goto end;
+end:
+    string_free(&data);
+    return res;
+}
 
 int tobesigned_certificate_request_2_string(tobesigned_certificate_request* tbs,string* data){
 	if(data == NULL || data->buf != NULL){
