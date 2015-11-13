@@ -58,17 +58,20 @@ int tobesigned_crl_2_string(tobesigned_crl* tbs_crl,string* data);
 int string_2_tobesigned_crl(string* data,tobesigned_crl* tbs_crl);
 
 int certificate_cpy(certificate *dst,certificate *src);
-
 bool certificate_equal(certificate* a,certificate* b);
 
 int elliptic_curve_point_cpy(elliptic_curve_point* dst,elliptic_curve_point* src);
 
 int public_key_cpy(public_key* dst,public_key* src);
 
+int tbsdata_extension_cpy(tbsdata_extension* dst,tbsdata_extension* src);
 
-//int tobesigned_wsa_cpy(tobesigned_wsa *dst, tobesigned_wsa *src);
+int tobesigned_wsa_cpy(tobesigned_wsa *dst, tobesigned_wsa *src);
 
-//int signed_wsa_cpy(signed_wsa *dst, signed_wsa *src);
+int signed_wsa_2_string(signed_wsa* sw,string* data);
+int string_2_signed_wsa(string* data,signed_wsa* sw);
+int signed_wsa_cpy(signed_wsa *dst, signed_wsa *src);
+
 int tobesigned_certificate_request_2_string(tobesigned_certificate_request* tbs,string* data);
 
 int string_2_tobe_encrypted_certificate_request_error(string* data,tobe_encrypted_certificate_request_error* cert_requ);
