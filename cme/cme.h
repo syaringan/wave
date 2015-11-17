@@ -73,6 +73,7 @@ result cme_cmh_request(struct sec_db* sdb,cmh* cmh);
 
 result cme_generate_keypair(struct sec_db* sdb,  cmh cmh,
                           pk_algorithm algorithm,
+
                         string* pub_key_x,
                         string* pub_key_y);
 

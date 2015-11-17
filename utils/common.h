@@ -83,6 +83,17 @@ typedef enum result{
     INCONSISTENT_CA_PERMISSIONS = 76,
 }result;
 
+typedef enum app_tag{
+    CME_LSIS_REQUEST,
+    CME_CMH_REQUEST,
+    CME_GENERATE_KEYPARI,
+    CME_STORE_CERT,
+    CME_STORE_CERT_KEY,
+    SEC_SIGNED_DATA,
+    SEC_ENCRYPTED_DATA,
+    SEC_SECURE_DATA_CONTENT_EXTRATION,
+    SEC_SIGNED_DATA_VERIFICATION,
+};
 #define be_to_host16(n) be16toh(n)
 #define be_to_host32(n) (u32)be32toh(n)
 #define be_to_host64(n) (u64)be64toh(n)

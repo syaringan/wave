@@ -24,7 +24,7 @@ struct cert_info{
     time32 last_recieve_crl;
     time32 next_recieve_crl;
     bool trust_anchor;
-    bool trusted;
+    //bool trusted;//这个字段是干吗的？？有用嘛？？
     bool revoked;//新加字段判断是否吊销
     struct rb_head rb;
     time64 expriry;
@@ -72,11 +72,17 @@ struct crl_serial_number{
     time32 issue_date;
     time32 next_crl_time;
     crl_type type;
+
+};
+struct revoked_certs{
+    struct list_head list;
+    certid10 certid;
 };
 struct crl_ca_id{
     struct list_head list;
     hashedid8 ca_id;
     struct crl_serial_number crl_info_list;
+    struct revoked_certs revoked_certs;//新增的用来存放吊销的所有证书,在调用add_certifiacte_revocation的时候更新哦。
 };
 struct crl_head{
     struct list_head list;

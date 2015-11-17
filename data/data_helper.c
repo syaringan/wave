@@ -286,7 +286,12 @@ bool hashedid8_equal(hashedid8* a,hashedid8* b){
     }
     return true;
 }
-
+void hashedid8_cpy(hahsedid8 *dst,hashedid8 *src){
+    int i;
+    for(i=0;i<8;i++){
+        dst->hashedid8[i] = src->hashedid8[i];
+    }
+}
 int tobesigned_crl_2_string(tobesigned_crl* tbs_crl,string* data){
 	if(data == NULL || data->buf != NULL){
 		wave_error_printf("输入参数有误，请检查");
@@ -692,4 +697,13 @@ fail:
 	if(buf != NULL)
 		free(buf);
 	return -1;
+}
+
+bool certid10_equal(certid10* a,certid10* b){
+    int i;
+    for(i=0;i<10;i++){
+        if( *(a->certid10+i) != *(b->certid10+i))
+            return false;
+    }
+    return true;
 }

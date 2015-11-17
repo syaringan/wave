@@ -423,7 +423,7 @@ result cme_store_keypair(struct sec_db* sdb,  cmh cmh,
     return SUCCESS;
 }
 //这个函数是用来判断那写对于cme来说新的cert是否吊销了，而不是已经存在本的证书了。
-static int is_certificate_revoked(struct sec_db *sdb,certificate* cert){
+static bool is_certificate_revoked(struct sec_db *sdb,certificate* cert){
     struct cme_db *cdb;
     struct list_head *head,*ca_head,*revoked_head;
     struct crl_head *crl_temp;
@@ -432,14 +432,12 @@ static int is_certificate_revoked(struct sec_db *sdb,certificate* cert){
     certid10 certid;
     if( cert->unsigned_certificate.expiration < time(NULL))
         return true;
+    /*这里我好利用 cme_info 去请求消息，但是最后一个参数serial_num我不知道是什么含义.
+    * 我想的是，这个函数调用只会在上层申请到证书了后来存的时候，只要上层拿到证书后不故意，放一会在存
+    * 那么我认为这个证书就不太可能被吊销    
+    */
     if( certificate_2_certid10(cert,&certid)){
-       return -1; 
-    }
-    if(cert->unsigned_certificate.holder_type == ROOT_CA){
-        //这里应该怎么处理 是root_ca 我就相信嘛？？？我得找个标准的几个ca来存起来看把。我这里就先简单处理，我相信他
         
-        wave_printf(MSG_WARNING,"这里该不该相信啊，，我觉得这里外部是可以欺骗我的 %s %d\n",__FILE__,__LINE__);
-        return false;
     }
     cdb = &sdb->cme_db;
     lock_rdlock(cdb->lock);
@@ -451,17 +449,14 @@ static int is_certificate_revoked(struct sec_db *sdb,certificate* cert){
                 if( hashedid8_equal(&crl_ca_temp->ca_id,&cert->unsigned_certificate.u.no_root_ca.signer_id)){
                     revoked_head = &crl_ca_temp->revoked_certs.list;
                     list_for_each_entry(revoked_temp,revoked_head,list){
-                        if( certid10_equal(&certid,&revoked_temp->certid)){
-                            lock_unlock(cdb->lock);
-                            return true;
-                        }
+                        if(cer)
                     }
                 }
             }
         }
     }
-    lock_unlock(cdb->lock);
-    return false; 
+     
+    return false
 }
 static result cert_info_init(struct sec_db* sdb,struct cert_info* certinfo,struct certificate* cert){
     result res = SUCCESS;
@@ -482,17 +477,13 @@ static result cert_info_init(struct sec_db* sdb,struct cert_info* certinfo,struc
     }
     certinfo->trusted = false;//我认为是通过这种存起来的证书，都是通过ca申请到的，所以不是信任的源头
 
-    //下面这2个赋值，本来是可以通过请求crl_info的。。但是这里cme_crlinfo的serial_number不确定
+    //下面这三个赋值，本来是可以通过请求crl_info的。。但是这里cme_crlinfo的serial_number不确定
     certinfo->last_recieve_crl = 0;
     certinfo->next_recieve_crl = 0;
-    certinfo->revoked = is_certificate_revoked(sdb,cert);
-    if(certinfo->revoked == -1){
-        res = FAILURE;
-        goto end;
-    }
+    certinfo->revoked = is_certificate_revoked(cert);//这里就不严谨，如果上层申请到了证书，但是一直不存我这里，放了很久才存(但是有没有过期)，这个就有问题。
     certinfo->expriry = cert->unsigned_certificate.expiration * 1000000;
     if(cert->unsigned_certificate.holder_type != ROOT_CA){
-        hashedid8_cpy(&certinfo->ca_id,&cert->unsigned_certificate.u.no_root_ca.signer_id);
+        hashedid8_2_cpy(&certinfo->ca_id,&cert->unsigned_certificate.u.no_root_ca.signer_id);
         hashedid8_2_string(&certinfo->ca_id,&identifier);
         res = cme_construct_certificate_chain(sdb,ID_HASHEDID8,&identifier,NULL,false,1024,NULL,NULL,NULL,NULL,NULL,&verifieds);
         if(res != SUCCESS)
@@ -1168,154 +1159,15 @@ fail:
 
 result cme_add_trust_anchor(struct sec_db* sdb,certificate *cert){
     result res = SUCCESS;
-    struct cert_info *cert_info = NULL;
-    struct certificate *mcert = NULL;
-    struct cme_db *cdb;
-    string identifier;
-    struct verified_array verifieds;
-    int i;
-
-    INIT(identifier);
-    INIT(verifieds);
 
     if(cert->version_and_type != EXPLICT){
         wave_error_printf("证书是不是现式的 %s %d",__FILE__,__LINE__);
         res = FAILURE;
         goto end; 
     }
-    if( is_certificate_revoked(sdb,cert) != false){
-        wave_error_printf("证书被吊销了  %s %d",__FILE__,__LINE__);
-        res = FAILURE;
-        goto end;
-    }
-    if(cert->unsigned_certificate.holder_type == ROOT_CA){
-       //?????????????? 这里要校验哈是否是自己签发自己对了的
-    }
-    if( (cert_info = (struct cert_info*)malloc(sizeof(struct cert_info))) == NULL){
-        wave_malloc_error();
-        res = FAILURE;
-        goto end;
-    }
-    INIT(*cert_info);
-    if( (mcert = (struct certificate*)malloc(sizeof(certificate))) == NULL){
-        wave_malloc_error();
-        res = FAILURE;
-        goto end;
-    }
-    INIT(*mcert);
-    if( certificate_cpy(mcert,cert)){
-        res = FAILURE;
-        goto end;
-    }
-
-    cert_info->cert = mcert;
-    if( certificate_2_certid10(mcert,&cert_info->certid10)){
-        res = FAILURE;
-        goto end;
-    }
-    cert_info->last_recieve_crl = 0;
-    cert_info->next_recieve_crl = 0;
-    cert_info->revoked = false;
-    cert_info->trust_anchor = true;
-    cert_info_init_rb(certinfo);
-    cert_info->expiry = mcert->unsigned_certificate.expiration * 1000000;
-    
-    if(cert->unsigned_certificate.holder_type != ROOT_CA){
-        hashedid8_cpy(&certinfo->ca_id,&cert->unsigned_certificate.u.no_root_ca.signer_id);
-        hashedid8_2_string(&certinfo->ca_id,&identifier);
-        res = cme_construct_certificate_chain(sdb,ID_HASHEDID8,&identifier,NULL,false,1024,NULL,NULL,NULL,NULL,NULL,&verifieds);
-        if(res != SUCCESS)
-            goto end;
-        for(i=0;i<verifieds.len;i++){
-            if( *(verifieds.verified+i) == false){
-                certinfo->verified = false;
-                break;
-            }
-        }
-        if(i ==  verifieds.len)
-            certinfo->verified = true; 
-    }
-    else
-        cert_info->verified = true;
-
-    cdb = &sdb->cme_db;
-    lock_wrlock(cdb->lock);
-    cdb->certs = cert_info_insert(cdb->certs,cert_info);
-    lock_unlock(cdb->lock);
-    goto end;
+     
 end:
-    string_free(&identifier);
-    verified_array_free(&verifieds);
-
-    if(res != SUCCESS && cert_info != NULL){
-        if(cert_info->cert != NULL)
-            mcert = NULL;
-        cert_info_free(cert_info);
-        free(cert_info);
-    }
-    if( res != SUCCESS && mcert != NULL){
-        certificate_free(mcert);
-        free(mcert);
-    }
     return res;    
-}
-result cme_add_certificate(struct sec_db* sdb,certificate* cert,bool verified){
-    result res = SUCCESS;
-    struct cert_info *cinfo = NULL;
-    struct cme_db *cdb;
-    certificate *mycert = NULL;
-    
-    if( is_certificate_revoked(sdb,cert) == true){
-        res = FAILURE;
-        goto end;
-    }
-    cdb = &sdb->cme_db;
-    if( (mycert = (certificate*)malloc(sizeof(certificate))) == NULL ||
-            (cinfo = (struct cert_info*)malloc(sizeof(struct cert_info))) == NULL){
-        wave_malloc_error();
-        res = FAILURE;
-        goto end;
-    }
-    INIT(*cinfo);
-    INIT(*mycert);
-
-    if(certificate_cpy(mycert,cert)){
-        res = FAILURE;
-        goto end;
-    }
-    cinfo->cert = mycert;
-    cinfo->revoked = false;
-    cinfo->expriry = mycert->unsigned_certificate.expiration * 1000000;
-    cinfo->verified = verified;
-    cinfo->trust_anchor = false;//这里不知道对不
-    cinfo->last_recieve_crl = 0;
-    cinfo->next_recieve_crl = 0;
-    cert_info_init_rb(cinfo);
-    if(mycert->unsigned_certificate.holder_type != ROOT_CA){
-        hashedid8_cpy(&cinfo->ca_id,&cert->unsigned_certificate.u.no_root_ca.signer_id);
-    }
-    if(certificate_2_certid10(cert,&cinfo->certid10) ){
-        res = FAILURE;
-        goto end;
-    }
-    lock_wrlock(cdb->lock);
-    cdb->certs = cert_info_insert(cdb->certs,cinfo);
-    lock_unlock(cdb->lock);
-    goto end;
-end:
-    if(res != SUCCESS){
-        if(cinfo != NULL){
-            if(cinfo->cert != NULL)
-                mycert = NULL;
-            cert_info_free(cinfo);
-            free(cinfo);
-        }
-        if(mycert != NULL){
-            certificate_free(mycert);
-            free(mycert);
-        }
-    }
-    return res;
 }
 result cme_construct_certificate_chain(struct sec_db* sdb,
                 enum identifier_type type,
