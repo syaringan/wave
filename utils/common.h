@@ -2,6 +2,7 @@
 #define COMMON_H
 #include <endian.h>
 
+#define US_TO_S 1000000
 #define CURRETN_VERSION 2
 #define OVERDUE_CRL_TOLERANCE 100//单位秒
 typedef enum result{

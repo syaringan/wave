@@ -21,14 +21,15 @@ struct cert_info{
     certificate *cert;
     certid10 certid10;
     bool verified;
-    time32 last_recieve_crl;
-    time32 next_recieve_crl;
+//    time32 last_recieve_crl;
+  //  time32 next_recieve_crl;
     bool trust_anchor;
     //bool trusted;//这个字段是干吗的？？有用嘛？？
     bool revoked;//新加字段判断是否吊销
     struct rb_head rb;
     time64 expriry;
-    hashedid8 ca_id;
+    struct cmh_key_cert *key_cert;
+  //  hashedid8 ca_id;
 };
 struct cmh_key_cert{
     cmh cmh;
@@ -104,10 +105,18 @@ static void inline cmh_keypaired_free(struct cmh_keypaired* cmh_keys){
     string_free(&cmh_keys->public_key_x);
     string_free(&cmh_keys->public_key_y);
 }
+static void inline cmh_key_cert_free(strcut cmh_key_cert* key_cert){
+    if(key_cert == NULL)
+        return ;
+    certificate_free(key_cert->cert);
+    key_cert->cert = NULL;
+}
 static void inline cert_info_free(struct cert_info* certinfo){
     if(certinfo == NULL)
         return ;
-    if(certinfo->cert != NULL)
+    if(certinfo->cert != NULL){
         certificate_free(certinfo->cert);
+        certinfo->cert = NULL;
+    }
 }
 #endif

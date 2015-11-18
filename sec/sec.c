@@ -13,7 +13,6 @@
 #include <math.h>
 #include "../crypto/crypto.h"
 #define INIT(m) memset(&m,0,sizeof(m))
-#define US_TO_S 1000000
 #define LOG_STD_DEV_BASE 1.134666
 
 extern u32 certificate_request_permissions_max_length;//配置变量，配置证书申请最大的长度

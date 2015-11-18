@@ -129,7 +129,7 @@ result cme_add_trust_anchor(struct sec_db* sdb,certificate* cert);
 result cme_add_certificate(struct sec_db* sdb,
                             certificate* cert,bool verified);
 
-result cme_delete_certificate(struct sec_db* sdb,cmh cmh);
+void cme_delete_cmh(struct sec_db* sdb,cmh cmh);
 
 /*
  * 添加撤销的消息
@@ -142,7 +142,7 @@ result cme_add_certificate_revocation(struct sec_db* sdb,
                              certid10* identifier,
                              hashedid8* ca_id,
                              crl_series series,
-                             time32 expiry);
+                             time64 expiry);
 /**
  * 增加或者更新一个crlinfo
  */

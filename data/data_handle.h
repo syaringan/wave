@@ -54,6 +54,7 @@ int hashedid8_2_string(hashedid8* hashed,string* data);
 int string_2_hashedid8(string* data,hashedid8* hashed);
 bool hashedid8_equal(hashedid8* a,hashedid8* b);
 void hashedid8_cpy(hahsedid8* dst,hahsedid8* src);
+int  hashedid8_cmp(hahsedid8* a,hahsedid8* b);
 
 int tobesigned_crl_2_string(tobesigned_crl* tbs_crl,string* data);
 int string_2_tobesigned_crl(string* data,tobesigned_crl* tbs_crl);
@@ -82,4 +83,6 @@ int string_2_tobe_encrypted_certificate_response(string* data,tobe_encrypted_cer
 int certificate_request_2_string(certificate_request* cert_req,string* data);
 
 bool certid10_equal(certid10* a,certid10* b);
+int  certid10_cmp(certid10 *a,certid10* b);
+void certid10_cpy(certid10* dst,certid10* src);
 #endif

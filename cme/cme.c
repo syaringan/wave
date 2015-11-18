@@ -463,56 +463,124 @@ static int is_certificate_revoked(struct sec_db *sdb,certificate* cert){
     lock_unlock(cdb->lock);
     return false; 
 }
-static result cert_info_init(struct sec_db* sdb,struct cert_info* certinfo,struct certificate* cert){
-    result res = SUCCESS;
-    crl_series series;
+static int is_certificate_verified(struct sec_db* sdb,struct certificate* cert){
     string identifier;
     struct verified_array verifieds;
-    int i;
-
+    int i,answer = false;
+    result res;
+    
     INIT(identifier);
     INIT(verifieds);
+    
+    if(cert->unsigned_certificate.holder_type != ROOT_CA){
+        hashedid8_2_string(&cert->unsigned_certificate.u.no_root_ca.signer_id,&identifier);
+        res = cme_construct_certificate_chain(sdb,ID_HASHEDID8,&identifier,NULL,false,100,NULL,NULL,NULL,NULL,NULL,&verifieds);
+        if(res != SUCCESS){
+            answer = -1;
+            goto end;
+        }
+        for(i=0;i<verifieds.len;i++){
+            if( *(verifieds.verified+i) == false){
+                answer = false;
+                goto end;
+            }
+        }
+        answer = true;
+        goto end;
+    }
+    else{
+        wave_printf(MSG_WARNING,"这里我觉得不应该是root——ca的 %s %d",__FILE__,__LINE__);
+    }
+    answer = true;
+    goto end;
+end:
+    string_free(&identifier);
+    verified_array_free(&verifieds);
+    return res;
+}
+static result get_crl_time_by_certificate(struct sec_db* sdb,certificate* cert,time32 *last_crl_time,time32 *next_crl_time){
+    struct cme_db *cdb;
+    hahsedid8 ca_id;
+    struct list_head *ca_id_head,*series_head,*serial_head;
+    struct crl_head* crl_series_temp;
+    struct crl_ca_id* crl_ca_temp;
+    struct crl_serial_number* crl_serial_temp;
+    
+    if(cert->unsigned_certificate.holder_type == ROOT_CA){
+        if( certificate_2_hashedid8(cert,&ca_id)){
+            return FAILURE;
+        }
+    }
+    else{
+        hashedid8_cpy(&ca_id,&cert->unsigned_certificate.u.no_root_ca.signer_id);
+    }
+    cdb = &sdb->cme_db;
+    lock_rdlock(cdb->lock);
+    series_head = &cdb->crls.list;
+    list_for_each_entry(crl_series_temp,series_head,list){
+        if(crl_series_temp->crl_series == cert->unsigned_certificate.crl_series){
+            ca_id_head = &crl_series_temp.ca_id_list.list;
+            list_for_each_entry(crl_ca_temp,ca_id_head,list){
+                if( hashedid8_equal(&crl_ca_temp->ca_id ,&ca_id)){
+                    serial_head = crl_ca_temp->crl_info_list.list;
+                    if(serial_head->prev == serial_head){
+                        return FAILURE; 
+                    }
+                    crl_serial_temp = list_entry(serial_head->prev,struct crl_serial_number,list);
+                    if(last_crl_time != NULL)
+                        *last_crl_time = crl_serial_temp->issue_date;
+                    if(next_crl_time != NULL)
+                        *next_crl_time = crl_serial_temp->next_crl_time;
+                    return SUCCESS;
+                }
+
+            }
+        }
+    }
+    return FAILURE;
+}
+static void del_certificate_by_certid10(struct sec_db* sdb,certid10* certid){
+    struct cme_db *cdb;
+    struct cert_info *cinfo;
+
+    cdb = &sdb->cme_db;
+    lock_wrlock(cdb->lock);
+    cinfo = cert_info_find(cdb->certs,&certid);
+    if(cinfo == NULL){
+        lock_unlock(cdb->lock);
+        return;
+    }
+    cinfo->key_cert->cert_info = NULL;
+    cdb->certs = cert_info_delete(cdb->certs,cinfo);
+    lock_unlock(cdb->lock);
+    cert_info_free(cinfo);
+    free(cinfo);
+    return;
+}
+static result cert_info_init(struct sec_db* sdb,struct cert_info* certinfo,struct certificate* cert){
+    result res = SUCCESS;
 
     certinfo->cert = cert;
     cert_info_init_rb(certinfo);
-    //这下面的赋值，我觉得是不严谨的，从感觉外部调用我们的接口的那写应用，可以用一定的方法欺骗我。
     if(certificate_2_certid10(cert,&certinfo->certid10)){
         res = FAILURE;
         goto end;
     }
-    certinfo->trusted = false;//我认为是通过这种存起来的证书，都是通过ca申请到的，所以不是信任的源头
-
-    //下面这2个赋值，本来是可以通过请求crl_info的。。但是这里cme_crlinfo的serial_number不确定
-    certinfo->last_recieve_crl = 0;
-    certinfo->next_recieve_crl = 0;
     certinfo->revoked = is_certificate_revoked(sdb,cert);
     if(certinfo->revoked == -1){
         res = FAILURE;
         goto end;
     }
-    certinfo->expriry = cert->unsigned_certificate.expiration * 1000000;
-    if(cert->unsigned_certificate.holder_type != ROOT_CA){
-        hashedid8_cpy(&certinfo->ca_id,&cert->unsigned_certificate.u.no_root_ca.signer_id);
-        hashedid8_2_string(&certinfo->ca_id,&identifier);
-        res = cme_construct_certificate_chain(sdb,ID_HASHEDID8,&identifier,NULL,false,1024,NULL,NULL,NULL,NULL,NULL,&verifieds);
-        if(res != SUCCESS)
-            goto end;
-        for(i=0;i<verifieds.len;i++){
-            if( *(verifieds.verified+i) == false){
-                certinfo->verified = false;
-                break;
-            }
-        }
-        if(i ==  verifieds.len)
-            certinfo->verified = true; 
+    certinfo->expriry = cert->unsigned_certificate.expiration * US_TO_S;
+    certinfo->verified = is_certificate_verified(sdb,cert);
+    if(certinfo->verified == -1){
+        res = FAILURE;
+        goto end;
     }
-    else{
-        wave_printf(MSG_WARNING,"这里我觉得不应该是root——ca的 %s %d",__FILE__,__LINE__);
-    }
+    certinfo->trust_anchor = false;
+    certinfo->key_cert = NULL;
     goto end;
 end:
-    string_free(&identifier);
-    verified_array_free(&verifieds);
     return res;
 }
 result cme_store_cert(struct sec_db* sdb,  cmh cmh,
@@ -548,6 +616,7 @@ result cme_store_cert(struct sec_db* sdb,  cmh cmh,
     ckc_init_rb(new_key_cert_node);
     certificate_cpy(mcert,cert);
     cert_info_init(sdb,certinfo,mcert);
+    certinfo->key_cert = new_key_cert_node;
     new_key_cert_node->cmh = cmh;
     new_key_cert_node->cert = mcert;
     new_key_cert_node->cert_info = certinfo;
@@ -1208,36 +1277,10 @@ result cme_add_trust_anchor(struct sec_db* sdb,certificate *cert){
         goto end;
     }
 
-    cert_info->cert = mcert;
-    if( certificate_2_certid10(mcert,&cert_info->certid10)){
-        res = FAILURE;
+    if( cert_info_init(sdb,cert_info,mcert)){
+        res =FAILURE;
         goto end;
     }
-    cert_info->last_recieve_crl = 0;
-    cert_info->next_recieve_crl = 0;
-    cert_info->revoked = false;
-    cert_info->trust_anchor = true;
-    cert_info_init_rb(certinfo);
-    cert_info->expiry = mcert->unsigned_certificate.expiration * 1000000;
-    
-    if(cert->unsigned_certificate.holder_type != ROOT_CA){
-        hashedid8_cpy(&certinfo->ca_id,&cert->unsigned_certificate.u.no_root_ca.signer_id);
-        hashedid8_2_string(&certinfo->ca_id,&identifier);
-        res = cme_construct_certificate_chain(sdb,ID_HASHEDID8,&identifier,NULL,false,1024,NULL,NULL,NULL,NULL,NULL,&verifieds);
-        if(res != SUCCESS)
-            goto end;
-        for(i=0;i<verifieds.len;i++){
-            if( *(verifieds.verified+i) == false){
-                certinfo->verified = false;
-                break;
-            }
-        }
-        if(i ==  verifieds.len)
-            certinfo->verified = true; 
-    }
-    else
-        cert_info->verified = true;
-
     cdb = &sdb->cme_db;
     lock_wrlock(cdb->lock);
     cdb->certs = cert_info_insert(cdb->certs,cert_info);
@@ -1283,21 +1326,11 @@ result cme_add_certificate(struct sec_db* sdb,certificate* cert,bool verified){
         res = FAILURE;
         goto end;
     }
-    cinfo->cert = mycert;
-    cinfo->revoked = false;
-    cinfo->expriry = mycert->unsigned_certificate.expiration * 1000000;
-    cinfo->verified = verified;
-    cinfo->trust_anchor = false;//这里不知道对不
-    cinfo->last_recieve_crl = 0;
-    cinfo->next_recieve_crl = 0;
-    cert_info_init_rb(cinfo);
-    if(mycert->unsigned_certificate.holder_type != ROOT_CA){
-        hashedid8_cpy(&cinfo->ca_id,&cert->unsigned_certificate.u.no_root_ca.signer_id);
-    }
-    if(certificate_2_certid10(cert,&cinfo->certid10) ){
+    if(cert_info_init(sdb,cinfo,mycert)){
         res = FAILURE;
         goto end;
     }
+    cinfo->verified = verified;
     lock_wrlock(cdb->lock);
     cdb->certs = cert_info_insert(cdb->certs,cinfo);
     lock_unlock(cdb->lock);
@@ -1316,6 +1349,314 @@ end:
         }
     }
     return res;
+}
+void cme_delete_cmh(struct sec_db *sdb,cmh cmh){
+    result res = SUCCESS;
+    struct cme_db *cdb;
+    struct list_head *head;
+    struct cmh_chain *cmh_init_temp,*cmh_chain_temp,*new_cmh_node=NULL;
+    struct cmh_keypaired *cmh_keys_temp;
+    struct cmh_key_cert* cmh_key_cert_temp;
+    struct cert_info *cinfo;
+
+    if( (new_cmh_node = (struct cmh_chain*)malloc(sizeof(struct cmh_chain))) == NULL){
+        wave_malloc_error();
+        res = FAILURE;
+        goto end;
+    }
+    INIT(*new_cmh_node);
+    cdb = &sdb->cme_db;
+    lock_wrlock(cdb->lock);
+    head = &cdb->cmhs.alloc_cmhs.cmh_init.list;
+    list_for_each_entry(cmh_init_temp,head,list){
+        if(cmh_init_temp->cmh == cmh){
+            list_del(&cmh_init_temp->list);
+            free(cmh_init_temp);
+            goto insert; 
+        }
+        if(cmh_init_temp->cmh > cmh){
+            break;
+        }
+    }
+
+    head = &cdb->cmhs.alloc_cmhs.cmh_keys.list;
+    list_for_each_entry(cmh_keys_temp,head,list){
+        if(cmh_keys_temp->cmh == cmh){
+            list_del(&cmh_keys_temp->list);
+            cmh_keypaired_free(cmh_keys_temp);
+            free(cmh_keys_temp);
+            goto insert;
+        }
+        if(cmh_keys_temp->cmh > cmh)
+            break;
+    }
+
+    cmh_key_cert_temp = ckc_find(cdb->cmhs.alloc_cmhs.cmh_key_cert,&cmh);
+    if(cmh_key_cert_temp == NULL){
+        lock_unlock(cdb->lock);
+        goto end;
+    }
+    cdb->cmhs.alloc_cmhs.cmh_key_cert = ckc_delete(cdb->cmhs.alloc_cmhs.cmh_key_cert,cmh_key_cert_temp);
+    cinfo = cmh_key_cert_temp->cert_info;
+    cmh_key_cert_free(cmh_key_cert_temp);
+    if(cinfo != NULL){
+        cdb->certs = cert_info_delete(cdb->certs,cinfo);
+        cinfo->cert = NULL;
+        cert_info_free(cinfo);
+        free(cinfo);
+    }
+    goto insert;
+
+insert:
+    head = &cdb->cmhs.cmh_chain.list;
+    new_cmh_node->cmh = cmh;
+    list_for_each_entry(cmh_chain_temp,head,list){
+        if(cmh_chain_temp->cmh > cmh){
+            break;
+        }
+    }
+    list_add_tail(&new_cmh_node->list,&cmh_chain_temp->list);
+    return;
+end:
+    if(new_cmh_node != NULL)
+        free(new_cmh_node);
+    return;
+
+}
+result cme_add_certificate_revocation(struct sec_db* sdb,certid10* identifier,hashedid8* ca_id,crl_series series,time64 expiry){
+    struct cme_db *cdb;
+    struct cert_info *cinfo;
+    struct list_head *series_head,*ca_head,*rev_head;
+    struct crl_head* crl_series_temp;
+    struct crl_ca_id* crl_ca_temp;
+    struct revoked_certs *rev_cert,*rev_cert_temp;
+    int cmp;
+    cdb = &sdb->cme_db;
+    lock_wrlock(cdb->lock);
+    cinfo = cert_info_find(cdb->certs,&identifier);
+    if(cinfo != NULL){
+        if(cinfo->cert->unsigned_certificate.crl_series != series){
+            wave_printf(MSG_WARNING,"certid10 相等 但是serires不相等 %s %d",__FILE__,__LINE__);
+            lock_unlock(cdb->lock);
+            return INVALID_INPUT;
+        }
+        if(cinfo->cert->unsigned_certificate.holder_type == ROOT_CA ||
+                hashedid8_equal(ca_id,&cinfo->cert->unsigned_certificate.u.no_root_ca.signer_id) == false){
+            wave_printf(MSG_WARNING,"ca id 不相等 %s %d",__FILE__,__LINE__);
+            lock_unlock(cdb->lock);
+            return INVALID_INPUT;
+        }
+        cinfo->revoked = ture;
+        if(expriry != 0){
+            cinfo->expriry = expiry; 
+        }
+    }
+    //并将这个信息保存在链表中
+    if( (rev_cert = (struct revoked_cert*)malloc(sizeof(struct revoked_certs))) == NULL){
+        wave_malloc_error();
+        return FAILURE;
+    }
+    INIT(*rev_cert);
+    //这里是有bug的，如果不现有这个相应的crl下面将找不到，但是我们认为别人受到了crl肯定是先调用add_crlinfo,在调用本函数
+    certid10_cpy(&rev_cert->certid,identifier);
+    series_head = &cdb->crls.list;
+    list_for_each_entry(crl_series_temp,series_head,list){
+        if(crl_series_temp->crl_series == series){
+            ca_head = &crl_series_temp->ca_id_list.list;
+            list_for_each_entry(crl_ca_temp,ca_head,list){
+                if(hashedid8_equal(&crl_ca_temp->ca_id,ca_id)){
+                    rev_head = &crl_ca_temp->revoked_certs.list;
+                    list_for_each_entry(rev_cert_temp,rev_head,list){
+                        cmp = certid10_cmp(&rev_cert_temp->certid,&rev_cert->certid);
+                        if(cmp > 0)
+                            break;
+                        else if(cmp == 0){
+                            lock_unlock(cdb->lock);
+                            return SUCCESS;
+                        }
+                    }
+                    list_add_tail(&rev_cert->list,&rev_cert_temp->list);
+                    break;
+                }
+            }
+        }
+    }
+    lock_unlock(cdb->lock);
+    return SUCCESS;
+
+}
+
+void cme_add_crlinfo(struct sec_db* sdb,crl_type crl_type,crl_series series,hashedid8* ca_id,u32 serial_number,
+                            time32 start_period,time32 issue_data,time32 next_crl_time){
+    struct cme_db *cdb;
+    struct list_head *series_head,*ca_head,*serial_head;
+    struct crl_head *series_temp,*new_series = NULL;
+    struct crl_ca_id *ca_temp,*new_ca = NULL;
+    struct crl_serial_number *serial_temp,*new_serial = NULL;
+    int cmp;
+    result res = SUCCESS;
+
+    cdb = &sdb->cme_db;
+
+    lock_wrlock(cdb->lock);
+    series_head = &cdb->crls.list;
+    list_for_each_entry(series_temp,series_head,list){
+        if(series_temp->crl_series == series){
+            ca_head = &series_temp->ca_id_list.list;
+            list_for_each_entry(ca_temp,ca_head,list){
+                cmp = hashedid8_cmp(&ca_temp->ca_id,ca_id);
+                if(cmp > 0)
+                    break;
+                if(cmp == 0){
+                    serial_head = &ca_temp->crl_info_list.list;
+                    list_for_each_entry(serial_temp,serial_head,list){
+                        if(serial_temp->serial_number == serial_number){
+                            serial_temp->start_period = start_period;
+                            serial_temp->issue_date = issue_date;
+                            serial_temp->next_crl_time = next_crl_time;
+                            serial_temp->type = crl_type;
+                            lock_unlock(cdb->lock);
+                            return SUCCESS;
+                        }
+                        if(serial_temp->serial_number > serial_number){
+                            break;
+                        }
+                    }
+                    if(   (new_serial = (struct crl_serial_number*)malloc(sizoef(struct crl_serial_number))) == NULL){
+                        lock_unlock(cdb->lock);
+                        wave_malloc_error();
+                        res = FAILURE;
+                        goto end;
+                    }
+                    new_serial->issue_date = issue_date;
+                    new_serial->next_crl_time = next_crl_time;
+                    new_serial->serial_number = serial_number;
+                    new_serial->start_period = start_period;
+                    new_serial->type = crl_type;
+    
+                    list_add_tail(&new_serial->list,&serial_temp->list);
+                    lock_unlock(cdb->lock);
+                    return SUCCESS;
+
+                }
+            }
+            if( ( new_ca = (struct crl_ca_id*)malloc(sizeof(struct crl_ca_id))) == NULL ||
+                (new_serial = (struct crl_serial_number*)malloc(sizoef(struct crl_serial_number))) == NULL){
+                    lock_unlock(cdb->lock);
+                    wave_malloc_error();
+                    res = FAILURE;
+                    goto end;
+            }
+            new_serial->issue_date = issue_date;
+            new_serial->next_crl_time = next_crl_time;
+            new_serial->serial_number = serial_number;
+            new_serial->start_period = start_period;
+            new_serial->type = crl_type;
+    
+            INIT_LIST_HEAD(&new_ca->crl_info_list);
+            list_add_tail(&new_serial->list,&new_ca->crl_info_list);
+            hashedid8_cpy(&new_ca->ca_id,ca_id);
+
+            list_add_tail(&new_ca->list,&ca_temp->list);
+            lock_unlock(cdb->lock);
+            return SUCCESS;
+        }
+        else if(series_temp->crl_series > series){
+            break;
+        }
+    }
+    if( ( new_series = (struct crl_head*)malloc(sizeof(struct crl_head))) == NULL ||
+            ( new_ca = (struct crl_ca_id*)malloc(sizeof(struct crl_ca_id))) == NULL ||
+            (new_serial = (struct crl_serial_number*)malloc(sizoef(struct crl_serial_number))) == NULL){
+        lock_unlock(cdb->lock);
+        wave_malloc_error();
+        res = FAILURE;
+        goto end;
+    }
+    new_serial->issue_date = issue_date;
+    new_serial->next_crl_time = next_crl_time;
+    new_serial->serial_number = serial_number;
+    new_serial->start_period = start_period;
+    new_serial->type = crl_type;
+    
+    INIT_LIST_HEAD(&new_ca->crl_info_list);
+    list_add_tail(&new_serial->list,&new_ca->crl_info_list);
+    hashedid8_cpy(&new_ca->ca_id,ca_id);
+
+    INIT_LIST_HEAD(&new_series->ca_id_list);
+    list_add_tail(&new_ca->list,&new_series->ca_id_list);
+    new_series->crl_series = series;
+    
+    list_add_tail(&new_series->list,&series_temp->list);
+    lock_unlock(cdb->lock);
+    return SUCCESS;
+end:
+    if(new_series != NULL){
+        free(new_series);
+    }
+    if(new_ca != NULL){
+        free(new_ca);
+    }
+    if( new_serial != NULL){
+        free(new_serial);
+    }
+    return res;
+}
+
+result cme_get_crlinfo(struct sec_db* sdb,crl_series series,hashedid8* ca_id,u32 serial_number,
+        
+                        crl_type *type,time32 *start_time,time32 *issue_data,time32 *next_crl_time){
+    struct cme_db cdb;
+    struct list_head *series_head,*ca_head,*serial_head;
+    struct crl_head *series_temp;
+    struct crl_ca_id *ca_temp;
+    struct crl_serial_number *serial_temp;
+    result res = SUCCESS;
+    int cmp ;
+
+    lock_rdlock(cdb->lock);
+    series_head = &cdb->crls.list;
+    list_for_each_entry(series_temp,series_head,list){
+        if(series_temp->crl_series > series){
+            lock_unlock(cdb->lock);
+            return FAILURE;
+        }
+        if(series_temp->crl_series == series){
+            ca_head = &series_temp->ca_id_list.list;
+            list_for_each_entry(ca_temp,ca_head,list){
+                cmp = hashedid8_cmp(&ca_temp->ca_id,ca_id);
+                if(cmp > 0){
+                    lock_unlock(cdb->lock);
+                    return FAILURE;
+                }
+                if(cmp == 0){
+                    serial_head = &ca_temp->crl_info_list.list;
+                    list_for_each_entry(serial_temp,serial_head,list){
+                        if(serial_temp->serial_number == serial_number){
+                            if(type != NULL){
+                                *type = serial_temp->type;
+                            }
+                            if(start_time != NULL)
+                                *start_time = serial_temp->start_period;
+                            if(issue_date != NULL)
+                                *issue_date = serial_temp->issue_date;
+                            if(next_crl_time != NULL)
+                                *next_crl_time = serial_temp->next_crl_time;
+                            lock_unlock(cdb->lock);
+                            return SUCCESS;
+                        }
+                        else if(serial_temp->serial_number > serial_number){
+                            lock_unlock(cdb->lock);
+                            return FAILURE;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    lock_unlock(cdb->lock);
+    return FAILURE;
+
 }
 result cme_construct_certificate_chain(struct sec_db* sdb,
                 enum identifier_type type,
