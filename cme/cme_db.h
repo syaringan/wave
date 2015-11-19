@@ -105,7 +105,7 @@ static void inline cmh_keypaired_free(struct cmh_keypaired* cmh_keys){
     string_free(&cmh_keys->public_key_x);
     string_free(&cmh_keys->public_key_y);
 }
-static void inline cmh_key_cert_free(strcut cmh_key_cert* key_cert){
+static void inline cmh_key_cert_free(struct  cmh_key_cert* key_cert){
     if(key_cert == NULL)
         return ;
     certificate_free(key_cert->cert);
