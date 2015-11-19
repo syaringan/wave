@@ -21,7 +21,7 @@ int cme_cmh_request(cmh *cmh);
  *@x_len/y_len/pri_len:在调用的时候里面存放分配的buf的空间有多大，返回的时候里面存放的是填写了多少字节
  *@return 0成功 -1失败
  */
-int cme_generate_keypair(cmh cmh,pk_algorithm algorithm,
+int cme_generate_keypair(cmh cmh,int algorithm,
         
                         char* pub_key_x,int* x_len,
                         char* pub_key_y,int* y_len,
@@ -33,7 +33,7 @@ int cme_generate_keypair(cmh cmh,pk_algorithm algorithm,
  *@x_len/y_len/pri_len:对应buf里面有多少字节。
  *@return 0成功 -1失败
  */
-int cme_store_keypair(cmh cmh,pk_algorithm algorithm,
+int cme_store_keypair(cmh cmh,int algorithm,
                         char* pub_key_x,int x_len,
                         char* pub_key_y,int y_len,
                         char* pri_key,int pri_len);
