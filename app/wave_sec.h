@@ -42,14 +42,14 @@ int cme_store_cert(cmh cmh,certificate* cert,
                         char* transfor,int len);
 
 int cme_store_cert_key(cmh cmh,certificate* cert,
-                        char* pri_key,int* len);
+                        char* pri_key,int* len);  // int 为什么要传指针？？
 
 /**
  *@set_geneartion_time/set_generation_location/set_expiry_time,:只能为0或1
  *@elevation:这个我们默认只有两字节，我们自动往后读两字节，
  *@*type:各种type的画，请核实下相关结构题里面的值，只能取这些值。
  */
-int sec_signed_data(cmh cmh,int type,char* data,int len,char* exter_data,int exter_len,psid psid,
+int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,int exter_len,psid psid,
                         char* ssp,int ssp_len,int set_generation_time,
                         time64 generation_time,unsigned char generation_long_std_dev,
                         int set_generation_location,int latitude,int longtitude,unsigned char *elevation,
@@ -60,7 +60,7 @@ int sec_signed_data(cmh cmh,int type,char* data,int len,char* exter_data,int ext
 /**
  * @compressed:这能为0或者1
  */
-int sec_encrypted_data(int type,char* data,int len,certificate *certs,int certs_len,int compressed,time64 time,
+int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int certs_len,int compressed,time64 time,
         
                         char* encrypted_data,int *encrypted_len,certificate *failed_certs,int *failed_certs_len);
 
@@ -94,10 +94,10 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
                 time64 exprity_time,
                 float exprity_threshold,
                 int check_generation_location,
-                int latitude,int longitude,
+                int latitude,int longtitude,
                 unsigned int  validity_distance,
                 int generation_latitude, 
-                int generation_longitude,
+                int generation_longtitude,
                 unsigned char* elevation,
                 time64 overdue_crl_tolerance,
                 
