@@ -253,42 +253,6 @@ bool two_d_location_in_geographic_region(two_d_location* loc,geographic_region* 
 u32 distance_with_two_d_location(two_d_location* a,two_d_location* b);
 
 //提取wsa中的serviceinfo
-//
-/* element id in wsa */
-typedef enum{
-    // WSA WAVE Elements
-    EID_RESERVED = 0,
-    EID_SERVINFO,
-    EID_CHANINFO,
-    EID_WRA,
-    //extension WAVE Elements
-    EID_TX_POWER,
-    EID_2D_LOCAT = 5,
-    EID_3D_LOCAT,
-    EID_ADV_ID,
-    EID_PSC,
-    EID_IPV6ADDR,
-    EID_SERVPORT = 10,
-    EID_PROV_MAC,
-    EID_EDCA_PARAM,
-    EID_SEC_DNS,
-    EID_GT_MAC,
-    EID_CHAN_NUM = 15,
-    EID_DATARATE,
-    EID_REP_RATE,
-    EID_CTRY_STR,
-    EID_RCPI_THR,
-    EID_WSAC_THR = 20,
-    EID_CHAN_ACC,
-    EID_INTV_THR = 22,
-    // 23 to 127 reserved
-    // WSMP WAVE Elements
-    EID_WSMP = 128,
-    EID_WSMP_S,
-    EID_WSMP_ID_SUPP = 130,
-    // 131 to 255 reserved
-}eid;
-
 struct service_info{
     char           *serv;
     char           *psc;
@@ -331,7 +295,40 @@ struct wra{
      char *second_dns;
      unsigned char *gateway_mac_addr;
 };
-
+/* element id in wsa */
+typedef enum{
+    // WSA WAVE Elements
+    EID_RESERVED = 0,
+    EID_SERVINFO,
+    EID_CHANINFO,
+    EID_WRA,
+    //extension WAVE Elements
+    EID_TX_POWER,
+    EID_2D_LOCAT = 5,
+    EID_3D_LOCAT,
+    EID_ADV_ID,
+    EID_PSC,
+    EID_IPV6ADDR,
+    EID_SERVPORT = 10,
+    EID_PROV_MAC,
+    EID_EDCA_PARAM,
+    EID_SEC_DNS,
+    EID_GT_MAC,
+    EID_CHAN_NUM = 15,
+    EID_DATARATE,
+    EID_REP_RATE,
+    EID_CTRY_STR,
+    EID_RCPI_THR,
+    EID_WSAC_THR = 20,
+    EID_CHAN_ACC,
+    EID_INTV_THR = 22,
+    // 23 to 127 reserved
+    // WSMP WAVE Elements
+    EID_WSMP = 128,
+    EID_WSMP_S,
+    EID_WSMP_ID_SUPP = 130,
+    // 131 to 255 reserved
+}eid;
 static inline unsigned char
 calcu_psid_length(unsigned char *psid)
 {
