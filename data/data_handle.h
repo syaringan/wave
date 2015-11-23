@@ -53,8 +53,8 @@ int string_2_crl(string* data,crl *crl);
 int hashedid8_2_string(hashedid8* hashed,string* data);
 int string_2_hashedid8(string* data,hashedid8* hashed);
 bool hashedid8_equal(hashedid8* a,hashedid8* b);
-void hashedid8_cpy(hahsedid8* dst,hahsedid8* src);
-int  hashedid8_cmp(hahsedid8* a,hahsedid8* b);
+void hashedid8_cpy(hashedid8* dst,hashedid8* src);
+int  hashedid8_cmp(hashedid8* a,hashedid8* b);
 
 int tobesigned_crl_2_string(tobesigned_crl* tbs_crl,string* data);
 int string_2_tobesigned_crl(string* data,tobesigned_crl* tbs_crl);

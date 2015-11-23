@@ -286,13 +286,13 @@ bool hashedid8_equal(hashedid8* a,hashedid8* b){
     }
     return true;
 }
-void hashedid8_cpy(hahsedid8 *dst,hashedid8 *src){
+void hashedid8_cpy(hashedid8 *dst,hashedid8 *src){
     int i;
     for(i=0;i<8;i++){
         dst->hashedid8[i] = src->hashedid8[i];
     }
 }
-int hashedid8_cmp(hahsedid8 *a,hahsedid8 *b){
+int hashedid8_cmp(hashedid8 *a,hashedid8 *b){
     int i;
     for(i=0;i<8;i++){
         if(a->hashedid8[i] < b->hashedid8[i])

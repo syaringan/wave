@@ -94,7 +94,7 @@ typedef enum app_tag{
     SEC_ENCRYPTED_DATA,
     SEC_SECURE_DATA_CONTENT_EXTRATION,
     SEC_SIGNED_DATA_VERIFICATION,
-};
+}app_tag;
 #define be_to_host16(n) be16toh(n)
 #define be_to_host32(n) (u32)be32toh(n)
 #define be_to_host64(n) (u64)be64toh(n)
