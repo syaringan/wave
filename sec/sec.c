@@ -21,6 +21,305 @@ extern struct region_type_array certificate_request_support_region_types;//配�
 extern u32 certificate_request_rectangle_max_length;
 extern u32 certificate_request_polygonal_max_length;
 
+static int 
+locate_header_ext(char *wsa, unsigned int *shift, unsigned int length, 
+		struct wsa_header_ext *head_ext)
+{
+    unsigned char *eid_pos;
+    unsigned int current_shift = *shift;
+    eid element_id;
+    printk(KERN_NOTICE"Wsa_Parse: %s: ", __func__);
+   
+    INIT(*head_ext);
+
+    while(current_shift < length){
+        eid_pos = (unsigned char *)(wsa + current_shift);
+        element_id = (eid)(*eid_pos);
+
+        if(element_id != EID_REP_RATE && element_id != EID_TX_POWER && 
+           element_id != EID_2D_LOCAT && element_id != EID_3D_LOCAT &&
+           element_id != EID_ADV_ID && element_id != EID_CTRY_STR && 
+           !((element_id >= 23 && element_id <= 127) || element_id >= 131) 
+		   // to support self defined element id
+           ){
+			break;
+        }
+
+        switch(element_id){
+            case EID_REP_RATE:
+                head_ext->repeat_rate = eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"repeat rate, ");
+                break;
+            case EID_TX_POWER:
+                head_ext->tx_power = (signed char *)eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"tx power, ");
+                break;
+            case EID_2D_LOCAT:
+                head_ext->_2d_location = (char *)eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"2D location, ");
+                break;
+            case EID_3D_LOCAT:
+                head_ext->_3d_location = (char *)eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"3D location, ");
+                break;
+            case EID_ADV_ID:
+                head_ext->advertiser_id = (char *)eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"advertiser id, ");
+                break;
+            case EID_CTRY_STR:
+                head_ext->country_string = (char *)eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"country string, ");
+                break;
+            default:   
+                //to support self defined ext.
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"\nundefined, ");
+                break;           
+        }
+    }
+
+	printk(KERN_NOTICE"\n");
+    *shift = current_shift;
+    return 0;
+}
+
+static int 
+locate_serv_ch_info_wra(char *wsa, unsigned int current_shift, unsigned int length, 
+        struct service_info *serv_info, struct channel_info *ch_info, 
+		struct wra *routing_adv, struct rwsa_param *dot2_param)
+{
+    unsigned char serv_info_index = 255;
+    unsigned char channel_info_index = 255;
+    unsigned char wra_index = 255;
+	/* element id range: 0 ~ 255 */
+    unsigned char *eid_pos = NULL;  
+    unsigned char *psid_pos = NULL;
+    eid element_id;
+    printk(KERN_NOTICE"Wsa_Parse: %s:  ", __func__);
+
+    INIT(*routing_adv);
+
+    while(current_shift < length){
+        eid_pos = (unsigned char *)(wsa + current_shift);
+        if(eid_pos == NULL)
+            return -1;
+
+        element_id = (eid)(*eid_pos);
+
+        if(element_id != EID_SERVINFO && element_id != EID_PSC && 
+           element_id != EID_IPV6ADDR && element_id != EID_SERVPORT &&
+           element_id != EID_PROV_MAC && element_id != EID_RCPI_THR &&
+           element_id != EID_WSAC_THR && element_id != EID_INTV_THR &&
+           element_id != EID_CHANINFO && element_id != EID_EDCA_PARAM && 
+           element_id != EID_CHAN_ACC && element_id != EID_WRA    && 
+           element_id != EID_SEC_DNS  && element_id != EID_GT_MAC &&
+           !((element_id >= 23 && element_id <= 127) || element_id >= 131) 
+		   // to support self defined element id
+          )
+            return -1;
+
+        switch(element_id){
+            case EID_SERVINFO:
+                serv_info_index ++;
+				if(serv_info_index > 31){
+				    printk(KERN_ERR"\nWsa_Parse: ERROR!-   > 32 service info\n");
+					return -1;
+				}
+                psid_pos = eid_pos + 1;
+                serv_info[serv_info_index].serv = (char *)eid_pos; 
+                current_shift += (calcu_psid_length(psid_pos) + 3);
+
+				// record parameters from 1609.2
+				serv_info[serv_info_index].ssp = 
+					dot2_param->ssp ? dot2_param->ssp[serv_info_index] : NULL;
+				serv_info[serv_info_index].exp_crl_time = 
+					dot2_param->exp_crl_time ? dot2_param->exp_crl_time[serv_info_index] : NULL;
+
+				if(serv_info_index)
+					printk("\n");
+                printk(KERN_NOTICE"service info, ");
+                break;
+            case EID_CHANINFO:
+                channel_info_index ++;
+				if(channel_info_index > 6){
+				    printk(KERN_ERR"\nWsa_Parse: ERROR!-   > 7 channel info\n");
+					return -1;
+				}
+                ch_info[channel_info_index].channel = eid_pos;
+                current_shift += 6;
+				if(channel_info_index)
+					printk("\n");
+                printk(KERN_NOTICE"channel info, ");
+                break;
+            case EID_WRA:         
+                if(wra_index == 255)
+                    wra_index = 0;
+                routing_adv->wra = (char *)eid_pos;
+                current_shift += 52;
+				if(wra_index)
+					printk("\n");
+                printk(KERN_NOTICE"wra located\n");
+                break;
+            case EID_PSC:
+                if(serv_info_index != 255)        
+                	//skip this service info extension fields with no preceding service info.
+                    serv_info[serv_info_index].psc = (char *)eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"psc, ");
+                break;
+            case EID_IPV6ADDR:
+                if(serv_info_index != 255)
+                    serv_info[serv_info_index].ipv6_addr = eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"ipv6 address, ");
+                break;
+            case EID_SERVPORT:
+                if(serv_info_index != 255)
+                    serv_info[serv_info_index].serv_port = (__be16 *)eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"service port, ");
+                break;
+            case EID_PROV_MAC:
+                if(serv_info_index != 255)
+                    serv_info[serv_info_index].prov_mac_addr = eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"provider mac address, ");
+                break;
+            case EID_RCPI_THR:
+                if(serv_info_index != 255)
+                    serv_info[serv_info_index].rcpi_thresh = (signed char *)eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"rcpi threshold, ");
+                break;
+            case EID_WSAC_THR:
+                if(serv_info_index != 255)
+                    serv_info[serv_info_index].wsa_count_thresh = eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"wsa count threshold, ");
+                break;
+            case EID_INTV_THR:
+                if(serv_info_index != 255)
+                    serv_info[serv_info_index].wsa_count_thresh_interv = eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"wsa count threshold itv, ");
+                break;
+            case EID_EDCA_PARAM:
+                if(channel_info_index != 255)
+                    ch_info[channel_info_index].edca_set = (char *)eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"edca parameter, ");
+                break;
+            case EID_CHAN_ACC:
+                if(channel_info_index != 255)
+                    ch_info[channel_info_index].channel_access = eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"channel access, \n");
+                break;
+            case EID_SEC_DNS:
+                if(wra_index != 255)
+                    routing_adv->second_dns = (char *)eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"secondary dns, ");
+                break;
+            case EID_GT_MAC:
+                if(wra_index != 255)
+                    routing_adv->gateway_mac_addr = eid_pos;
+                current_shift += (2 + ext_length(eid_pos));
+                printk(KERN_NOTICE"gate way mac address, ");
+                break;
+            default:          
+                current_shift += (2 + ext_length(eid_pos)); 
+                //to support self defined element id
+                printk(KERN_NOTICE"\nundefined, ");
+                break;            
+            }
+    }
+
+	printk(KERN_NOTICE"\n");
+    return 0;
+}
+static int extract_service_info(string *wsa, struct dot2_service_info_array *ser_infos){
+    int ret = -1;
+    int i = 0;
+    unsigned int current_shift = 1;
+    unsigned int ser_info_len = 0;
+    struct wsa_header_ext header_ext;
+    struct service_info *serv_info = NULL;
+    struct channel_info *ch_info = NULL;
+    struct wra wra;
+    INIT(header_ext);
+    INIT(wra);
+
+    serv_info = malloc(sizeof(struct service_info)*32);
+    if(!serv_info){
+        wave_error_printf("分配内存失败");
+        goto end;
+    }
+
+    ch_info = malloc(sizeof(struct channel_info)*32);
+    if(!ch_info){
+        wave_error_printf("分配内存失败");
+        goto end;
+    }
+
+    if(!ser_info){
+        wave_error_printf("空指针，没有内容可以extract");
+        goto end;
+    }
+    if(ser_infos->service_infos != NULL){
+        wave_error_printf("serviceinfo array没有初始化");
+        goto end;
+    }
+
+    locate_header_ext(wsa->buf, &current_shift, wsa->len, &header->ext);
+    if(locate_serv_ch_info_wra(wsa->buf, current_shift, wsa->len,
+                serv_info, ch_info, &wra, dot2_param)){
+        wave_error_printf("解析service info失败");
+        goto end;
+    }
+    
+    struct service_info *ser_tmp  = NULL;
+    char *tmp = NULL;
+    unsigned char psid_len = 0;
+    for(ser_tmp = &serv_info[0]; ser_tmp->serv != NULL; ser_tmp++)
+        ser_info_len++;
+    
+    ser_infos->len = ser_info_len;
+    ser_infos->service_infos = malloc(sizeof(struct dot2_service_info)*ser_info_len);
+    if(!ser_infos->service_infos){
+        wave_error_printf("内存分配失败");
+        goto end;
+    }
+    for(i = 0; i < ser_info_len; i++){
+        tmp = serv_info[i].serv;
+        tmp++;
+        psid_len = calcu_psid_length(tmp);
+        char *le_psid = malloc(sizeof(char)*psid_len);
+        if(!le_psid){
+            wave_error_printf("分配内存失败");
+            goto end;
+        }
+        memcpy(le_psid, tmp, psid_len);
+        psid_be_2_le(le_psid, psid_len);
+        memcpy(&ser_infos->service_infos[i].psid, le_psid, psid_len);
+        free(le_psid);
+        tmp += psid_len;
+
+        memcpy(&ser_infos->service_infos[i].priority, tmp, 1);
+    }
+    ret = 0;
+end:
+    free(serv_info);
+    free(ch_info);
+
+    return ret;
+}
 
 static bool cme_permissions_contain_psid_with_ssp(struct cme_permissions* permission,psid psid,string* ssp){
     int i,j;
@@ -2107,60 +2406,441 @@ end:
 }
 //未测
 result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permissions,time32 life_time,string* signed_wsa){
-    result ret = SUCCESS;
+    if(!signed_wsa){
+        wave_error_printf("返回指针为空，没有内容可以填充");
+        return FAILURE;
+    }
+    if(signed_wsa->buf != NULL){
+        wave_error_printf("signed wsa中的buf指针没有初始化");
+        return FAILURE;
+    }
+    result ret = FAILURE;
     struct certificate_chain chain;
     string permission_indices;
     cmh cmh;
     two_d_location td_location;
-    tobesigned_wsa tbs_wsa;
+    sec_data sec_data;
+    certificate cert;
+    string privatekey, encoded_tbs, hashed_tbs, signed_tbs;
+    pk_algorithm algorithm = PK_ALGOTITHM_NOT_SET;//这里让他等于一个不可能的指
 
+    INIT(signed_tbs);
+    INIT(encoded_tbs);
+    INIT(hashed_tbs);
+    INIT(privatekey);
+    INIT(cert);
     INIT(chain);
     INIT(permission_indices);
     INIT(td_location);
-    INIT(tbs_wsa);
+    INIT(sec_data);
 
-    ret = get_current_location(&td_location);
-    if(ret != SUCCESS)
+    if(get_current_location(&td_location)){
+        wave_error_printf("获取当前地理位置失败");
+        ret = FAILURE;
         goto fail;
+    }
 
     ret = pssme_cryptomaterial_handle(sdb, permissions, &td_location, &permission_indices, &cmh, &chain);
     if(ret != SUCCESS)
         goto fail;
 
     //填充tobesigned_wsa中的permission_indices
-    tbs_wsa.permission_indices.len = permission_indices.len;
-    tbs_wsa.permission_indices.buf = malloc(sizeof(u8)*permission_indices.len);
-    if(tbs_wsa.permission_indices.buf == NULL){
+    sec_data.u.signed_wsa.unsigned_wsa.permission_indices.len = permission_indices.len;
+    sec_data.u.signed_wsa.unsigned_wsa.permission_indices.buf = malloc(sizeof(u8)*permission_indices.len);
+    if(sec_data.u.signed_wsa.unsigned_wsa.permission_indices.buf == NULL){
+        wave_error_printf("分配内存失败");
         ret = FAILURE;
         goto fail;
     }
-    memcpy(tbs_wsa.permission_indices.buf, permission_indices.buf, permission_indices.len*sizeof(u8));
+    memcpy(sec_data.u.signed_wsa.unsigned_wsa.permission_indices.buf, permission_indices.buf, permission_indices.len*sizeof(u8));
     
     //设置use_location和use_generation_time flag
-    tbs_wsa.tf = tbs_wsa.tf & USE_GENERATION_TIME & USE_LOCATION;
+    sec_data.u.signed_wsa.unsigned_wsa.tf = sec_data.u.signed_wsa.unsigned_wsa.tf & USE_GENERATION_TIME & USE_LOCATION;
 
     //填充data
-    tbs_wsa.data.len = data->len;
-    tbs_wsa.data.buf = malloc(sizeof(u8)*data->len);
-    if(tbs_wsa.data.buf == NULL){
+    sec_data.u.signed_wsa.unsigned_wsa.data.len = data->len;
+    sec_data.u.signed_wsa.unsigned_wsa.data.buf = malloc(sizeof(u8)*data->len);
+    if(sec_data.u.signed_wsa.unsigned_wsa.data.buf == NULL){
+        wave_error_printf("分配内存失败");
         ret = FAILURE;
         goto fail;
     }
-    memcpy(tbs_wsa.data.buf, data->buf, data->len*sizeof(u8));
+    memcpy(sec_data.u.signed_wsa.unsigned_wsa.data.buf, data->buf, data->len*sizeof(u8));
 
     //对generation_time和generation_location编码填充，暂时没有
 
-    tbs_wsa.expire_time = life_time;
-    tbs_wsa.tf = tbs_wsa.tf & EXPIRES;
+    sec_data.u.signed_wsa.unsigned_wsa.expire_time = life_time;
+    sec_data.u.signed_wsa.unsigned_wsa.tf = sec_data.u.signed_wsa.unsigned_wsa.tf & EXPIRES;
 
-    //对tobesigned_wsa进行编码，然后签名，填充signed_wsa，暂时没有
 
-fail:
-    certificate_chain_free(&chain);
-    string_free(&permission_indices);
-    two_d_location_free(&td_location);
-    tobesigned_wsa_free(&tbs_wsa);
+    //填充signature
+    if(tobesigned_wsa_2_string(&sec_data.u.signed_wsa.unsigned_wsa. &encoded_tbs)){
+        wave_error_printf("编码失败");
+        ret = FAILURE;
+        goto fail;
+    }
+    if(find_cert_prikey_by_cmh(sdb, cmh, &cert, &privatekey)){
+        ret = FAILURE;
+        goto fail;
+    }
+    switch(cert.version_and_type){
+        case 2:
+            if(cert.unsigned_certificate.holder_type  == ROOT_CA){
+                switch(cert.unsigned_certificate.version_and_type.verification_key.algorithm){
+                    case ECDSA_NISTP224_WITH_SHA224:
+                        algorithm = ECDSA_NISTP224_WITH_SHA224;
+                       if( crypto_HASH224(&encoded_tbs,&hashed_tbs) ){
+                           ret = FAILURE;
+                            goto fail;
+                       }  
+                       if(crypto_ECDSA224_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
+                           ret = FAILURE;
+                           goto fail;
+                       break;
+                    case ECDSA_NISTP256_WITH_SHA256:
+                       algorithm = ECDSA_NISTP256_WITH_SHA256;
+                       if( crypto_HASH256(&encoded_tbs,&hashed_tbs))
+                           ret = FAILURE;
+                           goto fail;
+                       if(crypto_ECDSA256_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
+                           ret = FAILURE;
+                           goto fail;
+                       break;
+                    case ECIES_NISTP256:
+                       wave_error_printf("这个是加密算法，怎么出现在了这个签名中");
+                       ret = FAILURE;
+                       goto fail;
+                       break;
+                }
+            }
+            else{
+                switch(cert.unsigned_certificate.u.no_root_ca.signature_alg){
+                    case ECDSA_NISTP224_WITH_SHA224:
+                       algorithm = ECDSA_NISTP224_WITH_SHA224;
+                       if( crypto_HASH224(&encoded_tbs,&hashed_tbs) ){
+                           ret = FAILURE;
+                            goto fail;
+                       } 
+                       if(crypto_ECDSA224_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
+                           ret = FAILURE;
+                           goto fail; 
+                       break;
+                    case ECDSA_NISTP256_WITH_SHA256:
+                       algorithm = ECDSA_NISTP256_WITH_SHA256;
+                       if( crypto_HASH256(&encoded_tbs,&hashed_tbs))
+                           ret = FAILURE;
+                           goto fail;
+                       if(crypto_ECDSA256_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
+                           ret = FAILURE;
+                           goto fail;
+                       break;
+                    case ECIES_NISTP256:
+                       wave_error_printf("这个是加密算法，怎么出现在了这个签名中");
+                       ret = FAILURE;
+                       goto fail;
+                       break;
+                }
+            }
+            break;
+        case 3:
+             switch(cert.unsigned_certificate.u.no_root_ca.signature_alg){
+                    case ECDSA_NISTP224_WITH_SHA224:
+                       algorithm = ECDSA_NISTP224_WITH_SHA224;
+                       if( crypto_HASH224(&encoded_tbs,&hashed_tbs) ){
+                           ret = FAILURE;
+                            goto fail;
+                       }  
+                       if(crypto_ECDSA224_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
+                           ret = FAILURE;
+                            goto fail;
+                       break;
+                    case ECDSA_NISTP256_WITH_SHA256:
+                       algorithm = ECDSA_NISTP256_WITH_SHA256;
+                       if( crypto_HASH256(&encoded_tbs,&hashed_tbs))
+                           ret = FAILURE;
+                           goto fail;
+                       if(crypto_ECDSA256_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
+                           ret = FAILURE;
+                            goto fail;
+                       break;
+                    case ECIES_NISTP256:
+                       wave_error_printf("这个是加密算法，怎么出现在了这个签名中");
+                       ret = FAILURE;
+                       goto fail;
+                       break;
+            } 
+            break;
+        default:
+            wave_error_printf("出现了不可能出现的指 %s %d ",__FILE__,__LINE__);
+            ret = FAILURE;
+            goto fail;
+    }
+    //create and encode a signedwsa
+    sec_data.u.signed_wsa.signer.type = CERTIFICATE_CHAIN;
+    sec_data.u.signed_wsa.signer.u.certificates.len = chain.len;
+    sec_data.u.signed_wsa.signer.u.certificates.buf = malloc(sizeof(certificate)*chain.len);
+    if(!sec_data.u.signed_wsa.signer.u.certificates.buf){
+        wave_error_printf("分配内存失败!");
+        ret = FAILURE;
+        goto fail;
+    }
+    int i = 0;
+    for(i = 0; i < chain.len; i++)
+        certificate_cpy(&sec_data.u.signed_wsa.signer.u.certificates.buf[i], &chain.certs[i]);
+    
+    sec_data.u.signed_wsa.signature.u.ecdsa_signature.s.len = signed_tbs.len;
+    sec_data.u.signed_wsa.signature.u.ecdsa_signature.s.buf = malloc(signed_tbs.len);
+    if(!sec_data.u.signed_wsa.signature.u.ecdsa_signature.s.buf){
+        wave_malloc_error();
+        ret = FAILURE;
+        goto fail;
+    }
+    memcpy(sec_data.u.signed_wsa.signature.u.ecdsa_signature.s.buf, signed_tbs.buf, signed_tbs.len);
+
+    //填充1609dot2结构体
+    sec_data.protocol_version = 2;                                  
+    sec_data.type = SIGNED_WSA;                                
+    if(sec_data_2_string(&sec_data, signed_wsa)){                                  
+        wave_error_printf("sec data 编码失败");                                  
+        ret = FAILURE;                                  
+        goto fail;                                  
+    }                                  
+    ret = SUCCESS;
+fail:                                  
+    certificate_chain_free(&chain);                                  
+    string_free(&permission_indices);                                  
+    two_d_location_free(&td_location);                                  
+    sec_data_free(&sec_data);                                  
     return ret;
+}
+
+result sec_signed_wsa_verification(struct sec_db* sdb,
+                string* wsa,
+                
+                result_array *results,
+                string* wsa_data,
+                ssp_array* ssp_array,
+                time64_with_standard_deviation* generation_time,
+                time64 *expiry_time,
+                three_d_location* location,
+                time32_array *last_crl_time,
+                time32_array *next_crl_time,
+                certificate* certificate){
+    result ret = SUCCESS;
+    struct certificate_chain chain;
+    struct certificate_chain tmp_chain;
+    struct cme_permissions_array cme_permissions;
+    struct geographic_region_array regions;
+    struct verified_array verified;
+    struct dot2_service_info_array ser_info_array;
+    sec_data sec_data;
+    string permission_indices;
+    time64 g_time = 0;
+    time64 e_time = 0;
+    int len = 0;
+    int i = 0;
+    int j = 0;
+    int k = 0;
+
+    INIT(chain);
+    INIT(tmp_chain);
+    INIT(cme_permissions);
+    INIT(regions);
+    INIT(verified);
+    INIT(sec_data);
+    INIT(permission_indices);
+    INIT(ser_info_array);
+
+    if(string_2_sec_data(wsa, &sec_data)){
+        wave_error_printf("sec_data解码失败");
+        ret = FAILURE;
+        goto end;
+    }
+    len = sec_data.u.signed_wsa.unsigned_wsa.permission_indices.len;
+
+    if(!results){
+        wave_error_printf("result array指针为空，没有返回值可以填写");
+        ret = FAILURE;
+        goto end;
+    }
+    if(sec_data.protocol_version != 2 || sec_data.type != SIGNED_WSA || sec_data.u.signed_wsa.signer.type != CERTIFICATE_CHAIN
+                || sec_data.u.signed_wsa.unsigned_wsa.generation_time.time > sec_data.u.signed_wsa.unsigned_wsa.expire_time){
+        results->len = len;
+        if(results->result != NULL){
+            wave_error_printf("result array中的buf不为空，存在野指针");
+            ret = FAILURE;
+            goto end;
+        }
+        results->result = malloc(sizeof(result)*len);
+        if(!results->result){
+            wave_error_printf("内存分配失败");
+            ret = FAILURE;
+            goto end;
+        }
+        for(i = 0; i < len; i++)
+            results->result[i] = INVALID_INPUT;
+    }
+
+    //这个wsa_data是不是这个值，后面再讨论以下
+    if(wsa_data != NULL){
+        wsa_data->len = sec_data.u.signed_wsa.unsigned_wsa.data.len;
+        if(wsa_data->buf != NULL){
+            wave_error_printf("wsa data中的buf不为空，存在野指针");
+            ret = FAILURE;
+            goto end;
+        }
+        wsa_data->buf = malloc(sizeof(u8)*wsa_data->len);
+        if(!wsa_data->buf){
+            wave_error_printf("分配内存失败");
+            ret = FAILURE;
+            goto end;
+        }
+        memcpy(wsa_data->buf, sec_data.u.signed_wsa.unsigned_wsa.data.buf, wsa_data->len*sizeof(u8));
+    }
+    
+    if(generation_time != NULL){
+        generation_time->time = sec_data.u.signed_wsa.unsigned_wsa.generation_time.time;
+        generation_time->long_std_dev = sec_data.u.signed_wsa.unsigned_wsa.generation_time.long_std_dev;
+    }
+    if(expiry_time != NULL)
+        *expiry_time = sec_data.u.signed_wsa.unsigned_wsa.expire_time;
+    g_time = sec_data.u.signed_wsa.unsigned_wsa.generation_time.time;
+    e_time = sec_data.u.signed_wsa.unsigned_wsa.expire_time;
+    if(location != NULL){
+        location->latitude = sec_data.u.signed_wsa.unsigned_wsa.generation_location.latitude;
+        location->longitude = sec_data.u.signed_wsa.unsigned_wsa.generation_location.longitude;
+        location->elevation[0] = sec_data.u.signed_wsa.unsigned_wsa.generation_location.elevation[0];
+        location->elevation[1] = sec_data.u.signed_wsa.unsigned_wsa.generation_location.elevation[1];
+    }
+
+    //extract the permission_indices
+    permission_indices.len = sec_data.u.signed_wsa.unsigned_wsa.permission_indices.len;
+    permission_indices.buf = malloc(sizeof(u8)*permission_indices.len);
+    if(!permission_indices.buf){
+        wave_error_printf("分配内存失败");
+        ret = FAILURE;
+        goto end;
+    }
+    memcpy(permission_indices.buf, sec_data.u.signed_wsa.unsigned_wsa.permission_indices.buf);
+
+    
+    for(i = 0; i < len; ++i){
+        if(permission_indices.buf[i] == 0)
+            results.result[i] == UNSECURED;
+        else
+            results.result[i] == UNDEFINED;
+    }
+
+    //提取出signed_wsa中的certificates.
+    tmp_chain->len = sec_data.u.signed_wsa.signer.u.certificates.len;
+    tmp_chain->certs = malloc(sizeof(certificate)*tmp->len);
+    if(!tmp->chain){
+        wave_error_printf("分配内存失败");
+        ret = FAILURE;
+        goto end;
+    }
+    for(i = 0; i < tmp_chain->len; i++)
+        if(certificate_cpy(&tmp_chain->certs[i], &sec_data.u.signed_wsa.signer.u.certificates.buf[i])){
+            wave_error_printf("证书copy失败");
+            ret = FAILURE;
+            goto end;
+        }
+    ret = cme_construct_certificate_chain(sdb, ID_CERTIFICATE, NULL, &tmp_chain, false, 8, &chain, &cme_permissions, &regions,
+            last_crl_time, next_crl_time, &verified);
+
+    ret = pssme_outoforder(sdb, g_time, &chain.certs[0]);
+    if(ret == NOT_MOST_RECENT_WSA)
+        goto end;
+
+    ret = sec_check_certificate_chain_consistency(sdb, &chain, &cme_permissions, &regions);
+    if(ret != SUCCESS)
+        goto end;
+
+    if(g_time / US_TO_S < chain.certs[0].unsigned_certificate.flags_content.start_validity)
+        ret = FUTURE_CERTIFICATE_AT_GENERATION_TIME;
+    if(g_time / US_TO_S > chain.certs[0].unsigned_certificate.expiration)
+       ret = EXPIER_CERTIFICATE_AT_GENERATION_TIME;
+    if(e_time / US_TO_S < chain.certs[0].unsigned_certificate.flags_content.start_validity)
+        ret = EXPIRY_DATE_TOO_EARLY;
+    if(e_time / US_TO_S > chain.certs[0].unsigned_certificate.expiration)
+        ret = EXPIRY_DATE_TOO_LATE;
+
+    //判断generation latitude和generation latitude是否在geoScopes[0]范围内
+
+    if(chain.certs[0].unsigned_certificate.holder_type != WSA)
+        ret = UNSUPPORTED_SIGNER_TYPE;
+    if(ret != SUCCESS)
+        goto end;
+
+    //extract serviceinfo
+    if(extract_service_info(wsa_data, &ser_info_array)){
+        wave_error_printf("service info解析失败");
+        goto end;
+    }
+    if(ser_info_array.len != permission_indices.len){
+        ret = INVALID_INPUT;
+        goto end;
+    }
+    for(i = 0; i < permission_indices.len; i++){
+        if(permission_indices.buf[i] == 0){
+            result_array->results[i] = UNSECURED;
+            continue;
+        }
+        j = permission_indices.buf[i];
+        switch(cme_permissions.cme_permissions[0].type){
+            case PSID_PRIORITY:
+                if(cme_permissions.cme_permissions[0].u.psid_priority_array.buf[j-1].psid != ser_info_array.service_infos[i].psid){
+                    ret = INCONSISITENT_PERMISSIONS;
+                    goto end;
+                }
+                if(cme_permissions.cme_permissions[0].u.psid_priority_array.buf[j-1].max_priority <= ser_info_array.service_infos[i].priority){
+                    ret = UNAUTHORIZED_PSID_AND_PRIORITY_IN_WSA;
+                    goto end;
+                }
+                ssp_array->ssps[i].buf = NULL;
+                ssp_array->ssps[i].len = 0;
+            case PSID_PRIORITY_SSP:
+                if(cme_permissions.cme_permissions[0].u.psid_priority_ssp_array.buf[j-1].psid != ser_info_array.service_infos[i].psid){
+                    ret = INCONSISITENT_PERMISSIONS;
+                    goto end;
+                }
+                if(cme_permissions.cme_permissions[0].u.psid_priority_ssp_array.buf[j-1].max_priority <= ser_info_array.service_infos[i].priority){
+                    ret = UNAUTHORIZED_PSID_AND_PRIORITY_IN_WSA;
+                    goto end;
+                }
+                if(ssp_array != NULL){
+                    ssp_array->len = permission_indices.len;
+                    ssp_array->ssps = malloc(sizeof(string)*ssp_array->len);
+                    if(!ssp_array->ssps){
+                        wave_error_printf("内存分配失败");
+                        ret = FAILURE;
+                        goto end;
+                    }
+                    if(cme_permissions.cme_permissions[0].u.psid_priority_ssp_array.buf[j-1].service_specific_permissions.buf != NULL){
+                        ssp_array->ssps[i].len = cme_permissions.cme_permissions[0].u.psid_priority_ssp_array.buf[j-1].service_specific_permissions.len;
+                        ssp_array->ssps[i].buf = malloc(sizeof(u8)*ssp_array->ssps[i].len);
+                        if(!ssp_array->ssps[i].buf){
+                            wave_error_printf("分配内存失败!");
+                            ret = FAILURE;
+                            goto end;
+                        }
+                        memcpy(ssp_array->ssps[i].buf, cme_permissions.cme_permissions[0].u.psid_priority_array.buf[j-1].service_specific_permissions.buf,
+                                ssp_array->ssps[i].len);
+                    }
+                    else{
+                        ssp_array->ssps[i].buf = NULL;
+                        ssp_array->ssps[i].len = 0;
+                    }
+                }
+                break;
+            default:
+                wave_error_printf("错误的permission type!");
+                ret = FAILURE;
+                goto end;
+        }
+
+    }
+end:
 }
 
 result sec_check_certificate_chain_consistency(

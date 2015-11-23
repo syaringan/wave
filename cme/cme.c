@@ -637,38 +637,38 @@ int get_permission_from_certificate(certificate *cert,
                         return -1;
                     }
                     for(i = 0; i < per_len; i++){
-                        permissions->u.psid_ssp_array.buf[i].psid = 
+                        permission->u.psid_ssp_array.buf[i].psid = 
                             (cert->unsigned_certificate.scope.u.id_non_loc_scope.permissions.u.permissions_list.buf+i)->psid;
 
-                        permissions->u.psid_ssp_array.buf[i].service_specific_permissions.len = 
+                        permission->u.psid_ssp_array.buf[i].service_specific_permissions.len = 
                             (cert->unsigned_certificate.scope.u.id_non_loc_scope.permissions.u.permissions_list.buf+i)->service_specific_permissions.len;
 
-                        permissions->u.psid_ssp_array.buf[i].service_specific_permissions.buf = 
-                            malloc(sizeof(u8)*permissions->u.psid_ssp_array.buf[i].service_specific_permissions.len);
+                        permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf = 
+                            malloc(sizeof(u8)*permission->u.psid_ssp_array.buf[i].service_specific_permissions.len);
 
-                        if(!permissions->u.psid_ssp_array.buf[i].service_specific_permissions.buf){
+                        if(!permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf){
                             wave_error_printf("malloc error!");
                             return -1;
                         }
 
-                        memcpy(permissions->u.psid_ssp_array.buf[i].service_specific_permissions.buf, 
+                        memcpy(permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf, 
                             (cert->unsigned_certificate.scope.u.id_non_loc_scope.permissions.u.permissions_list.buf+i)->service_specific_permissions.buf,
-                            permissions->u.psid_ssp_array.buf[i].service_specific_permissions.len);
+                            permission->u.psid_ssp_array.buf[i].service_specific_permissions.len);
                     }
                 }
             }
             if(scope != NULL){
-                scope->region = FROM_ISSUER;
+                scope->region_type = FROM_ISSUER;
             }
             break;
         case SDE_IDENTIFIED_LOCALIZED:
             if(permission != NULL){            
-                if(cert->unsigned_certificate.scope.u.identified_scope.permissions.type == FROM_ISSUER){
+                if(cert->unsigned_certificate.scope.u.id_scope.permissions.type == FROM_ISSUER){
                     permission->type = INHERITED_NOT_FOUND;
                 }
                 else{
                     permission->type = PSID_SSP;
-                    per_len = cert->unsigned_certificate.scope.u.identified_scope.permissions.u.permissions_list.len;
+                    per_len = cert->unsigned_certificate.scope.u.id_scope.permissions.u.permissions_list.len;
                     permission->u.psid_ssp_array.len = per_len;
                     permission->u.psid_ssp_array.buf = malloc(sizeof(psid_ssp)*per_len);
                     if(!permission->u.psid_array.buf){
@@ -676,28 +676,28 @@ int get_permission_from_certificate(certificate *cert,
                         return -1;
                     }
                     for(i = 0; i < per_len; i++){
-                        permissions->u.psid_ssp_array.buf[i].psid = 
-                            cert->unsigned_certificate.scope.u.identified_scope.permissions.u.permissions_list.psid;
+                        permission->u.psid_ssp_array.buf[i].psid = 
+                            cert->unsigned_certificate.scope.u.id_scope.permissions.u.permissions_list.buf[i].psid;
                     
-                        permissions->u.psid_ssp_array.buf[i].service_specific_permissions.len = 
-                    cert->unsigned_certificate.scope.u.identified_scope.permissions.u.permissions_list.service_specific_permissions.len;
+                        permission->u.psid_ssp_array.buf[i].service_specific_permissions.len = 
+                    cert->unsigned_certificate.scope.u.id_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.len;
 
-                        permissions->u.psid_ssp_array.buf[i].service_specific_permissions.buf = 
-                            malloc(sizeof(u8)*permissions->u.psid_ssp_array.buf[i].service_specific_permissions.len);
+                        permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf = 
+                            malloc(sizeof(u8)*permission->u.psid_ssp_array.buf[i].service_specific_permissions.len);
 
-                        if(!permissions->u.psid_ssp_array.buf[i].service_specific_permissions.buf){
+                        if(!permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf){
                             wave_error_printf("malloc error!");
                             return -1;
                         }
 
-                        memcpy(permissions->u.psid_ssp_array.buf[i].service_specific_permissions.buf, 
-                    cert->unsigned_certificate.scope.u.identified_scope.permissions.u.permissions_list.service_specific_permissions.buf,
-                    permissions->u.psid_ssp_array.buf[i].service_specific_permissions.len);
+                        memcpy(permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf, 
+                    cert->unsigned_certificate.scope.u.id_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.buf,
+                    permission->u.psid_ssp_array.buf[i].service_specific_permissions.len);
                     }
                 }
             }
             if(scope != NULL){
-                if(get_region(&cert->unsigned_certificate.scope.u.identified_scope.region, scope, SDE_ANONYMOUS)){
+                if(get_region(&cert->unsigned_certificate.scope.u.id_scope.region, scope, SDE_ANONYMOUS)){
                     wave_error_printf("get region error!");
                     return -1;
                 }
@@ -745,26 +745,26 @@ int get_permission_from_certificate(certificate *cert,
                         return -1;
                     }
                     for(i = 0; i < per_len; i++){
-                        permissions->u.psid_priority_ssp_array.buf[i].psid = 
-                            cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.psid;
+                        permission->u.psid_priority_ssp_array.buf[i].psid = 
+                            cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].psid;
 
-                        permissions->u.psid_priority_ssp_array.buf[i].max_priority = 
-                            cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.max_priority;
+                        permission->u.psid_priority_ssp_array.buf[i].max_priority = 
+                            cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].max_priority;
                     
-                        permissions->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len = 
-                            cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.service_specific_permissions.len;
+                        permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len = 
+                            cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.len;
 
-                        permissions->u.psid_priority_ssp_array.buf[i].service_specific_permissions.buf = 
-                            malloc(sizeof(u8)*permissions->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len);
+                        permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.buf = 
+                            malloc(sizeof(u8)*permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len);
 
-                        if(!permissions->u.psid_priority_ssp_array.buf[i].service_specific_permissions.buf){
+                        if(!permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.buf){
                             wave_error_printf("malloc error!");
                             return -1;
                         }
 
-                        memcpy(permissions->u.psid_priority_ssp_array.buf[i].service_specific_permissions.buf, 
-                            cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.service_specific_permissions.buf,
-                            permissions->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len);
+                        memcpy(permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.buf, 
+                            cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.buf,
+                            permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len);
                     }
                 }
             }
@@ -903,7 +903,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
         goto fail;
     }
 
-    if(!cert_info.trusted){
+    if(cert_info.next_recieve_crl < time(NULL) || cert_info.expiry / US_TO_S < time(NULL)){
         ret = CERTIFICATE_NOT_TRUSTED;
         goto fail;
     }
@@ -925,7 +925,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
         *next_crl_time = cert_info.next_recieve_crl;
     }
 
-    if(get_permission_from_certificate(cert_info->cert, permissions, scope)){
+    if(get_permission_from_certificate(cert_info.cert, permissions, scope)){
         wave_error_printf("提取证书权限失败");
         ret = FAILURE;
         goto fail;
@@ -982,7 +982,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
             case POLYGON:
                 if(scope->u.polygonal_region.len > MAX_POLYGON_VERTICES_ENTRIES_NUM){
                     ret = TOO_MANY_ENTRIES_IN_POLYGONAL_GEOGRAPHIC_SCOPE;
-                    goto fal;
+                    goto fail;
                 }
             case NONE:
                 break;
@@ -1019,7 +1019,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
         goto fail;
     }
     
-    struct cme_permissions_array *p;
+    struct cme_permissions *p;
     geographic_region *s;
     if(permissions == NULL)
         p = NULL;
@@ -1061,8 +1061,8 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
                 struct certificate_chain* certificate_chain,
                 struct cme_permissions_array* permissions_array,
                 struct geographic_region_array* regions,
-                struct last_crl_times_array *last_crl_times_array,
-                struct next_crl_times_array *next_crl_times_array,
+                struct time32_array *last_crl_times_array,
+                struct time32_array *next_crl_times_array,
                 struct verified_array *verified_array){
     result ret = FAILURE;
     struct certificate *certificate = NULL;
@@ -1125,34 +1125,34 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
     }
 
     if(last_crl_times_array != NULL){
-        if(last_crl_times_array->last_crl_time != NULL){
+        if(last_crl_times_array->times != NULL){
             wave_error_printf("last crl中的buf已经被填充");
             ret = FAILURE;
             goto fail;
         }
-        last_crl_times_array->last_crl_time = malloc(sizeof(time64)*max_chain_len);
-        if(!last_crl_times_array->last_crl_time){
+        last_crl_times_array->times = malloc(sizeof(time32)*max_chain_len);
+        if(!last_crl_times_array->times){
             wave_error_printf("内存分配失败");
             ret = FAILURE;
             goto fail;
         }
-        memset(last_crl_times_array->last_crl_time, 0, sizeof(time64)*max_chain_len);
-        last_crl_times_array->last_crl_time = 0;
+        memset(last_crl_times_array->times, 0, sizeof(time32)*max_chain_len);
+        last_crl_times_array->times = 0;
     }
 
     if(next_crl_times_array != NULL){
-        if(next_crl_times_array->next_crl_time != NULL){
+        if(next_crl_times_array->times != NULL){
             wave_error_printf("next crl的buf已经被填充");
             ret = FAILURE;
             goto fail;
         }
-        next_crl_times_array->next_crl_time = malloc(sizeof(time64)*max_chain_len);
-        if(!next_crl_times_array->next_crl_time){
+        next_crl_times_array->times = malloc(sizeof(time32)*max_chain_len);
+        if(!next_crl_times_array->times){
             wave_error_printf("内存分配失败");
             ret = FAILURE;
             goto fail;
         }
-        memset(next_crl_times_array->next_crl_time, 0, sizeof(time64)*max_chain_len);
+        memset(next_crl_times_array->times, 0, sizeof(time32)*max_chain_len);
         next_crl_times_array->len = 0;
     }
 
@@ -1199,12 +1199,12 @@ construct_chain:
 
     if(certificate == NULL)
         ret = cme_certificate_info_request(sdb, ID_HASHEDID8, &sign_id, &cert_encoded, &(permissions_array->cme_permissions[i]), 
-                &(regions->regions[i]), &(last_crl_times_array->last_crl_time[i]), &(next_crl_times_array->next_crl_time[i]), 
+                &(regions->regions[i]), &(last_crl_times_array->times[i]), &(next_crl_times_array->times[i]), 
                 &trust_anchor, &(verified_array->verified[i]));
     else{
         certificate_2_string(certificate, &cert_encoded);
         ret = cme_certificate_info_request(sdb, ID_CERTIFICATE, &cert_encoded, &cert_encoded, &(permissions_array->cme_permissions[i]), 
-                &(regions->regions[i]), &(last_crl_times_array->last_crl_time[i]), &(next_crl_times_array->next_crl_time[i]), 
+                &(regions->regions[i]), &(last_crl_times_array->times[i]), &(next_crl_times_array->times[i]), 
                 &trust_anchor, &(verified_array->verified[i]));
     }
    

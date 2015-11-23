@@ -81,6 +81,8 @@ typedef enum result{
     FUTURE_DATA = 74,
     START_DATE_NOT_BEFORE_ISSUE_DATE = 75,
     INCONSISTENT_CA_PERMISSIONS = 76,
+    UNSUPPORTED_SIGNER_TYPE = 77,
+    UNAUTHORIZED_PSID_AND_PRIORITY_IN_WSA = 78,
 }result;
 
 #define be_to_host16(n) be16toh(n)
