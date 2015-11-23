@@ -28,7 +28,6 @@ locate_header_ext(char *wsa, unsigned int *shift, unsigned int length,
     unsigned char *eid_pos;
     unsigned int current_shift = *shift;
     eid element_id;
-    printk(KERN_NOTICE"Wsa_Parse: %s: ", __func__);
    
     INIT(*head_ext);
 
@@ -49,42 +48,34 @@ locate_header_ext(char *wsa, unsigned int *shift, unsigned int length,
             case EID_REP_RATE:
                 head_ext->repeat_rate = eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"repeat rate, ");
                 break;
             case EID_TX_POWER:
                 head_ext->tx_power = (signed char *)eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"tx power, ");
                 break;
             case EID_2D_LOCAT:
                 head_ext->_2d_location = (char *)eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"2D location, ");
                 break;
             case EID_3D_LOCAT:
                 head_ext->_3d_location = (char *)eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"3D location, ");
                 break;
             case EID_ADV_ID:
                 head_ext->advertiser_id = (char *)eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"advertiser id, ");
                 break;
             case EID_CTRY_STR:
                 head_ext->country_string = (char *)eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"country string, ");
                 break;
             default:   
                 //to support self defined ext.
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"\nundefined, ");
                 break;           
         }
     }
 
-	printk(KERN_NOTICE"\n");
     *shift = current_shift;
     return 0;
 }
@@ -92,7 +83,7 @@ locate_header_ext(char *wsa, unsigned int *shift, unsigned int length,
 static int 
 locate_serv_ch_info_wra(char *wsa, unsigned int current_shift, unsigned int length, 
         struct service_info *serv_info, struct channel_info *ch_info, 
-		struct wra *routing_adv, struct rwsa_param *dot2_param)
+		struct wra *routing_adv)
 {
     unsigned char serv_info_index = 255;
     unsigned char channel_info_index = 255;
@@ -101,7 +92,6 @@ locate_serv_ch_info_wra(char *wsa, unsigned int current_shift, unsigned int leng
     unsigned char *eid_pos = NULL;  
     unsigned char *psid_pos = NULL;
     eid element_id;
-    printk(KERN_NOTICE"Wsa_Parse: %s:  ", __func__);
 
     INIT(*routing_adv);
 
@@ -128,34 +118,24 @@ locate_serv_ch_info_wra(char *wsa, unsigned int current_shift, unsigned int leng
             case EID_SERVINFO:
                 serv_info_index ++;
 				if(serv_info_index > 31){
-				    printk(KERN_ERR"\nWsa_Parse: ERROR!-   > 32 service info\n");
 					return -1;
 				}
                 psid_pos = eid_pos + 1;
                 serv_info[serv_info_index].serv = (char *)eid_pos; 
                 current_shift += (calcu_psid_length(psid_pos) + 3);
 
-				// record parameters from 1609.2
-				serv_info[serv_info_index].ssp = 
-					dot2_param->ssp ? dot2_param->ssp[serv_info_index] : NULL;
-				serv_info[serv_info_index].exp_crl_time = 
-					dot2_param->exp_crl_time ? dot2_param->exp_crl_time[serv_info_index] : NULL;
-
 				if(serv_info_index)
 					printk("\n");
-                printk(KERN_NOTICE"service info, ");
                 break;
             case EID_CHANINFO:
                 channel_info_index ++;
 				if(channel_info_index > 6){
-				    printk(KERN_ERR"\nWsa_Parse: ERROR!-   > 7 channel info\n");
 					return -1;
 				}
                 ch_info[channel_info_index].channel = eid_pos;
                 current_shift += 6;
 				if(channel_info_index)
 					printk("\n");
-                printk(KERN_NOTICE"channel info, ");
                 break;
             case EID_WRA:         
                 if(wra_index == 255)
@@ -164,84 +144,70 @@ locate_serv_ch_info_wra(char *wsa, unsigned int current_shift, unsigned int leng
                 current_shift += 52;
 				if(wra_index)
 					printk("\n");
-                printk(KERN_NOTICE"wra located\n");
                 break;
             case EID_PSC:
                 if(serv_info_index != 255)        
                 	//skip this service info extension fields with no preceding service info.
                     serv_info[serv_info_index].psc = (char *)eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"psc, ");
                 break;
             case EID_IPV6ADDR:
                 if(serv_info_index != 255)
                     serv_info[serv_info_index].ipv6_addr = eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"ipv6 address, ");
                 break;
             case EID_SERVPORT:
                 if(serv_info_index != 255)
                     serv_info[serv_info_index].serv_port = (__be16 *)eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"service port, ");
                 break;
             case EID_PROV_MAC:
                 if(serv_info_index != 255)
                     serv_info[serv_info_index].prov_mac_addr = eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"provider mac address, ");
                 break;
             case EID_RCPI_THR:
                 if(serv_info_index != 255)
                     serv_info[serv_info_index].rcpi_thresh = (signed char *)eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"rcpi threshold, ");
                 break;
             case EID_WSAC_THR:
                 if(serv_info_index != 255)
                     serv_info[serv_info_index].wsa_count_thresh = eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"wsa count threshold, ");
                 break;
             case EID_INTV_THR:
                 if(serv_info_index != 255)
                     serv_info[serv_info_index].wsa_count_thresh_interv = eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"wsa count threshold itv, ");
                 break;
             case EID_EDCA_PARAM:
                 if(channel_info_index != 255)
                     ch_info[channel_info_index].edca_set = (char *)eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"edca parameter, ");
                 break;
             case EID_CHAN_ACC:
                 if(channel_info_index != 255)
                     ch_info[channel_info_index].channel_access = eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"channel access, \n");
                 break;
             case EID_SEC_DNS:
                 if(wra_index != 255)
                     routing_adv->second_dns = (char *)eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"secondary dns, ");
                 break;
             case EID_GT_MAC:
                 if(wra_index != 255)
                     routing_adv->gateway_mac_addr = eid_pos;
                 current_shift += (2 + ext_length(eid_pos));
-                printk(KERN_NOTICE"gate way mac address, ");
                 break;
             default:          
                 current_shift += (2 + ext_length(eid_pos)); 
                 //to support self defined element id
-                printk(KERN_NOTICE"\nundefined, ");
                 break;            
             }
     }
 
-	printk(KERN_NOTICE"\n");
     return 0;
 }
 static int extract_service_info(string *wsa, struct dot2_service_info_array *ser_infos){
@@ -268,7 +234,7 @@ static int extract_service_info(string *wsa, struct dot2_service_info_array *ser
         goto end;
     }
 
-    if(!ser_info){
+    if(!ser_infos){
         wave_error_printf("空指针，没有内容可以extract");
         goto end;
     }
@@ -277,9 +243,9 @@ static int extract_service_info(string *wsa, struct dot2_service_info_array *ser
         goto end;
     }
 
-    locate_header_ext(wsa->buf, &current_shift, wsa->len, &header->ext);
+    locate_header_ext(wsa->buf, &current_shift, wsa->len, &header_ext);
     if(locate_serv_ch_info_wra(wsa->buf, current_shift, wsa->len,
-                serv_info, ch_info, &wra, dot2_param)){
+                serv_info, ch_info, &wra)){
         wave_error_printf("解析service info失败");
         goto end;
     }
@@ -877,7 +843,16 @@ fail:
     elliptic_curve_point_free(&point);
     return res;
 }
-
+static inline int certificate_chain_add_cert(struct certificate_chain* certs,certificate* cert){
+    certs->certs = (certificate*)realloc(certs->certs, sizeof(certificate)*certs->len+1);
+    if(certs->certs == NULL){
+        wave_malloc_error();
+        return -1;
+    }
+    certs->len++;
+    certificate_cpy(certs->certs+certs->len-1,cert);
+    return 0;
+}
 result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,struct certificate_chain* certs,
                 bool compressed,time64 overdue_crl_tolerance,
                 
@@ -2474,7 +2449,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
 
 
     //填充signature
-    if(tobesigned_wsa_2_string(&sec_data.u.signed_wsa.unsigned_wsa. &encoded_tbs)){
+    if(tobesigned_wsa_2_string(&sec_data.u.signed_wsa.unsigned_wsa, &encoded_tbs)){
         wave_error_printf("编码失败");
         ret = FAILURE;
         goto fail;
@@ -2611,6 +2586,10 @@ fail:
     string_free(&permission_indices);                                  
     two_d_location_free(&td_location);                                  
     sec_data_free(&sec_data);                                  
+    string_free(&privatekey);
+    string_free(&encoded_tbs);
+    string_free(&hashed_tbs);
+    string_free(&signed_tbs);
     return ret;
 }
 
@@ -2623,8 +2602,8 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
                 time64_with_standard_deviation* generation_time,
                 time64 *expiry_time,
                 three_d_location* location,
-                time32_array *last_crl_time,
-                time32_array *next_crl_time,
+                struct time32_array *last_crl_time,
+                struct time32_array *next_crl_time,
                 certificate* certificate){
     result ret = SUCCESS;
     struct certificate_chain chain;
@@ -2721,26 +2700,26 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
         ret = FAILURE;
         goto end;
     }
-    memcpy(permission_indices.buf, sec_data.u.signed_wsa.unsigned_wsa.permission_indices.buf);
+    memcpy(permission_indices.buf, sec_data.u.signed_wsa.unsigned_wsa.permission_indices.buf, permission_indices.len);
 
     
     for(i = 0; i < len; ++i){
         if(permission_indices.buf[i] == 0)
-            results.result[i] == UNSECURED;
+            results->result[i] == UNSECURED;
         else
-            results.result[i] == UNDEFINED;
+            results->result[i] == UNDEFINED;
     }
 
     //提取出signed_wsa中的certificates.
-    tmp_chain->len = sec_data.u.signed_wsa.signer.u.certificates.len;
-    tmp_chain->certs = malloc(sizeof(certificate)*tmp->len);
-    if(!tmp->chain){
+    tmp_chain.len = sec_data.u.signed_wsa.signer.u.certificates.len;
+    tmp_chain.certs = malloc(sizeof(certificate)*tmp_chain.len);
+    if(!tmp_chain.certs){
         wave_error_printf("分配内存失败");
         ret = FAILURE;
         goto end;
     }
-    for(i = 0; i < tmp_chain->len; i++)
-        if(certificate_cpy(&tmp_chain->certs[i], &sec_data.u.signed_wsa.signer.u.certificates.buf[i])){
+    for(i = 0; i < tmp_chain.len; i++)
+        if(certificate_cpy(&tmp_chain.certs[i], &sec_data.u.signed_wsa.signer.u.certificates.buf[i])){
             wave_error_printf("证书copy失败");
             ret = FAILURE;
             goto end;
@@ -2783,7 +2762,7 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
     }
     for(i = 0; i < permission_indices.len; i++){
         if(permission_indices.buf[i] == 0){
-            result_array->results[i] = UNSECURED;
+            results->result[i] = UNSECURED;
             continue;
         }
         j = permission_indices.buf[i];
@@ -2824,7 +2803,7 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
                             ret = FAILURE;
                             goto end;
                         }
-                        memcpy(ssp_array->ssps[i].buf, cme_permissions.cme_permissions[0].u.psid_priority_array.buf[j-1].service_specific_permissions.buf,
+                        memcpy(ssp_array->ssps[i].buf, cme_permissions.cme_permissions[0].u.psid_priority_ssp_array.buf[j-1].service_specific_permissions.buf,
                                 ssp_array->ssps[i].len);
                     }
                     else{
@@ -2838,9 +2817,12 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
                 ret = FAILURE;
                 goto end;
         }
-
     }
+
+    //verify the certificate chain and signature
+
 end:
+    return ret;
 }
 
 result sec_check_certificate_chain_consistency(
@@ -2994,16 +2976,7 @@ result sec_check_chain_psids_consistency(struct sec_db* sdb,
     }
     return ret;
 }
-static inline void certificate_chain_add_cert(struct certificate_chain* certs,certificate* cert){
-    certs->certs = (certificate*)realloc(sizeof(certificate)*certs->len+1);
-    if(certs->certs == NULL){
-        wave_malloc_error();
-        return -1;
-    }
-    certs->len++;
-    certificate_cpy(certs->certs+certs->len-1,cert);
-    return 0;
-}
+
 result sec_check_chain_psid_priority_consistency(struct sec_db* sdb,
                         struct cme_permissions_array* permission_array){
     result ret = SUCCESS;
