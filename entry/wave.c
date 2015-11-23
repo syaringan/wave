@@ -7,9 +7,9 @@
 static struct sec_db sec_db;
 static void* wme_loop(void* sdb){
     //启动netlink，
-    //阻塞接受数据
     
     while(1){
+    //阻塞接受数据
         sleep(3);
         printf("wme_serc\n");
     }

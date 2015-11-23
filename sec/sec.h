@@ -22,6 +22,11 @@ enum signed_data_signer_type{
     SIGNED_DATA_CERTIFICATE_CHAIN = 2,
 };
 
+typedef struct ssp_array{
+    string *ssps;
+    u8 len;
+}ssp_array;
+
 typedef struct result_array{
     result *result;
     u32 len;
