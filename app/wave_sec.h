@@ -39,10 +39,10 @@ int cme_store_keypair(cmh cmh,int algorithm,
                         char* pri_key,int pri_len);
 
 int cme_store_cert(cmh cmh,certificate* cert,
-                        char* transfor,int len);
+                        char* transfor,int transfor_len);
 
 int cme_store_cert_key(cmh cmh,certificate* cert,
-                        char* pri_key,int* len);  // int 为什么要传指针？？
+                        char* pri_key,int* pri_len);  // int 为什么要传指针？？
 
 /**
  *@set_geneartion_time/set_generation_location/set_expiry_time,:只能为0或1
