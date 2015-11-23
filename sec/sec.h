@@ -203,8 +203,8 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
                 time64_with_standard_deviation* generation_time,
                 time64 *expiry_time,
                 three_d_location* location,
-                time32_array *last_crl_time,
-                time32_array *next_crl_time,
+                struct time32_array *last_crl_time,
+                struct time32_array *next_crl_time,
                 certificate* certificate);
 
 
@@ -293,7 +293,6 @@ struct service_info{
     signed char    *rcpi_thresh;
     unsigned char  *wsa_count_thresh;
     unsigned char  *wsa_count_thresh_interv;
-    char           *ssp;
     u64            *exp_crl_time;
 };
 
@@ -327,19 +326,6 @@ struct wra{
      char *second_dns;
      unsigned char *gateway_mac_addr;
 };
-struct rwsa_param{
-    u8   src_mac[6];
-    s8   rcpi;
-    dot3_wsa_type
-        type;
-    dot2_user_avail_result_code
-        result_code;
-    u64  gen_time;
-    u64  life_time;
-    s8   **ssp;
-    u64  **exp_crl_time;
-};
-
 
 static inline unsigned char
 calcu_psid_length(unsigned char *psid)
@@ -374,7 +360,7 @@ static int locate_header_ext(char *wsa, u32 *shift, unsigned int length,
         struct wsa_header_ext *head_ext);
 
 static int locate_serv_ch_info_wra(char *wsa, u32 current_shift, unsigned int length,
-        struct service_info *serv_info, struct channel_info *ch_info, struct wra *routing_adv, struct rwsa_param *dot2_param);
+        struct service_info *serv_info, struct channel_info *ch_info, struct wra *routing_adv);
 
 static int extract_service_info(string *wsa, 
         struct dot2_service_info_array *ser_infos);

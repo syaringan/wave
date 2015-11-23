@@ -7,8 +7,10 @@
 #define MAX_PERMISSIONS_LENGTH 8
 #define MAX_RECTANGLES_ENTRIES_NUM 12
 #define MAX_POLYGON_VERTICES_ENTRIES_NUM 12
+
 #define IMPLICT 3
 #define EXPLICT 2
+
 void cme_permissions_free(struct cme_permissions* permissions){
     switch(permissions->type){
         case PSID:
@@ -1077,7 +1079,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
         goto fail;
     }
 
-    if(cert_info.next_recieve_crl < time(NULL) || cert_info.expiry / US_TO_S < time(NULL)){
+    if(cert_info.next_recieve_crl < time(NULL) || cert_info.expriry / US_TO_S < time(NULL)){
         ret = CERTIFICATE_NOT_TRUSTED;
         goto fail;
     }
