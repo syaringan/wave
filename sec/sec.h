@@ -1,5 +1,6 @@
 #ifndef SEC_H
 #define SEC_H
+#include <linux/types.h>
 #include"../pssme/pssme_db.h"
 #include"../cme/cme_db.h"
 #include"../cme/cme.h"
@@ -198,12 +199,12 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
                 
                 result_array *result,
                 string* wsa_data,
-                psid_priority_ssp_array* permissions,
+                ssp_array* ssp_array,
                 time64_with_standard_deviation* generation_time,
                 time64 *expiry_time,
                 three_d_location* location,
-                time64 *last_crl_time,
-                time64 *next_crl_time,
+                time32_array *last_crl_time,
+                time32_array *next_crl_time,
                 certificate* certificate);
 
 
@@ -245,4 +246,136 @@ result sec_certificate_response_verification(struct sec_db* sdb,
 result get_current_location(two_d_location *td_location);
 bool two_d_location_in_geographic_region(two_d_location* loc,geographic_region* region);
 u32 distance_with_two_d_location(two_d_location* a,two_d_location* b);
+
+//提取wsa中的serviceinfo
+//
+/* element id in wsa */
+typedef enum{
+    // WSA WAVE Elements
+    EID_RESERVED = 0,
+    EID_SERVINFO,
+    EID_CHANINFO,
+    EID_WRA,
+    //extension WAVE Elements
+    EID_TX_POWER,
+    EID_2D_LOCAT = 5,
+    EID_3D_LOCAT,
+    EID_ADV_ID,
+    EID_PSC,
+    EID_IPV6ADDR,
+    EID_SERVPORT = 10,
+    EID_PROV_MAC,
+    EID_EDCA_PARAM,
+    EID_SEC_DNS,
+    EID_GT_MAC,
+    EID_CHAN_NUM = 15,
+    EID_DATARATE,
+    EID_REP_RATE,
+    EID_CTRY_STR,
+    EID_RCPI_THR,
+    EID_WSAC_THR = 20,
+    EID_CHAN_ACC,
+    EID_INTV_THR = 22,
+    // 23 to 127 reserved
+    // WSMP WAVE Elements
+    EID_WSMP = 128,
+    EID_WSMP_S,
+    EID_WSMP_ID_SUPP = 130,
+    // 131 to 255 reserved
+}eid;
+
+struct service_info{
+    char           *serv;
+    char           *psc;
+    unsigned char  *ipv6_addr;
+    __be16         *serv_port;
+    unsigned char  *prov_mac_addr;
+    signed char    *rcpi_thresh;
+    unsigned char  *wsa_count_thresh;
+    unsigned char  *wsa_count_thresh_interv;
+    char           *ssp;
+    u64            *exp_crl_time;
+};
+
+struct dot2_service_info{
+    psid psid;
+    u8 priority;
+};
+
+struct dot2_service_info_array{
+    struct dot2_service_info *service_infos;
+    u8 len;
+};
+
+struct wsa_header_ext{
+    unsigned char *repeat_rate;
+    signed char   *tx_power;
+    char          *_2d_location;
+    char          *_3d_location;
+    char          *advertiser_id;
+    char          *country_string;
+};
+
+struct channel_info{
+    unsigned char  *channel;
+    char           *edca_set;
+    unsigned char  *channel_access;
+};
+
+struct wra{
+     char *wra;
+     char *second_dns;
+     unsigned char *gateway_mac_addr;
+};
+struct rwsa_param{
+    u8   src_mac[6];
+    s8   rcpi;
+    dot3_wsa_type
+        type;
+    dot2_user_avail_result_code
+        result_code;
+    u64  gen_time;
+    u64  life_time;
+    s8   **ssp;
+    u64  **exp_crl_time;
+};
+
+
+static inline unsigned char
+calcu_psid_length(unsigned char *psid)
+{
+    unsigned int num = 0;
+    unsigned char first = ~(*psid);
+    if(first == 0)
+        return 255;
+
+    while(num < 8){
+        if(first & 0x80)
+            break;
+        first = first << 1;
+        num += 1;
+    }
+
+    return num + 1;
+}
+
+static inline void psid_be_2_le(char *psid, unsigned int len){
+    unsigned int start = 0;
+    unsigned int end = len-1;
+    while(start < end){
+        char tmp = psid[start];
+        psid[start] = psid[end];
+        psid[end] = tmp;
+        start++;
+        end--;
+    }
+}
+static int locate_header_ext(char *wsa, u32 *shift, unsigned int length,
+        struct wsa_header_ext *head_ext);
+
+static int locate_serv_ch_info_wra(char *wsa, u32 current_shift, unsigned int length,
+        struct service_info *serv_info, struct channel_info *ch_info, struct wra *routing_adv, struct rwsa_param *dot2_param);
+
+static int extract_service_info(string *wsa, 
+        struct dot2_service_info_array *ser_infos);
 #endif 
