@@ -257,10 +257,7 @@ typedef struct geographic_region{
  * 8 free buf_to  13
  */
 
-typedef struct ssp_array{
-    string *ssps;
-    u8 len;
-}ssp_array;
+
 
 typedef struct psid_priority{
     psid psid;

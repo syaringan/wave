@@ -265,16 +265,7 @@ static int extract_service_info(string *wsa, struct dot2_service_info_array *ser
         tmp = serv_info[i].serv;
         tmp++;
         psid_len = calcu_psid_length(tmp);
-        char *le_psid = malloc(sizeof(char)*psid_len);
-        if(!le_psid){
-            wave_error_printf("分配内存失败");
-            goto end;
-        }
-        memcpy(le_psid, tmp, psid_len);
-        psid_be_2_le(le_psid, psid_len);
-        memcpy(&ser_infos->service_infos[i].psid, le_psid, psid_len);
-        free(le_psid);
-        tmp += psid_len;
+        ser_infos->service_infos[i].psid = psidn2h(tmp, psid_len);
 
         memcpy(&ser_infos->service_infos[i].priority, tmp, 1);
     }

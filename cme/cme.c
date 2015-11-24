@@ -392,7 +392,11 @@ static result get_crl_time_by_certificate(struct sec_db* sdb,certificate* cert,t
                 if( hashedid8_equal(&crl_ca_temp->ca_id ,&ca_id)){
                     serial_head = &crl_ca_temp->crl_info_list.list;
                     if(serial_head->prev == serial_head){
-                        return FAILURE; 
+                        if(last_crl_time != NULL)
+                            *last_crl_time = 0;
+                        if(next_crl_time != NULL)
+                            *next_crl_time = 0;
+                        return SUCCESS; 
                     }
                     crl_serial_temp = list_entry(serial_head->prev,struct crl_serial_number,list);
                     if(last_crl_time != NULL)
@@ -404,7 +408,11 @@ static result get_crl_time_by_certificate(struct sec_db* sdb,certificate* cert,t
             }
         }
     }
-    return FAILURE;
+    if(last_crl_time != NULL)
+        *last_crl_time = 0;
+    if(next_crl_time != NULL)
+        *next_crl_time = 0;
+    return SUCCESS; 
 }
 static void del_certificate_by_certid10(struct sec_db* sdb,certid10* certid){
     struct cme_db *cdb;
@@ -927,6 +935,8 @@ result cme_certificate_info_request(struct sec_db* sdb,
     bool trusted;
     struct certificate cert_decoded;
     struct cert_info cert_info;
+    time32 m_next_crl_time;
+    time32 m_last_crl_time;
     string signer_id;
 
     INIT(signer_id);
@@ -954,7 +964,12 @@ result cme_certificate_info_request(struct sec_db* sdb,
         goto fail;
     }
 
-    if(cert_info.next_recieve_crl < time(NULL) || cert_info.expriry / US_TO_S < time(NULL)){
+    if(get_crl_time_by_certificate(sdb, cert_info.cert, &m_last_crl_time, &m_next_crl_time)){
+        wave_error_printf("获取crl失败");
+        ret = FAILURE;
+        goto fail;
+    }
+    if(m_next_crl_time < time(NULL) || cert_info.expriry / US_TO_S < time(NULL)){
         ret = CERTIFICATE_NOT_TRUSTED;
         goto fail;
     }
@@ -969,12 +984,11 @@ result cme_certificate_info_request(struct sec_db* sdb,
             goto fail;
         }
     }
-    get_crl_time_by_certificate(sdb,&cert_info.certid,last_crl_time,next_crl_time);
     if(last_crl_time != NULL){
-        *last_crl_time = cert_info.last_recieve_crl;
+        *last_crl_time = m_last_crl_time;
     }
     if(next_crl_time != NULL){
-        *next_crl_time = cert_info.next_recieve_crl;
+        *next_crl_time = m_next_crl_time;
     }
 
     if(get_permission_from_certificate(cert_info.cert, permissions, scope)){

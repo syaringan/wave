@@ -22,6 +22,11 @@ enum signed_data_signer_type{
     SIGNED_DATA_CERTIFICATE_CHAIN = 2,
 };
 
+typedef struct ssp_array{
+    string *ssps;
+    u8 len;
+}ssp_array;
+
 typedef struct result_array{
     result *result;
     u32 len;
@@ -248,42 +253,6 @@ bool two_d_location_in_geographic_region(two_d_location* loc,geographic_region* 
 u32 distance_with_two_d_location(two_d_location* a,two_d_location* b);
 
 //提取wsa中的serviceinfo
-//
-/* element id in wsa */
-typedef enum{
-    // WSA WAVE Elements
-    EID_RESERVED = 0,
-    EID_SERVINFO,
-    EID_CHANINFO,
-    EID_WRA,
-    //extension WAVE Elements
-    EID_TX_POWER,
-    EID_2D_LOCAT = 5,
-    EID_3D_LOCAT,
-    EID_ADV_ID,
-    EID_PSC,
-    EID_IPV6ADDR,
-    EID_SERVPORT = 10,
-    EID_PROV_MAC,
-    EID_EDCA_PARAM,
-    EID_SEC_DNS,
-    EID_GT_MAC,
-    EID_CHAN_NUM = 15,
-    EID_DATARATE,
-    EID_REP_RATE,
-    EID_CTRY_STR,
-    EID_RCPI_THR,
-    EID_WSAC_THR = 20,
-    EID_CHAN_ACC,
-    EID_INTV_THR = 22,
-    // 23 to 127 reserved
-    // WSMP WAVE Elements
-    EID_WSMP = 128,
-    EID_WSMP_S,
-    EID_WSMP_ID_SUPP = 130,
-    // 131 to 255 reserved
-}eid;
-
 struct service_info{
     char           *serv;
     char           *psc;
@@ -326,7 +295,40 @@ struct wra{
      char *second_dns;
      unsigned char *gateway_mac_addr;
 };
-
+/* element id in wsa */
+typedef enum{
+    // WSA WAVE Elements
+    EID_RESERVED = 0,
+    EID_SERVINFO,
+    EID_CHANINFO,
+    EID_WRA,
+    //extension WAVE Elements
+    EID_TX_POWER,
+    EID_2D_LOCAT = 5,
+    EID_3D_LOCAT,
+    EID_ADV_ID,
+    EID_PSC,
+    EID_IPV6ADDR,
+    EID_SERVPORT = 10,
+    EID_PROV_MAC,
+    EID_EDCA_PARAM,
+    EID_SEC_DNS,
+    EID_GT_MAC,
+    EID_CHAN_NUM = 15,
+    EID_DATARATE,
+    EID_REP_RATE,
+    EID_CTRY_STR,
+    EID_RCPI_THR,
+    EID_WSAC_THR = 20,
+    EID_CHAN_ACC,
+    EID_INTV_THR = 22,
+    // 23 to 127 reserved
+    // WSMP WAVE Elements
+    EID_WSMP = 128,
+    EID_WSMP_S,
+    EID_WSMP_ID_SUPP = 130,
+    // 131 to 255 reserved
+}eid;
 static inline unsigned char
 calcu_psid_length(unsigned char *psid)
 {
@@ -345,16 +347,14 @@ calcu_psid_length(unsigned char *psid)
     return num + 1;
 }
 
-static inline void psid_be_2_le(char *psid, unsigned int len){
-    unsigned int start = 0;
-    unsigned int end = len-1;
-    while(start < end){
-        char tmp = psid[start];
-        psid[start] = psid[end];
-        psid[end] = tmp;
-        start++;
-        end--;
+static inline u32 psidn2h(char *psid, unsigned int len){
+    int i = 0;
+    u32 num = 0;
+    for(i = 0; i < len; i++){
+        num += (*psid)*256;
+        psid++;
     }
+    return num;
 }
 static int locate_header_ext(char *wsa, u32 *shift, unsigned int length,
         struct wsa_header_ext *head_ext);
