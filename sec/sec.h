@@ -347,16 +347,14 @@ calcu_psid_length(unsigned char *psid)
     return num + 1;
 }
 
-static inline void psid_be_2_le(char *psid, unsigned int len){
-    unsigned int start = 0;
-    unsigned int end = len-1;
-    while(start < end){
-        char tmp = psid[start];
-        psid[start] = psid[end];
-        psid[end] = tmp;
-        start++;
-        end--;
+static inline u32 psidn2h(char *psid, unsigned int len){
+    int i = 0;
+    u32 num = 0;
+    for(i = 0; i < len; i++){
+        num += (*psid)*256;
+        psid++;
     }
+    return num;
 }
 static int locate_header_ext(char *wsa, u32 *shift, unsigned int length,
         struct wsa_header_ext *head_ext);
