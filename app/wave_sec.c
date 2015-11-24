@@ -73,6 +73,10 @@ fail:
 int cme_lsis_request(cme_lsis* lsis){
 	int len = sizeof(*lsis);
 	int fd = getsocket();
+    if(write(fd,&CME_LSIS_REQUEST,sizeof(app_tag)) != sizeof(app_tag)){
+        PRINTF("写入失败");
+        return -1;
+    }
 	if(write(fd,lsis,len) != len){
 		PRINTF("写入失败");
 		return -1;
@@ -80,7 +84,7 @@ int cme_lsis_request(cme_lsis* lsis){
 	return 0;
 }
 
-int cme__cmh_request(cmh* cmh){
+int cme_cmh_request(cmh* cmh){
 	int len = sizeof(*cmh);
 	int fd = getsocket();
 	if(write(fd,cmh,len) != len){
@@ -101,7 +105,7 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 		return -1;
 	}
 
-	int len = 4*2 + sizeof(cmh);
+	int len = 4+sizeof(int) + sizeof(cmh);
 	char* buf = (char*)malloc(len);
 	if(buf == NULL){
 		PRINTF("内存分配失败");
@@ -136,22 +140,26 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 	}
 	buf_beg = buf;
 
-	while(slen != 4){
+	while(slen != 4){i
+        //错误检查??????
 		slen += read(fd,buf+slen,4-slen);//返回读取了多少字节，若不够则需要继续读取
 	}
 	len = *((int*)buf);
-	if(len > 1020)
+	if(len > 1020)i
+        //？？？？？？？？？？？？？？？？？？
 		realloc(buf,len + 4);
 	slen = 0;
 	buf += 4;
 
 	while(slen != len){  //会不会出现 slen > len 的情况？
+        //??????????????
 		slen += read(fd,buf+slen,len-slen);
 	}
-
-	*x_len = *((int*)buf);
+    if(x_len != NULL){
+	    *x_len = *((int*)buf);
+    }
 	buf += 4;
-
+//???????????????????
 	memcpy(pub_key_x,buf,*x_len);
 	buf += *x_len;
 
@@ -352,7 +360,7 @@ int cme_store_cert_key(cmh cmh,certificate* cert,
 }
 
 /**
- *@set_geneartion_time/set_generation_location/set_expiry_time,:只能为0或1
+ *@set_geneartion_time/set_generation_location/set_expiry_time/compressed:只能为0或1
  *@elevation:这个我们默认只有两字节，我们自动往后读两字节，
  *@*type:各种type的画，请核实下相关结构题里面的值，只能取这些值。
  */
@@ -363,16 +371,17 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 					int set_expiry_time,time64 expiry_time,int signer_type,int cert_chain_len,
 					unsigned int cert_chain_max_len,int fs_type,int compressed,
 					
-					char* signed_data,int* signed_data_len,int *len_of_cert_chain)
-{
+					char* signed_data,int* signed_data_len,int *len_of_cert_chain){
+    //????????????????
 	if((set_geneartion_time != 0 && set_geneartion_time !=1) ||
 		(set_generation_location != 0 && set_generation_location != 1) ||
-		(set_expiry_time != 0 && set_expiry_time != 1))
+		(set_expiry_time != 0 && set_expiry_time != 1) ||
+        (type <0 || type >12) )
 	{
 		PRINTF("参数错误");
 		return -1;
 	}
-
+    //??????????????????
 	int len = 83 + sizeof(cmh) + data_len + exter_len + ssp_len;
 	char* buf = (char*)malloc(len);
 	if(buf == NULL){
@@ -474,6 +483,7 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 	}
 	len = *((int*)buf);
 	if(len > 1020)
+    //??????????????
 		realloc(buf,len + 4);
 	slen = 0;
 	buf += 4;
