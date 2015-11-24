@@ -98,6 +98,11 @@ struct cme_db{
     struct cmh_db cmhs;
     lock lock;
 };
+static void inline cme_alloced_lsis_free(struct cme_alloced_lsis* alloced_lsis){
+    if(alloced_lsis == NULL)
+        return;
+    string_free(&alloced_lsis->data);
+}
 static void inline cmh_keypaired_free(struct cmh_keypaired* cmh_keys){
     if(cmh_keys == NULL)
         return ;
@@ -119,4 +124,18 @@ static void inline cert_info_free(struct cert_info* certinfo){
         certinfo->cert = NULL;
     }
 }
+int cme_db_2_file(struct cme_db *cdb,char *name);
+int file_2_cme_db(struct cme_db *cdb,char *name);
+int cme_db_init(struct cme_db *cdb);
+void cme_lsis_insert(struct cme_db* cdb,struct cme_alloced_lsis* lsis);
+void cme_cmh_init_insert(struct cme_db* cdb,struct cmh_chain* cmh);
+void cert_info_init_rb(struct cert_info* certinfo);
+struct cert_info* cert_info_insert(struct cert_info* root,struct cert_info* node);
+struct cert_info* cert_info_find(struct cert_info* root,void* value);
+struct cert_info* cert_info_delete(struct cert_info* root,struct cert_info* node);
+void ckc_init(struct cmh_key_cert* ckc);
+struct cmh_key_cert* ckc_insert(struct cmh_key_cert* root,struct cmh_key_cert* node);
+struct cmh_key_cert* ckc_find(struct cmh_key_cert* root,void* value);
+struct cmh_key_cert* ckc_delete(struct cmh_key_cert* root,struct cmh_key_cert* node);
+void cme_db_free(struct cme_db* cdb);
 #endif

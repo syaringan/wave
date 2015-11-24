@@ -81,131 +81,6 @@ void geographic_region_array_free(struct geographic_region_array* regions){
 }
 
 
-/**
- * alloced_lsis链表按照递增的顺序维护
- */
-static void inline cme_lsis_insert(struct cme_db* cmdb,struct cme_alloced_lsis* lsis){
-    struct list_head *head;
-    struct cme_alloced_lsis *node;
-    lock_wrlock(&cmdb->lock);
-    head = &cmdb->cmhs.alloc_cmhs.cmh_init.list;
-    list_for_each_entry(node,head,list){
-        if(lsis->lsis < node->lsis){
-            break;
-        }     
-    }
-    list_add_tail(&lsis->list,&node->list);
-    lock_unlock(&cmdb->lock);
-}
-/**
- * cmh_init链表按照递增的顺序维护
- */
-static void inline cmh_init_insert(struct cme_db* cmdb,struct cmh_chain* cmh){
-    struct list_head *head;
-    struct cmh_chain *node;
-    lock_wrlock(&cmdb->lock);
-    head = &cmdb->cmhs.alloc_cmhs.cmh_init.list;
-    list_for_each_entry(node,head,list){
-        if(cmh->cmh < node->cmh){
-            break;
-        }     
-    }
-    list_add_tail(&cmh->list,&node->list);
-    lock_unlock(&cmdb->lock);
-}
-/**************cert_info 红黑书函数操作开始************/
-
-int cert_info_compare(struct rb_head* a,struct rb_head* b){
-    struct cert_info *certinfoa,*certinfob;
-    certinfoa = rb_entry(a,struct cert_info,rb);
-    certinfob = rb_entry(b,struct cert_info,rb);
-    return certid10_cmp(&certinfoa->certid10,&certinfob->certid10);
-}
-int cert_info_equal(struct rb_head* a,void* value){
-    struct certid10* certid;
-    struct cert_info *certinfoa;
-    certid = (struct certid10*)value;
-    certinfoa = rb_entry(a,struct cert_info,rb);
-    return certid10_cmp(&certinfoa->certid10,certid);
-}
-void cert_info_init_rb(struct cert_info* certinfo){
-    rb_init(&certinfo->rb,cert_info_compare,cert_info_equal);
-}
-static struct cert_info*  cert_info_insert(struct cert_info* root,struct cert_info* node){
-    struct rb_head *rb;
-    if( root != NULL)
-        rb = rb_insert(&root->rb,&node->rb);
-    else
-        rb = rb_insert(NULL,&node->rb);
-    return rb_entry(rb,struct cert_info,rb);
-}
-static struct cert_info* cert_info_find(struct cert_info* root,void* value){
-    struct rb_head* rb;
-    if(root == NULL)
-        return NULL;
-    rb = rb_find(&root->rb,value);
-    if(rb == NULL)
-        return NULL;
-    return rb_entry(rb,struct cert_info,rb);   
-}
-static struct cert_info* cert_info_delete(struct cert_info* root,struct cert_info* node){
-    struct rb_head* rb;
-    if(root == NULL)
-        return NULL;
-    rb = rb_delete(&root->rb,&node->rb);
-    return rb_entry(rb,struct cert_info,rb);
-}
-/**************cert_info 红黑书函数操作结束*************/
-/************cmh_key_cert 红黑书函数操作开始*********/
-int compare(struct rb_head *a,struct rb_head *b){
-    struct cmh_key_cert *ckca,*ckcb;
-    ckca = rb_entry(a,struct cmh_key_cert,rb);
-    ckcb = rb_entry(b,struct cmh_key_cert,rb);
-    if(ckca->cmh < ckcb->cmh)
-        return -1;
-    if(ckca->cmh == ckcb->cmh);
-        return 0;
-    return 1;
-}
-int equal(struct rb_head *a,void* value){
-    struct cmh_key_cert *ckca;
-    cmh mvalue = *(cmh*)value;
-    ckca =  rb_entry(a,struct cmh_key_cert,rb);
-    if(ckca->cmh < mvalue)
-        return -1;
-    if(ckca->cmh == mvalue)
-        return 0;
-    return 1;
-}
-void ckc_init_rb(struct cmh_key_cert* ckc){
-    rb_init(&ckc->rb,compare,equal);
-}
-static inline struct cmh_key_cert*  ckc_insert(struct cmh_key_cert* root,struct cmh_key_cert* node){
-    struct rb_head *rb;
-    if( root != NULL)
-        rb = rb_insert(&root->rb,&node->rb);
-    else
-        rb = rb_insert(NULL,&node->rb);
-    return rb_entry(rb,struct cmh_key_cert,rb);
-}
-static inline struct cmh_key_cert*  ckc_find(struct cmh_key_cert* root,void* value){
-    struct rb_head* rb;
-    if(root == NULL)
-        return NULL;
-    rb = rb_find(&root->rb,value);
-    if(rb == NULL)
-        return NULL;
-    return rb_entry(rb,struct cmh_key_cert,rb);
-}
-static inline struct cmh_key_cert*  ckc_delete(struct cmh_key_cert* root,struct cmh_key_cert* node){
-    struct rb_head* rb;
-    if(root == NULL)
-        return NULL;
-    rb = rb_delete(&root->rb,&node->rb);
-    return rb_entry(rb,struct cmh_key_cert,rb);
-}
-/***************cmh_key_cert 红黑树操作函数结束**************/
-
 /*
  * 通过cmh找到对应的证书,成功返回0，失败返回-1,未测
  * */
@@ -292,7 +167,7 @@ result cme_cmh_request(struct sec_db* sdb,cmh* cmh){
     }
     node = list_entry(head->next,struct cmh_chain,list);
     list_del(&node->list);
-    cmh_init_insert(cdb,node);
+    cme_cmh_init_insert(cdb,node);
     lock_unlock(&cdb->lock);
     *cmh = node->cmh;
     wave_printf(MSG_DEBUG,"分配的cmh：%d\n",*cmh);
