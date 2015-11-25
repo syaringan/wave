@@ -2632,22 +2632,22 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
         ret = FAILURE;
         goto end;
     }
+    results->len = len;
+    if(results->result != NULL){
+        wave_error_printf("result array中的buf不为空，存在野指针");
+        ret = FAILURE;
+        goto end;
+    }
+    results->result = malloc(sizeof(result)*len);
+    if(!results->result){
+        wave_error_printf("内存分配失败");
+        ret = FAILURE;
+        goto end;
+    }
     if(sec_data.protocol_version != 2 || sec_data.type != SIGNED_WSA || sec_data.u.signed_wsa.signer.type != CERTIFICATE_CHAIN
                 || sec_data.u.signed_wsa.unsigned_wsa.generation_time.time > sec_data.u.signed_wsa.unsigned_wsa.expire_time){
-        results->len = len;
-        if(results->result != NULL){
-            wave_error_printf("result array中的buf不为空，存在野指针");
-            ret = FAILURE;
-            goto end;
-        }
-        results->result = malloc(sizeof(result)*len);
-        if(!results->result){
-            wave_error_printf("内存分配失败");
-            ret = FAILURE;
-            goto end;
-        }
-        for(i = 0; i < len; i++)
-            results->result[i] = INVALID_INPUT;
+        ret = INVALID_INPUT;
+        goto end;
     }
 
     //这个wsa_data是不是这个值，后面再讨论以下
@@ -2812,6 +2812,10 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
     //verify the certificate chain and signature
 
 end:
+    for(i = 0; i < len; i++){
+        if(results->result[i] != UNSECURED)
+            results->result[i] = ret;
+    }
     return ret;
 }
 
