@@ -2,7 +2,7 @@
 #include<pthread.h>
 #include<stdio.h>
 #include<stdlib.h>
-#include"netlink.h"
+#include"../utils/netlink.h"
 #include "../sec/sec.h"
 #define SERVICE "/var/tmp/wave_sec.socket"
 #define INIT(m) memset(&m, 0, sizeof(m));
@@ -22,7 +22,7 @@ static void* wme_loop(void* sdb){
      * 签名请求需要用到的参数
      * */
     struct wme_tobe_signed_wsa s_head;//接收到的需要签名报文头部
-    struct signed_wsa s_wsa;
+    struct dot3_signed_wsa s_wsa;
     int permission_len = 0;//permission部分报文的长度
     struct permission per;
     string unsigned_wsa;//接收到的wsa数据部分
@@ -53,11 +53,8 @@ static void* wme_loop(void* sdb){
         return;
     }
     while(1){
-        memset((char*)NLMSG_DATA(nlh, 0, MAX_PAYLOAD));
+        memset((char*)NLMSG_DATA(&nlh), 0, MAX_PAYLOAD);
         memset(rbuf, 0, MAX_PAYLOAD);
-        INIT(permissions);
-        INIT(unsigned_wsa);
-        INIT(signed_wsa);
 
         ret = recvmsg(fd, &msg, 0);
         if(ret < 0){
@@ -71,9 +68,15 @@ static void* wme_loop(void* sdb){
         char *shift = rbuf;
         //0为签名
         if(*shift = 0){
+            INIT(permissions);
+            INIT(unsigned_wsa);
+            INIT(signed_wsa);
+            INIT(s_head);
+            INIT(s_wsa);
+
             memcpy(&s_head, shift, RECV_S_HEAD_LEN);
             life_time = s_head.lifetime;
-            shift += RECV_HEAD_LEN;
+            shift += RECV_S_HEAD_LEN;
 
             unsigned_wsa.len = s_head.wsa_len;
             unsigned_wsa.buf = malloc(unsigned_wsa.len);
@@ -84,7 +87,7 @@ static void* wme_loop(void* sdb){
             memcpy(unsigned_wsa.buf, shift, unsigned_wsa.len);
             shift += unsigned_wsa.len;
 
-            permission_len = recv_data_len - RECV_HEAD_LEN - unsigned_wsa.len;
+            permission_len = recv_data_len - RECV_S_HEAD_LEN - unsigned_wsa.len;
 
             permissions.len = 0;
             permissions.serviceinfos = malloc(sizeof(serviceinfo)*32);//分配32个为最大的长度
@@ -124,7 +127,7 @@ static void* wme_loop(void* sdb){
                 permission_len = permission_len - per.psid_len - per.ssp_len - per.pssi_len - 4;
             }
             ret = sec_signed_wsa(&sec_db, &unsigned_wsa, &permissions, life_time, &signed_wsa);
-            memset((char*)NLMSG_DATA(nlh, 0, MAX_PAYLOAD));
+            memset((char*)NLMSG_DATA(&nlh), 0, MAX_PAYLOAD);
             memset(sbuf, 0, MAX_PAYLOAD);
             if(ret == SUCCESS){
                 s_wsa.wsa_len = signed_wsa.len;
@@ -176,19 +179,26 @@ static void* wme_loop(void* sdb){
             }
             memcpy(unverified_wsa.buf, shift, v_head.wsa_len);
 
-            memset((char*)NLMSG_DATA(nlh, 0, MAX_PAYLOAD));
+            memset((char*)NLMSG_DATA(&nlh), 0, MAX_PAYLOAD);
             memset(sbuf, 0, MAX_PAYLOAD);
-            ret = sec_signed_data_verification(&sec_db, &unverified_wsa, &results, &ssp_array, &generation_time,
+            ret = sec_signed_wsa_verification(&sec_db, &unverified_wsa, &results, &wsa_data, &ssp_array, &generation_time,
                     &expiry_time, &location, &last_crl_time, &next_crl_time, &cert);
             if(ret == SUCCESS){
                 v_wsa.pid = getpid();
                 memcpy(v_wsa.src_mac, v_head.src_mac, 6);
                 v_wsa.rcpi = v_head.rcpi;
-                v_wsa.result_code = DOT2_SUCCESS;
+                v_wsa.result_code[0] = DOT2_SUCCESS;
+                v_wsa.result_code[1] = DOT2_SUCCESS;
+                for(i = 0; i < results.len; i++){
+                    if(results.result[i] == UNSECURED){
+                        v_wsa.result_code[1] = DOT2_UNSECURED;
+                        break;
+                    }
+                }
                 v_wsa.wsa_len = wsa_data.len; 
                 v_wsa.gen_time = generation_time.time;
                 v_wsa.expire_time = expiry_time;
-                v_wsa_.ssp_len = 0;
+                v_wsa.ssp_len = 0;
                 v_wsa.next_crl_time_len = next_crl_time.len*sizeof(time32);
 
                 memcpy(sbuf, &v_wsa, sizeof(struct verified_wsa));
@@ -211,7 +221,43 @@ static void* wme_loop(void* sdb){
                 memcpy(ssp_shift, next_crl_time.times, sizeof(time32)*next_crl_time.len);
                 memcpy(NLMSG_DATA(&nlh), sbuf, sizeof(struct verified_wsa)+v_wsa.wsa_len+v_wsa.ssp_len+v_wsa.next_crl_time_len);
             }
-            else if(ret == )
+            else if(ret == INVALID_INPUT){
+                v_wsa.pid = getpid();
+                memcpy(v_wsa.src_mac, v_head.src_mac, 6);
+                v_wsa.rcpi = v_head.rcpi;
+                v_wsa.result_code[0] = DOT2_INVALID_INPUT;
+                v_wsa.result_code[1] = DOT2_INVALID_INPUT;
+                v_wsa.wsa_len = 0; 
+                v_wsa.gen_time = 0;
+                v_wsa.expire_time = 0;
+                v_wsa.ssp_len = 0;
+                v_wsa.next_crl_time_len = 0;
+
+                memcpy(sbuf, &v_wsa, sizeof(struct verified_wsa));
+                memcpy(NLMSG_DATA(&nlh), sbuf, sizeof(struct verified_wsa));
+            }
+            else{
+                v_wsa.pid = getpid();
+                memcpy(v_wsa.src_mac, v_head.src_mac, 6);
+                v_wsa.rcpi = v_head.rcpi;
+                v_wsa.result_code[0] = DOT2_OTHER_FALURE;
+                v_wsa.result_code[1] = DOT2_OTHER_FALURE;
+                for(i = 0; i < results.len; i++){
+                    if(results.result[i] == UNSECURED){
+                        v_wsa.result_code[1] = DOT2_UNSECURED;
+                        break;
+                    }
+                }
+                v_wsa.wsa_len = wsa_data.len; 
+                v_wsa.gen_time = generation_time.time;
+                v_wsa.expire_time = expiry_time;
+                v_wsa.ssp_len = 0;
+                v_wsa.next_crl_time_len = next_crl_time.len*sizeof(time32);
+
+                memcpy(sbuf, &v_wsa, sizeof(struct verified_wsa));
+                memcpy(sbuf+sizeof(struct verified_wsa), wsa_data.buf, wsa_data.len);
+                memcpy(NLMSG_DATA(&nlh), sbuf, sizeof(struct verified_wsa)+v_wsa.wsa_len);
+            }
             if(sendmsg(fd, &msg, 0) < 0){
                 wave_error_printf("发送消息给内核失败了");
                 goto destructor;
@@ -223,6 +269,13 @@ destructor:
         string_free(&unsigned_wsa);
         string_free(&signed_wsa);
         serviceinfo_array_free(&permissions);
+        string_free(&unverified_wsa);
+        string_free(&wsa_data);
+        ssp_array_free(&ssp_array);
+        result_array_free(&results);
+        time32_array_free(&last_crl_time);
+        time32_array_free(&next_crl_time);
+        certificate_free(&cert);
     }
 }
 static int app_do_request(void *ptr){
