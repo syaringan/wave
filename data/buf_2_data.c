@@ -14,8 +14,8 @@
 #   其中buf为将要被填充的字节流，len为字节流buf大小，struct为将要填充的结构体
 #	函数返回值 0， 填充失败； 大于0， 填充了多少字节
 =============================================================================*/
-#include"data.h"
-#include"../utils/debug.h"
+#include"data_handle.h"
+#include"utils/debug.h"
 #include<stdlib.h>
 #include<stddef.h>
 

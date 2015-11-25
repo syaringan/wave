@@ -6,7 +6,6 @@
 #include "../utils/rb.h"
 #include "../utils/string.h"
 #include "../utils/lock.h"
-#include <stdio.h>
 typedef u32 cme_lsis;//从1开始发送，不准放0
 typedef u32 cmh;//cmh从1开始发放，不准放0
 struct cmh_keypaired{

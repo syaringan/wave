@@ -1,6 +1,8 @@
 #include "debug.h"
 #include <stdarg.h>
 #include <stdio.h>
+
+#ifdef DEBUG
 int wave_debug_level = MSG_DEBUG;
 void wave_printf(int level,const char *fmt,...){
     va_list ap;
@@ -29,4 +31,4 @@ void wave_error_printf(const char* fmt,...){
         printf("  %s %d\n",__FILE__,__LINE__);
     }
 }
-
+#endif

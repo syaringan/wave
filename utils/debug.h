@@ -20,6 +20,6 @@ static inline void wave_malloc_error(){
 #else
 #define wave_printf(args...) do{}while(0)
 #define wave_error_printf(args...) do{}while(0)
-
+#define wave_malloc_error() do{}while(0);
 #endif 
 #endif

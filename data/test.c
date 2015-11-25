@@ -6,11 +6,7 @@
 
 #include<stdio.h>
 #include<stdlib.h>
-#include"data.h"
-#include"data_2_buf.h"
-#include"buf_2_data.h"
-#include"data_free.h"
-
+#include"data_handle.h"
 int main(){
 	const u32 size = 265;
 	unsigned char data_result[size];
@@ -71,7 +67,7 @@ int main(){
 	sec_data_2_buf(&a,(u8*)data_result,size);
 
 	sec_data_free(&a);
-/*
+
 	for(i=0;i<size;i++){
 		printf("NO.%4d  |  %16x%16x        ",i+1,data_result[i],bufdata[i]);
 		if(data_result[i] != bufdata[i])
@@ -79,6 +75,6 @@ int main(){
 		else
 			printf("      OK\n");
 	}
-*/
+
 	return 0;
 }

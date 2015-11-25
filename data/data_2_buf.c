@@ -16,8 +16,9 @@
 #
 =============================================================================*/
 #include"data_handle.h"
+#include"utils/debug.h"
 #include"stddef.h"
-#include"../utils/common.h"
+#include"utils/common.h"
 
 #define getchar1(n) *((char*)&n)	//取n的基地址开始的两字节，下面依次类推
 #define getchar2(n) *((char*)&n + 1)
@@ -3297,7 +3298,7 @@ static u32 signed_wsa_2_buf(const signed_wsa *signed_wsa,u8* buf,u32 len){
  *   data_2  50
  */
 
-u32 sec_data_2_buf(const sec_data *sec_data,u8* buf,u32 len){
+u32 sec_data_2_buf(sec_data *sec_data,u8* buf,u32 len){
     u8* mbuf = buf;
     u32 size = len;
     u32 res = 0;

@@ -1,5 +1,4 @@
 #include"cme_db.h"
-#include"../utils/list.h"
 #include<stdio.h>
 #define CMH_MAX_NUM 1024
 #define LSIS_MAX_NUM 1024

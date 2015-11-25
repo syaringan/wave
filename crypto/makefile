@@ -4,7 +4,7 @@ edit: crypto.o crypto_interface.o
 crypto.o : crypto.c
 	gcc -c crypto.c
 
-crypto_interface.0 : crypto_interface.cpp crypto_interface.h
+crypto_interface.o : crypto_interface.cpp crypto_interface.h
 	gcc -c crypto_interface.cpp -lstdc++
 
 clean :

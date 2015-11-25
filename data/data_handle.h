@@ -1,9 +1,9 @@
 #ifndef DATA_HANDLE_H
 #define DATA_HANDLE_H
 #include "data.h"
-#include "../utils/string.h"
+#include "utils/string.h"
 //定义三种返回的状态.
-u32 NOT_ENOUGHT = -2;
+#define NOT_ENOUGHT  -2
 /**
  * 将sec_data编码成字节流，放到buf里面去。
  * @sec_data : 需要编码的数据结构体。
@@ -13,7 +13,7 @@ u32 NOT_ENOUGHT = -2;
  *          其他错误,返回FAILURE；
  */
 
-u32 sec_data_2_buf(const sec_data* sec_data, u8* buf, u32 len);
+u32 sec_data_2_buf(sec_data* sec_data, u8* buf, u32 len);
 
 /**
  * 将buf里面的字节流，转化成一个sec_data结构体,对于这个结构体指针，这个
@@ -23,13 +23,13 @@ u32 sec_data_2_buf(const sec_data* sec_data, u8* buf, u32 len);
  * @sec:需要填充的数据结构，我们可以认为这个指针的内存已经分配好了。
  * return:返回成功或失败。
  */
-u32 buf_2_sec_data(const u8* buf,u32 len, sec_data* sec);
+u32 buf_2_sec_data(u8* buf,u32 len, sec_data* sec);
 
 /**
  *释放该数据结构内部的指针
  */
 void sec_data_free(sec_data* sec_data);
-void signed_data_free(signed_data* signed_data);
+void signed_data_free(signed_data* signed_data,content_type type);
 void crl_free(crl* crl);
 void certificate_request_free(certificate_request* cert_request);
 void encrypted_data_free(encrypted_data* data);
