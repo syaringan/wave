@@ -1,11 +1,11 @@
 #ifndef CME_DB_H
 #define CME_DB_H
 
-#include "../data/data.h"
-#include "../utils/list.h"
-#include "../utils/rb.h"
-#include "../utils/string.h"
-#include "../utils/lock.h"
+#include "data/data.h"
+#include "utils/list.h"
+#include "utils/rb.h"
+#include "utils/string.h"
+#include "utils/lock.h"
 typedef u32 cme_lsis;//从1开始发送，不准放0
 typedef u32 cmh;//cmh从1开始发放，不准放0
 struct cmh_keypaired{
@@ -97,32 +97,10 @@ struct cme_db{
     struct cmh_db cmhs;
     lock lock;
 };
-static void inline cme_alloced_lsis_free(struct cme_alloced_lsis* alloced_lsis){
-    if(alloced_lsis == NULL)
-        return;
-    string_free(&alloced_lsis->data);
-}
-static void inline cmh_keypaired_free(struct cmh_keypaired* cmh_keys){
-    if(cmh_keys == NULL)
-        return ;
-    string_free(&cmh_keys->private_key);
-    string_free(&cmh_keys->public_key_x);
-    string_free(&cmh_keys->public_key_y);
-}
-static void inline cmh_key_cert_free(struct  cmh_key_cert* key_cert){
-    if(key_cert == NULL)
-        return ;
-    certificate_free(key_cert->cert);
-    key_cert->cert = NULL;
-}
-static void inline cert_info_free(struct cert_info* certinfo){
-    if(certinfo == NULL)
-        return ;
-    if(certinfo->cert != NULL){
-        certificate_free(certinfo->cert);
-        certinfo->cert = NULL;
-    }
-}
+void inline cme_alloced_lsis_free(struct cme_alloced_lsis* alloced_lsis);
+void inline cmh_keypaired_free(struct cmh_keypaired* cmh_keys);
+void inline cmh_key_cert_free(struct  cmh_key_cert* key_cert);
+void inline cert_info_free(struct cert_info* certinfo);
 int cme_db_2_file(struct cme_db *cdb,char *name);
 int file_2_cme_db(struct cme_db *cdb,char *name);
 int cme_db_init(struct cme_db *cdb);

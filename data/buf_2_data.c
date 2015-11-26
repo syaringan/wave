@@ -273,7 +273,7 @@ static u32 buf_2_three_d_location(  u8* buf,   u32 len, three_d_location* three_
 /**
  *	buf_to 4
  */
-static u32 buf_2_hashedid8(  u8* buf,  u32 len, hashedid8* hashedid8){
+u32 buf_2_hashedid8(  u8* buf,  u32 len, hashedid8* hashedid8){
 	u8* mbuf = buf; 
 	u32 size = len;
 	int i;
@@ -1757,7 +1757,7 @@ static u32 buf_2_tobesigned_certificate(  u8* buf,  u32 len,tobesigned_certifica
 
 
 //buf_2 29
-static u32 buf_2_certificate(  u8* buf,  u32 len,certificate* certificate){
+u32 buf_2_certificate(  u8* buf,  u32 len,certificate* certificate){
 	u8* mbuf=buf;
 	u16 bitnum;
 	u32 size=len;
@@ -2010,7 +2010,7 @@ static u32 buf_2_id_and_date(  u8* buf,   u32 len, id_and_date* id_and_date){
 
 
 // buf_2 34
-static u32 buf_2_tobesigned_crl(  u8* buf, const u32 len, tobesigned_crl* tobesigned_crl){
+u32 buf_2_tobesigned_crl(  u8* buf, const u32 len, tobesigned_crl* tobesigned_crl){
    	u8* mbuf = buf; 
 	u32 size = len;
     u16 bitnum;
@@ -2137,7 +2137,7 @@ static u32 buf_2_tobesigned_crl(  u8* buf, const u32 len, tobesigned_crl* tobesi
 
 
 //buf_2 35
-static u32 buf_2_crl(  u8* buf,   u32 len, crl* crl){
+u32 buf_2_crl(  u8* buf,   u32 len, crl* crl){
    	u8* mbuf = buf; 
 	u32 size = len;
     u32 signer_length;
@@ -2253,7 +2253,7 @@ static u32 buf_2_tobe_encrypted_certificate_response_acknowledgment(u8* buf,u32 
 }
 
 //buf_2 37
-static u32 buf_2_tobe_encrypted_certificate_request_error(u8* buf,u32 len,
+u32 buf_2_tobe_encrypted_certificate_request_error(u8* buf,u32 len,
 		tobe_encrypted_certificate_request_error* tobe_encrypted_certificate_request_error){
 	u8* mbuf = buf; 
 	u32 size = len;
@@ -2309,7 +2309,7 @@ static u32 buf_2_tobe_encrypted_certificate_request_error(u8* buf,u32 len,
 
 //buf_2 38
 
-static u32 buf_2_tobe_encrypted_certificate_response(  u8* buf, u32 len, tobe_encrypted_certificate_response* tobe_encrypted_certificate_response){
+u32 buf_2_tobe_encrypted_certificate_response(  u8* buf, u32 len, tobe_encrypted_certificate_response* tobe_encrypted_certificate_response){
    	u8* mbuf = buf; 
 	u32 size = len;
 	u16 bitnum;
@@ -2810,7 +2810,7 @@ static u32 buf_2_tobesigned_data(  u8* buf,   u32 len, tobesigned_data* tobesign
  *  返回值：0 失败; 大于零 成功返回占用了多少字节
  */
 //buf_2 42
-static u32 buf_2_signed_data(  u8* buf,   u32 len, signed_data* signed_data, content_type type) {
+u32 buf_2_signed_data(  u8* buf,   u32 len, signed_data* signed_data, content_type type) {
 	u8* mbuf = buf;
 	u32 size = len;						
 	u32 length_signed_data;//signed_data的字节长度
@@ -3162,7 +3162,7 @@ static u32 buf_2_recipient_info(  u8* buf,   u32 len, recipient_info* recipient_
 
 //buf_2 47
 //  
-static u32 buf_2_encrypted_data(  u8* buf,   u32 len, encrypted_data* encrypted_data) {
+u32 buf_2_encrypted_data(  u8* buf,   u32 len, encrypted_data* encrypted_data) {
 	u8* mbuf = buf;
 	u32 size = len;
 	u16 bitnum;
@@ -3369,7 +3369,7 @@ static  u32 buf_2_tobesigned_wsa(  u8* buf,u32 len,tobesigned_wsa *tobesigned_ws
 
 
 //buf_2_49
-static u32 buf_2_signed_wsa(  u8* buf,  u32 len,signed_wsa *signed_wsa){
+u32 buf_2_signed_wsa(  u8* buf,  u32 len,signed_wsa *signed_wsa){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 signer_len;

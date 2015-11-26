@@ -41,7 +41,7 @@ static float stander_normal_distribution_excle[MAX][10]={
     {0.9999,0.9999,0.9999,0.9999,0.9999,0.9999,0.9999,0.9999,0.9999,0.9999},
     {0.9999,0.9999,0.9999,0.9999,0.9999,0.9999,0.9999,0.9999,0.9999,0.9999},
     {1.0000,1.0000,1.0000,1.0000,1.0000,1.0000,1.0000,1.0000,1.0000,1.0000},
-}
+};
 float normal_distribution_calculate_probability(float u,float stander_dev,float start,float end){
     float stander_nd_start = (start-u)/stander_dev;
     float stander_nd_end = (end-u)/stander_dev;

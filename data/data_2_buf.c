@@ -327,7 +327,7 @@ static u32 three_d_location_2_buf(const three_d_location *three_d_location,
  *   data_2  4
  */
 
-static u32 hashedid8_2_buf(const hashedid8 *hashedid8,u8* buf,u32 len){
+u32 hashedid8_2_buf(const hashedid8 *hashedid8,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -1696,7 +1696,7 @@ static u32 tobesigned_certificate_2_buf(const tobesigned_certificate *tobesigned
  *   data_2  29
  */
 
-static u32 certificate_2_buf(const certificate *certificate,u8* buf,u32 len){
+u32 certificate_2_buf(const certificate *certificate,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -1949,7 +1949,7 @@ static u32 id_and_date_2_buf(const id_and_date *id_and_date,u8* buf,u32 len){
  *   data_2  34
  */
 
-static u32 tobesigned_crl_2_buf(const tobesigned_crl *tobesigned_crl,u8* buf,u32 len){
+u32 tobesigned_crl_2_buf(const tobesigned_crl *tobesigned_crl,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -2061,7 +2061,7 @@ static u32 tobesigned_crl_2_buf(const tobesigned_crl *tobesigned_crl,u8* buf,u32
  *   data_2  35
  */
 
-static u32 crl_2_buf(const crl *crl,u8* buf,u32 len){
+u32 crl_2_buf(const crl *crl,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -2357,7 +2357,7 @@ static u32 tobe_encrypted_certificate_response_2_buf(const tobe_encrypted_certif
  *   data_2  39
  */
 
-static u32 tobesigned_certificate_request_2_buf(const tobesigned_certificate_request*
+u32 tobesigned_certificate_request_2_buf(const tobesigned_certificate_request*
 		tobesigned_certificate_request,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -2463,7 +2463,7 @@ static u32 tobesigned_certificate_request_2_buf(const tobesigned_certificate_req
  *   data_2  40
  */
 
-static u32 certificate_request_2_buf(const certificate_request *certificate_request,u8* buf,u32 len){
+u32 certificate_request_2_buf(const certificate_request *certificate_request,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -2725,7 +2725,7 @@ static u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,
  *   data_2  42
  */
 
-static u32 signed_data_2_buf(const signed_data *signed_data,u8* buf,u32 len,content_type type){
+u32 signed_data_2_buf(const signed_data *signed_data,u8* buf,u32 len,content_type type){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -3037,7 +3037,7 @@ static u32 recipient_info_2_buf(const recipient_info *recipient_info,u8* buf,u32
  *   @recipient_info_2_buf 本协议仅支持ECIES_NISTP256,其他算法暂不考虑
  */
 
-static u32 encrypted_data_2_buf(const encrypted_data *encrypted_data,u8* buf,u32 len){
+u32 encrypted_data_2_buf(const encrypted_data *encrypted_data,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -3249,7 +3249,7 @@ static u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32
  *   data_2  49
  */
 
-static u32 signed_wsa_2_buf(const signed_wsa *signed_wsa,u8* buf,u32 len){
+u32 signed_wsa_2_buf(const signed_wsa *signed_wsa,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;

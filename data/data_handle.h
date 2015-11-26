@@ -24,13 +24,14 @@ u32 sec_data_2_buf(sec_data* sec_data, u8* buf, u32 len);
  * return:返回成功或失败。
  */
 u32 buf_2_sec_data(u8* buf,u32 len, sec_data* sec);
-
+u32 buf_2_certificate(u8* buf,u32 len,certificate* cert);
 /**
  *释放该数据结构内部的指针
  */
 void sec_data_free(sec_data* sec_data);
 void signed_data_free(signed_data* signed_data,content_type type);
 void crl_free(crl* crl);
+void certificate_free(certificate* cert);
 void certificate_request_free(certificate_request* cert_request);
 void encrypted_data_free(encrypted_data* data);
 void tobe_encrypted_certificate_response_free(tobe_encrypted_certificate_response* data);

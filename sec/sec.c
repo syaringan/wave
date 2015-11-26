@@ -623,6 +623,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
             }
             break;
         case 3:
+            //这个地方有可能是有问题的  
              switch(cert.unsigned_certificate.u.no_root_ca.signature_alg){
                     case ECDSA_NISTP224_WITH_SHA224:
                        algorithm = ECDSA_NISTP224_WITH_SHA224;

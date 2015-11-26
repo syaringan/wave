@@ -1,8 +1,9 @@
 #include "cme.h"
-#include "../data/data_handle.h"
-#include"../sec/sec.h"
+#include "cme_db.h"
+#include "data/data_handle.h"
+#include "sec/sec_db.h"
 #include <stdlib.h>
-#include<time.h>
+#include <time.h>
 #define INIT(n) memset(&n,0,sizeof(n))
 #define MAX_PERMISSIONS_LENGTH 8
 #define MAX_RECTANGLES_ENTRIES_NUM 12
@@ -81,44 +82,8 @@ void geographic_region_array_free(struct geographic_region_array* regions){
 }
 
 
-/*
- * 通过cmh找到对应的证书,成功返回0，失败返回-1,未测
- * */
-int find_cert_by_cmh(struct sec_db *sdb, void *value, struct certificate *cert){
-    struct cmh_key_cert *p = NULL;
-    if(cert != NULL){
-        lock_rdlock(&sdb->cme_db.lock);
-        p = ckc_find(sdb->cme_db.cmhs.alloc_cmhs.cmh_key_cert ,value);
-        if(!p){
-            lock_unlock(&sdb->cme_db.lock);
-            return -1;
-        }
-        certificate_cpy(cert, p->cert);
-        lock_unlock(&sdb->cme_db.lock);
-        return 0;
-    }
-    return -1;
-}
-int find_cert_prikey_by_cmh(struct sec_db* sdb,cmh cmh,certificate* cert,string* privatekey){
-    struct cmh_key_cert *p = NULL;
-    if(privatekey == NULL || privatekey->buf != NULL){
-        wave_error_printf("string 里面可能有野指针");
-        return -1;
-    }
-    if(cert != NULL){
-        lock_rdlock(&sdb->cme_db.lock);
-        p = ckc_find(sdb->cme_db.cmhs.alloc_cmhs.cmh_key_cert ,&cmh);
-        if(!p){
-            lock_unlock(&sdb->cme_db.lock);
-            return -1;
-        }
-        certificate_cpy(cert, p->cert);
-        string_cpy(privatekey,&p->private_key);
-        lock_unlock(&sdb->cme_db.lock);
-        return 0;
-    }
-    return -1;
-}
+
+
 result cme_lsis_request(struct sec_db* sdb,cme_lsis* lsis){
     struct cme_db  *cdb;
     struct list_head *head;
@@ -1752,116 +1717,3 @@ fail:
     return ret;
 }
 
-
-/*****************************************证书的一些操作的实现*************/
-
-int certificate_2_hash8(struct certificate *cert,string *hash8){
-
-    if(hash8 == NULL || hash8->buf != NULL){
-        wave_error_printf("参数错误");
-    }
-    string c,hashed;
-    INIT(c);
-    INIT(hashed);
-    if( certificate_2_string(cert,&c) ){
-        goto fail;
-    }
-    if( crypto_HASH256(&c,&hashed) ){
-        goto fail;
-    }
-    hash8->buf = (u8*)malloc(8);
-    if(hash8->buf == NULL){
-        wave_malloc_error();
-        goto fail;
-    }
-    //什么是低字节，这个地方是低字节嘛
-    memcpy(hash8->buf,hashed.buf+hashed.len-8,8);
-    wave_printf(MSG_DEBUG,"证书hash出来的低八字杰为：HASHEDID8_FORMAT",hash8.buf[0],hash8.buf[1],hash8.buf[2],hash8.buf[3],
-                hash8.buf[4],hash8.buf[5],hash8.buf[6],hash8.buf[7]);
-    string_free(&c);
-    string_free(&hashed);
-    return 0;
-fail:
-    string_free(&c);
-    string_free(&hashed);
-    return -1;
-}
-
-int certificate_2_hashedid8(struct certificate *cert,hashedid8* hash8){
-
-    if(hash8 == NULL ){
-        wave_error_printf("参数错误");
-    }
-    string c,hashed;
-    INIT(c);
-    INIT(hashed);
-    if( certificate_2_string(cert,&c) ){
-        goto fail;
-    }
-    if( crypto_HASH256(&c,&hashed) ){
-        goto fail;
-    }
-    //什么是低字节，这个地方是低字节嘛
-    memcpy(hash8->hashedid8,hashed.buf+hashed.len-8,8);
-    string_free(&c);
-    string_free(&hashed);
-    return 0;
-fail:
-    string_free(&c);
-    string_free(&hashed);
-    return -1;
-}
-int certificate_2_certid10(struct certificate *cert,certid10* certid){
-    if(certid == NULL ){
-        wave_error_printf("参数错误");
-    }
-    string c,hashed;
-    INIT(c);
-    INIT(hashed);
-    if( certificate_2_string(cert,&c) ){
-        goto fail;
-    }
-    if( crypto_HASH256(&c,&hashed) ){
-        goto fail;
-    }
-    //什么是低字节，这个地方是低字节嘛
-    memcpy(certid->certid10,hashed.buf+hashed.len-10,10);
-    string_free(&c);
-    string_free(&hashed);
-    return 0;
-fail:
-    string_free(&c);
-    string_free(&hashed);
-    return -1;
-}
-int certificate_get_elliptic_curve_point(certificate* cert,elliptic_curve_point* point){
-    if(point->x.buf != NULL || point->u.y.buf != NULL){
-        wave_error_printf("出现野指针 %s %d",__FILE__,__LINE__);
-        return -1;
-    }
-    pk_algorithm algorithm;
-    
-    switch(point->type){
-        case 2:
-            if(cert->unsigned_certificate.holder_type == ROOT_CA){
-                 algorithm = cert->unsigned_certificate.version_and_type.verification_key.algorithm;
-            }
-            else{
-                algorithm = cert->unsigned_certificate.u.no_root_ca.signature_alg;
-            }
-            if(algorithm != ECDSA_NISTP224_WITH_SHA224 && algorithm != ECDSA_NISTP256_WITH_SHA256){
-                wave_error_printf("这里等于了一个不应该有的指  %s %d",__FILE__,__LINE__);
-                return -1;
-            }
-            elliptic_curve_point_cpy(point,&cert->u.signature.u.ecdsa_signature.r);     
-            break;
-        case 3:
-           elliptic_curve_point_cpy(point,&cert->u.reconstruction_value);   
-           break;
-        default:
-           wave_error_printf("这里不可能出现其他的指的 %s %d",__FILE__,__LINE__);
-           return -1;
-    }
-    return 0;
-
-}

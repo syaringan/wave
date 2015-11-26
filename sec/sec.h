@@ -6,10 +6,7 @@
 #include"../cme/cme.h"
 #include"../pssme/pssme.h"
 
-struct sec_db{
-    struct cme_db cme_db;
-    struct pssme_db pssme_db;
-};
+
 
 enum sign_with_fast_verification{
     YES_UNCOMPRESSED = 0,

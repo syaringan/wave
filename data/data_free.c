@@ -367,7 +367,7 @@ static void tobesigned_certificate_free(tobesigned_certificate* tobesigned_certi
 /**
  *YGH 24
  */
-static void certificate_free(certificate* certificate){ 
+void certificate_free(certificate* certificate){ 
    switch(certificate->version_and_type){
 	   case 2:
          switch(certificate->unsigned_certificate.holder_type){

@@ -1,9 +1,37 @@
 #include"cme_db.h"
+#include"utils/lock.h"
 #include<stdio.h>
 #define CMH_MAX_NUM 1024
 #define LSIS_MAX_NUM 1024
 #define CERTIFICATE_BUF_LNE 1024
 #define READ_BUF_LEN 1024
+
+void inline cme_alloced_lsis_free(struct cme_alloced_lsis* alloced_lsis){
+    if(alloced_lsis == NULL)
+        return;
+    string_free(&alloced_lsis->data);
+}
+void inline cmh_keypaired_free(struct cmh_keypaired* cmh_keys){
+    if(cmh_keys == NULL)
+        return ;
+    string_free(&cmh_keys->private_key);
+    string_free(&cmh_keys->public_key_x);
+    string_free(&cmh_keys->public_key_y);
+}
+void inline cmh_key_cert_free(struct  cmh_key_cert* key_cert){
+    if(key_cert == NULL)
+        return ;
+    certificate_free(key_cert->cert);
+    key_cert->cert = NULL;
+}
+void inline cert_info_free(struct cert_info* certinfo){
+    if(certinfo == NULL)
+        return ;
+    if(certinfo->cert != NULL){
+        certificate_free(certinfo->cert);
+        certinfo->cert = NULL;
+    }
+}
 /**
  * alloced_lsis链表按照递增的顺序维护
  */
@@ -276,7 +304,7 @@ static int cmh_key_cert_2_file(struct cmh_key_cert* key_cert,FILE *fp){
     char* buf = NULL;
     int len;
     int res = 0;
-
+    string cert_string;
     if(fwrite(&key_cert->cmh,sizeof(key_cert->cmh),1,fp) != 1||
             fwrite(&key_cert->private_key.len,sizeof(key_cert->private_key.len),1,fp) != 1||
             fwrite(key_cert->private_key.buf,1,key_cert->private_key.len,fp) != key_cert->private_key.len){
@@ -284,26 +312,21 @@ static int cmh_key_cert_2_file(struct cmh_key_cert* key_cert,FILE *fp){
         res = -1;
         goto end;
     }
-    if( (buf = (char*)malloc(CERTIFICATE_BUF_LNE)) == NULL){
-        wave_malloc_error();
-        res = -1;
-        goto end;
-    }
-    
-    if( (len = certificate_2_buf(key_cert->cert,buf,CERTIFICATE_BUF_LNE)) <0){
+    memset(&cert_string,sizeof(cert_string),0);
+    if( certificate_2_string(key_cert->cert,&cert_string)){
         wave_error_printf("证书编码失败 %s %d",__FILE__,__LINE__);
         res = -1;
         goto end;
     }
-    if( fwrite(buf,1,len,fp) != len){
+   
+    if( fwrite(cert_string.buf,1,cert_string.len,fp) != cert_string.len){
         wave_error_printf("写入文件有错误 %s %d",__FILE__,__LINE__);
         res = -1;
         goto end;
     }
     goto end;
 end:
-    if(buf != NULL)
-        free(buf);
+    string_free(&cert_string);
     return res;
 }
 static int alloced_cmhs_2_file(struct alloced_cmhs* alloced_cmh,FILE *fp){
@@ -530,21 +553,16 @@ static int crls_2_file(struct cme_db* cdb,FILE *fp){
     return 0;
 }
 static int cert_info_2_file(struct cert_info *cinfo,FILE *fp){
-    char *buf = NULL;
+    string cert_string;
     int res = 0;
     int len;
-    if( (buf = (char*)malloc(CERTIFICATE_BUF_LNE)) == NULL){
-        wave_malloc_error();
-        res = -1;
-        goto end;
-    }
-    len = certificate_2_buf(cinfo->cert,buf,CERTIFICATE_BUF_LNE);
-    if(len < 0){
+    memset(&cert_string,sizeof(cert_string),0);
+    if( certificate_2_string(cinfo->cert,&cert_string)){
         wave_error_printf("证书编码失败");
         res = -1;
         goto end;
     }
-    if(  fwrite(buf,1,len,fp) != len ||
+    if(  fwrite(cert_string.buf,1,cert_string.len,fp) != len ||
             fwrite(cinfo->certid10.certid10,1,10,fp) != 10 ||
             fwrite(&cinfo->verified,sizeof(cinfo->verified),1,fp) != 1 ||
             fwrite(&cinfo->trust_anchor,sizeof(cinfo->trust_anchor),1,fp) != 1 ||
@@ -556,9 +574,7 @@ static int cert_info_2_file(struct cert_info *cinfo,FILE *fp){
     }
     goto end;
 end:
-    if(buf != NULL){
-        free(buf);
-    }
+    string_free(&cert_string);
     return res;
 }
 static int certs_2_file(struct cme_db *cdb,FILE *fp){
@@ -946,7 +962,7 @@ static int file_2_cert_info(struct cert_info* cinfo,FILE *fp){
     char *buf = NULL;
     certificate* cert;
     int res = 0;
-    int len = 0;
+    int len = 0,cert_len=0;
     if( (buf = (char*)malloc(READ_BUF_LEN)) == NULL ||
             (cert = (certificate*)malloc(sizeof(certificate))) == NULL){
         wave_malloc_error();
@@ -954,14 +970,19 @@ static int file_2_cert_info(struct cert_info* cinfo,FILE *fp){
         goto end;
     }
     memset(cert,sizeof(*cert),0); 
-    len = buf_2_certificate(buf,READ_BUF_LEN,cert);
+    len = fread(buf,1,READ_BUF_LEN,fp);
     if( len <= 0){
         wave_error_printf("读取文件出错 %s %d",__FILE__,__LINE__);
         res = -1;
         goto end;
     }
-    fseek(fp,len - READ_BUF_LEN,SEEK_CUR);
-    
+    cert_len = buf_2_certificate(buf,READ_BUF_LEN,cert);
+    if(cert_len <=0){
+        wave_error_printf("解码证书出错");
+        res = -1;
+        goto end;
+    }
+    fseek(fp,cert_len - len,SEEK_CUR);
     if( fread(cinfo->certid10.certid10,1,10,fp) != 10||
             fread(&cinfo->verified,sizeof(cinfo->verified),1,fp) != 1||
             fread(&cinfo->trust_anchor,sizeof(cinfo->trust_anchor),1,fp) != 1||
