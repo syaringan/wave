@@ -614,44 +614,62 @@ bool two_d_location_in_polygonal(two_d_location *td,two_d_location *polygonal,in
 s64 direction(two_d_location* p1,two_d_location* p2, two_d_location* p3){
     return (p1->latitude-p2->latitude)*(p1->longitude - p3->longitude) - (p1->latitude - p3->latitude)*(p1->longitude - p2->longitude);
 } 
-bool edge_intersect(two_d_location* p1,two_d_location* p2,two_d_location* p3,two_d_location* p4){
-    s64 d1,d2,d3,d4;
-    d1 = direction(p3,p1,p4);
-    if(d1 == 0 && ((p1->latitude < p3->latitude) != (p1->latitude <  p4->latitude)) )
-        return true;
-   
-    d2 = direction(p3,p2,p4);
-    if(d2 == 0 && ((p2->latitude < p3->latitude) != (p2->latitude <  p4->latitude)) )
-        return true;
-   
-    d3 = direction(p1,p3,p2);
-    if(d3 == 0 && ((p3->latitude < p1->latitude) != (p3->latitude <  p2->latitude)) )
-        return true;
-    d4 = direction(p1,p4,p2);
-    if(d4 == 0 && ((p4->latitude < p1->latitude) != (p4->latitude <  p2->latitude)) )
-        return true;
+//0代表只有一个交点，1代表有多个交点，即平行重合，但是肯定不再直线内，
+//-1代表有多个交点，但是一定在直线内，-2 代表没有交点
+int edge_intersect(two_d_location* p1,two_d_location* p2,two_d_location* p3,two_d_location* p4,double *x,double *y){
+    s64 a1,b1,c1,a2,b2,c2;
+    a1 = p2->longitude - p1->longitude;
+    b1 = p1->latitude - p2->latitude;
+    c1 = p2->latitude * p1->longitude - p2->longitude*p1->latitude;
+    
+    a2 = p4->longitude - p3->longitude;
+    b2 = p3->latitude - p4->latitude;
+    c2 = p4->latitude * p3->longitude - p4->longitude*p4->latitude;
+    
+    if(b1*a2 - b2* a1 == 0){
+        if(a1 *p3->latitude + b1 *p3->longitude + c1 == 0){
+            if( (p1->latitude < p3->latitude) != (p1->latitude < p4->latitude) &&
+                    (p2->latitude < p3->latitude) != (p2->latitude < p4->latitude)){
+                return -1;
+            }
+            return 1;
+        }
+        return -2;
+    }
 
-    if(d1 * d2 < 0 && d3 *d4 < 0)
-        return true;
-    return false;
+    *x = (c1*b2 - b1*c2)/(b1*a2 - b2 *a1);
+    *y = (a1*c2 - c1*a2)/(b1*a2 - a1*b2);
+    if( (*x<p1->latitude) != (*x<p2->latitude))
+        return 0;
+    return -2;
 }
 bool edge_in_polygonal(two_d_location *start,two_d_location *end,two_d_location* poly,int len){
     int count = 0,i,j;
+    double x,y,prex,prey;
     two_d_location p;
     if(!two_d_location_in_polygonal(start) || 
             !two_d_location_in_polygonal(end))
         return false;
     for(i=0,j = len-1;i<len;j=i++){
-        if(edge_intersect(start,end,poly[i],poly[j])){
-            count++;
-            if(count > 2)
-                return false;
+        res = edge_intersect(start,end,poly[i],poly[j],&x,&y);
+        if(res == -1)
+            return true;
+        if(res == 1)
+            return false;
+        if(res == -2)
+            continue;
+        if(count == 0){
+            count = 1;
+            prex = x;
+            prey = y;
+            continue;
         }
-    }
-    if(count == 2){
-        p.latitude = (start->latitude + end->latitude)/2;
-        p.longitude = (start->longitude + end->longitude)/2;
-        return two_d_location_in_polygonal(&p,poly,len);
+        p.latitude = (x+prex)/2;
+        p.longitude = (y+prey)/2;
+        prex = x;
+        prey = y;
+        if(!two_d_location_in_polygonal(&p,poly,len))
+            return false;
     }
     return true;
 }
@@ -858,6 +876,9 @@ bool rectangulars_in_circular(rectangular_region* recs,int len,circular_region* 
     }
     return true;
 }
+/**
+ * 所有的经纬度都是当成平面坐标来做的
+ */
 bool geographic_region_in_geographic_region(geographic_region *region_a,geographic_region *region_b){
     switch(region_a->region_type){
         case CIRCLE:
