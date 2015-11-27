@@ -96,7 +96,7 @@ int find_cert_prikey_by_cmh(struct sec_db* sdb,cmh cmh,certificate* cert,string*
     return -1;
 }
 
-int find_keypaire_by_cmh(struct sec_db* sdb,cmh cmh.string* pubkey_x,string* pubkey_y,string* prikey,pk_algorithm* algorithm){
+int find_keypaire_by_cmh(struct sec_db* sdb,cmh cmh,string* pubkey_x,string* pubkey_y,string* prikey,pk_algorithm* algorithm){
     if(pubkey_x == NULL || pubkey_x->buf != NULL ||
             pubkey_y == NULL || pubkey_y->buf != NULL ||
             prikey == NULL || prikey->buf != NULL){
@@ -644,14 +644,14 @@ int edge_intersect(two_d_location* p1,two_d_location* p2,two_d_location* p3,two_
     return -2;
 }
 bool edge_in_polygonal(two_d_location *start,two_d_location *end,two_d_location* poly,int len){
-    int count = 0,i,j;
+    int count = 0,i,j,res;
     double x,y,prex,prey;
     two_d_location p;
-    if(!two_d_location_in_polygonal(start) || 
-            !two_d_location_in_polygonal(end))
+    if(!two_d_location_in_polygonal(start,poly,len) || 
+            !two_d_location_in_polygonal(end,poly,len))
         return false;
     for(i=0,j = len-1;i<len;j=i++){
-        res = edge_intersect(start,end,poly[i],poly[j],&x,&y);
+        res = edge_intersect(start,end,poly+i,poly+j,&x,&y);
         if(res == -1)
             return true;
         if(res == 1)
@@ -717,7 +717,7 @@ bool circular_in_polygonal(circular_region* circle,two_d_location *poly,int len)
 bool polygnal_in_polygnal(two_d_location* polya,int a_len,two_d_location* poly,int len){
     int i,j;
     for(i=0,j=a_len-1;i<a_len;j=i++){
-        if(!edge_in_polygonal(polya[i],polya[j],poly,len))
+        if(!edge_in_polygonal(polya+i,polya+j,poly,len))
             return false;
     }
     return true;
@@ -864,7 +864,7 @@ bool rectangular_in_circular(rectangular_region* rec,circular_region *circle){
         return -1;
     }
     rectangular_2_polygonal(rec,a);
-    res = polygnal_in_circular(poly,4,circle);
+    res = polygnal_in_circular(a,4,circle);
     free(a);
     return res;  
 }
@@ -911,13 +911,13 @@ bool geographic_region_in_geographic_region(geographic_region *region_a,geograph
         case POLYGON:
             switch(region_b->region_type){
                 case CIRCLE:
-                    return rectangulas_in_circular(region_a->u.polygonal_region.buf,region_a->u.polygonal_region.len,
+                    return polygnal_in_circular(region_a->u.polygonal_region.buf,region_a->u.polygonal_region.len,
                                                     &region_b->u.circular_region);
                 case RECTANGLE:
-                    return rectangulas_in_rectangulars(region_a->u.polygonal_region.buf,region_a->u.polygonal_region.len,
+                    return polygnal_in_rectangulars(region_a->u.polygonal_region.buf,region_a->u.polygonal_region.len,
                                                         region_b->u.rectangular_region.buf,region_b->u.rectangular_region.len);
                 case POLYGON:
-                    return rectangulars_in_polygnal(region_a->u.polygonal_region.buf,region_a->u.polygonal_region.len,
+                    return polygnal_in_polygnal(region_a->u.polygonal_region.buf,region_a->u.polygonal_region.len,
                                                         region_b->u.polygonal_region.buf,region_b->u.polygonal_region.len);
                 default:
                     wave_error_printf("这个情况我处理不了 地理位置类型只能为三个中一个   %s %d",__FILE__,__LINE__);
@@ -946,15 +946,15 @@ bool three_d_location_in_region(three_d_location* loc,geographic_region* region)
                     wave_malloc_error();
                     return false;
                 }
-                for(i=0;i<region->u.rectangular.len;i++){
-                    rectangular_2_polygonal(region->u.rectangular.buf+i,poly);
-                    if(two_d_location_in_polygonal(poly))
+                for(i=0;i<region->u.rectangular_region.len;i++){
+                    rectangular_2_polygonal(region->u.rectangular_region.buf+i,poly);
+                    if(two_d_location_in_polygonal(&p,poly,4))
                         return true;
                 }
                 free(poly);
                 return false;
         case POLYGON:
-                return two_d_location_in_polygonal(&p,region.u.polygonal_region.buf,region.u.polygonal_region.len);
+                return two_d_location_in_polygonal(&p,region->u.polygonal_region.buf,region->u.polygonal_region.len);
         default:
                 wave_error_printf("这个情况我处理不了 地理位置类型只能为三个中一个   %s %d",__FILE__,__LINE__);
                 return false;
