@@ -89,7 +89,7 @@ int cme_lsis_request(cme_lsis* lsis){
 	int len_r;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
-		if(len <= 0){
+		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
 			return -1;
 		}
@@ -101,7 +101,7 @@ int cme_lsis_request(cme_lsis* lsis){
 
 	while(slen != len){
 		len_r = read(fd,buf+slen,len-slen);
-		if(len <= 0){
+		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
 			return -1;
 		}
@@ -135,7 +135,7 @@ int cme_cmh_request(cmh* cmh){
 	int len_r;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
-		if(len <= 0){
+		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
 			free(buf_beg);
 			return -1;
@@ -148,7 +148,7 @@ int cme_cmh_request(cmh* cmh){
 
 	while(slen != len){
 		len_r = read(fd,buf+slen,len-slen);
-		if(len <= 0){
+		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
 			free(buf_beg);
 			return -1;
@@ -289,7 +289,7 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 	free(buf_beg);
 	return 0;
 }
-
+//???????????????
 int cme_store_keypair(cmh cmh,int algorithm,
 						char* pub_key_x,int x_len,
 						char* pub_key_y,int y_len,
