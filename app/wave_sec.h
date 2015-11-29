@@ -24,8 +24,7 @@ int cme_cmh_request(cmh *cmh);
 int cme_generate_keypair(cmh cmh,int algorithm,
         
                         char* pub_key_x,int* x_len,
-                        char* pub_key_y,int* y_len,
-                        char* pri_key,int* pri_len);
+                        char* pub_key_y,int* y_len);
 /**在cmh存储一对密钥
  * @cmh：cme_cmh_request 产生的cmh
  *@pk_algorithm:这对密钥的相关算法
@@ -42,7 +41,7 @@ int cme_store_cert(cmh cmh,certificate* cert,
                         char* transfor,int transfor_len);
 
 int cme_store_cert_key(cmh cmh,certificate* cert,
-                        char* pri_key,int* pri_len);  // int 为什么要传指针？？
+                        char* pri_key,int pri_len);
 
 /**
  *@set_geneartion_time/set_generation_location/set_expiry_time,:只能为0或1

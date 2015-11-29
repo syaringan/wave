@@ -167,8 +167,7 @@ int cme_cmh_request(cmh* cmh){
 int cme_generate_keypair(cmh cmh,int algorithm,
 
 						char* pub_key_x,int* x_len,
-						char* pub_key_y,int* y_len,
-						char* pri_key,int* pri_len)
+						char* pub_key_y,int* y_len)
 {
 	if(algorithm<0 || (algorithm>2 && algorithm != 255)){
 		ERROR_PRINTF("算法错误");
@@ -270,21 +269,6 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 
 	if(pub_key_y != NULL && y_len != NULL)
 		memcpy(pub_key_y,buf,slen);
-	buf += slen;
-
-	slen = *((int*)buf);
-	if(pri_len != NULL){
-		if(*pri_len < slen){
-			ERROR_PRINTF("分配空间不足");
-			free(buf_beg);
-			return -1;
-		}
-		*pri_len = slen;
-	}
-	buf += 4;
-
-	if(pri_key != NULL && pri_len != NULL)
-		memcpy(pri_key,buf,slen);
 
 	free(buf_beg);
 	return 0;
