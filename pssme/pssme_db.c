@@ -256,7 +256,7 @@ int file_2_plchain(struct pssme_lsis_chain *plchain, FILE *fd){
             wave_malloc_error();
             return -1;
         }
-        memset(plchain_node,sizeof(*plchain_node),0);
+        memset(plchain_node,0,sizeof(*plchain_node));
         if( fread(&plchain_node->lsis,sizeof(plchain_node->lsis),1,fd) != 1){
             wave_error_printf("写入文件失败 %s %d",__FILE__,__LINE__);
             free(plchain_node);
@@ -299,7 +299,7 @@ int file_2_pssme_psid_priority_ssp_chain(struct pssme_psid_priority_ssp_chain* p
             wave_malloc_error();
             return -1;
         }
-        memset(pppsc_node,sizeof(*pppsc_node),0);
+        memset(pppsc_node,0,sizeof(*pppsc_node));
         if( file_2_pssme_psid_priority_ssp(&pppsc_node->permission,fd)){
             free(pppsc_node);
             return -1;
@@ -331,7 +331,7 @@ int file_2_pal(struct pssme_alloc_lsis *pal, FILE* fd){
             wave_malloc_error();
             return -1;
         }
-        memset(pal_node,sizeof(*pal_node),0);
+        memset(pal_node,0,sizeof(*pal_node));
         if(file_2_pssme_alloc_lsis(pal_node,fd)){
             free(pal_node);
             return -1;
@@ -379,7 +379,7 @@ int file_2_prc(struct pssme_receive_cert *prc, FILE *fd){
             free(buf);
             return -1;
         }
-        memset(prc_node,sizeof(*prc_node),0);
+        memset(prc_node,0,sizeof(*prc_node));
         readlen = fread(buf,1,CERTICATE_BUF_LEN,fd);
         if(readlen <= 0){
             free(buf);
@@ -433,7 +433,7 @@ int file_2_plc(struct pssme_local_cert *plc, FILE *fd)
             wave_malloc_error();
             return -1;
         }
-        memset(plc_node,sizeof(*plc_node),0);
+        memset(plc_node,0,sizeof(*plc_node));
 
         if(fread(&plc_node->cmh,sizeof(plc_node->cmh),1,fd) != 1){
             wave_error_printf("写入错误 %s %d",__FILE__,__LINE__);
