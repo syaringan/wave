@@ -1,6 +1,6 @@
 
 #include "data/data.h" //后面把直接需要的结构体复制过来
-
+#include "cme/cme_db.h"
 
 /**
  * 这里我没有为上层提供调试的功能，只是0代表成功，-1代表失败.
@@ -10,7 +10,7 @@
  *请求实体的编号，lsis为null则不会有指填写，
  *@return 0成功 -1 失败
  */
-int cme_lsis_request(cme_lsis *lsis)；
+int cme_lsis_request(cme_lsis *lsis);
 int cme_cmh_request(cmh *cmh);
 
 /**
@@ -80,7 +80,7 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
  */
 int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
                 char* signed_data,int signed_len,
-                char* external_data,int external_len
+                char* external_data,int external_len,
                 int  max_cert_chain_len,
                 int detect_reply,
                 int check_generation_time,

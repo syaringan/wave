@@ -1,12 +1,12 @@
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
-//#include"wave_sec.h"
-
-#include "../utils/list.h"
+#include"utils/common.h"
+#include"wave_sec.h"
+#include"utils/list.h"
 #include<pthread.h>
 #include<stddef.h>
-#include"../utils/af_unix.h"
+#include"utils/af_unix.h"
 
 #define SERVICE "/var/tmp/wave_sec.socket"
 
@@ -58,7 +58,7 @@ static int getsocket(){
     }
     new->fd = fd;
     new->tid = tid;
-    list_add_tail(new,&head);
+    list_add_tail(&new->list,&head);
     pthread_cleanup_push(socket_close,NULL);
     return fd;
 fail:
@@ -68,10 +68,9 @@ fail:
         free(new);
     return -1;
 }
-
-
 int cme_lsis_request(cme_lsis* lsis){
-	int fd = getsocket();
+	int fd;
+    fd = getsocket();
     if(write(fd,&CME_LSIS_REQUEST,sizeof(app_tag)) != sizeof(app_tag)){
         ERROR_PRINTF("写入失败");
         return -1;
@@ -118,7 +117,8 @@ int cme_lsis_request(cme_lsis* lsis){
 
 int cme_cmh_request(cmh* cmh){
 	int fd = getsocket();
-    if(write(fd,&CME_CMH_REQUEST,sizeof(app_tag)) != sizeof(app_tag)){
+    enum app_tag tag = CME_CMH_REQUEST;
+    if(write(fd,&tag,sizeof(tag)) != sizeof(tag)){
         ERROR_PRINTF("写入失败");
         return -1;
     }
@@ -156,7 +156,7 @@ int cme_cmh_request(cmh* cmh){
 		slen += len_r;
 	}
 
-	if(lsis != NULL){
+	if(cmh != NULL){
 		memcpy(cmh,buf,len);
 	}
 
@@ -177,13 +177,14 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 
 	int len = 4 + sizeof(app_tag) + sizeof(int) + sizeof(cmh);
 	char* buf = (char*)malloc(len);
+    app_tag tag = CME_GENERATE_KEYPARI;
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
 		return -1;
 	}
 	char* buf_beg = buf;
 
-	memcpy(buf,&CME_GENERATE_KEYPARI,sizeof(app_tag));
+	memcpy(buf,&tag,sizeof(tag));
 	buf += sizeof(app_tag);
 	
 	*((int*)buf) = len - 4 - sizeof(app_tag);
@@ -352,13 +353,14 @@ int cme_store_cert(cmh cmh,certificate* cert,
 	int len = 1024;
 	int count = 0;
 	char* buf = (char*)malloc(len);
+    app_tag tag = CME_STORE_CERT;
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
 		return -1;
 	}
 	char* buf_beg = buf;
 
-	memcpy(buf,&CME_STORE_CERT,sizeof(app_tag));
+	memcpy(buf,&tag,sizeof(app_tag));
 	buf += sizeof(app_tag);
 	count += sizeof(app_tag);
 
@@ -427,13 +429,14 @@ int cme_store_cert_key(cmh cmh,certificate* cert,
 	int len = 1024;
 	int count = 0;
 	char* buf = (char*)malloc(len);
+    app_tag tag = CME_STORE_CERT_KEY;
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
 		return -1;
 	}
 	char* buf_beg = buf;
 
-	memcpy(buf,&CME_STORE_CERT_KEY,sizeof(app_tag));
+	memcpy(buf,&tag,sizeof(app_tag));
 	buf += sizeof(app_tag);
 	count += sizeof(app_tag);
 				
@@ -510,7 +513,7 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 					
 					char* signed_data,int* signed_data_len,int *len_of_cert_chain)
 {
-	if((set_geneartion_time != 0 && set_geneartion_time !=1) ||
+	if((set_generation_time != 0 && set_generation_time !=1) ||
 		(set_generation_location != 0 && set_generation_location != 1) ||
 		(set_expiry_time != 0 && set_expiry_time != 1) ||
 		(compressed != 0 && compressed != 1) ||
@@ -525,13 +528,14 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 	int len = 4 + sizeof(app_tag) + sizeof(int)*14 + sizeof(cmh) + sizeof(psid) + sizeof(time64)*2
 				+ 3 + data_len + exter_len + ssp_len;
 	char* buf = (char*)malloc(len);
+    app_tag tag = SEC_SIGNED_DATA;
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
 		return -1;
 	}
 	char* buf_beg = buf;
 
-	memcpy(buf,&SEC_SIGNED_DATA,sizeof(app_tag));
+	memcpy(buf,&tag,sizeof(app_tag));
 	buf += sizeof(app_tag);
 
 	*((int*)buf) = len - 4 - sizeof(app_tag);
@@ -557,7 +561,7 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 		memcpy(buf,exter_data,exter_len);
 	buf += exter_len;
 
-	*((psid*)buf) = psid;
+	*((typeof(psid)*)buf) = psid;
 	buf += sizeof(psid);
 
 	*((int*)buf) = ssp_len;
@@ -567,7 +571,7 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 		memcpy(buf,ssp,ssp_len);
 	buf += ssp_len;
 
-	*((int*)buf) = set_geneartion_time;
+	*((int*)buf) = set_generation_time;
 	buf += 4;
 
 	memcpy(buf,&generation_time,sizeof(time64));
@@ -582,7 +586,7 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 	buf += 4;
 
 	*((int*)buf) = longtitude;
-	buf += 4;}
+	buf += 4;
 
 	memcpy(buf,elevation,2);
 	buf += 2;
@@ -590,7 +594,7 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 	*((int*)buf) = set_expiry_time;
 	buf += 4;
 
-	memcpy(buf,&exprity_time,sizeof(time64));
+	memcpy(buf,&expiry_time,sizeof(expiry_time));
 	buf += sizeof(time64);
 
 	*((int*)buf) = signer_type;
@@ -692,6 +696,7 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 	}
 
 	int len = 4 + sizeof(app_tag) + sizeof(int)*4 + sizeof(time64) + data_len + certs_len;
+    app_tag tag = SEC_ENCRYPTED_DATA;
 	char* buf = (char*)malloc(len);
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
@@ -699,7 +704,7 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 	}
 	char* buf_beg = buf;
 
-	memcpy(buf,&SEC_ENCRYPTED_DATA,sizeof(app_tag));
+	memcpy(buf,&tag,sizeof(app_tag));
 	buf += sizeof(app_tag);
 
 	*((int*)buf) = len - 4 - sizeof(app_tag);
@@ -823,19 +828,20 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh,
 		        
 				int *type,int *inner_type,char* data,int* data_len,char* signed_data,int* signed_len,
-				psid* psid,char* ssp,int *ssp_len,int *set_generation_time,time64* generation_time,
+				psid* pid,char* ssp,int *ssp_len,int *set_generation_time,time64* generation_time,
 				unsigned char *generation_long_std_dev,int *set_generation_location,int* latitude,int* longtitude,
 				unsigned char *elevation,certificate* send_cert)
 {
 	int len = 4 + sizeof(app_tag) + sizeof(int) + sizeof(cmh) + recieve_len;
 	char* buf = (char*)malloc(len);
+    app_tag tag = SEC_SECURE_DATA_CONTENT_EXTRATION;
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
 		return -1;
 	}
 	char* buf_beg = buf;
-
-	memcpy(buf,&SEC_SECURE_DATA_CONTENT_EXTRATION,sizeof(app_tag));
+    
+	memcpy(buf,&tag,sizeof(app_tag));
 	buf += sizeof(app_tag);
 	
 	*((int*)buf) = len - 4 - sizeof(app_tag);
@@ -941,8 +947,8 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 	buf += slen;
 	count += slen;
 
-	if(psid != NULL)
-		*psid = *((psid*)buf);
+	if(pid != NULL)
+		*pid = *((psid*)buf);
 	buf += sizeof(psid);
 	count += sizeof(psid);
 
@@ -963,8 +969,8 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 	buf += slen;
 	count += slen;
 
-	if(set_geneartion_time != NULL)
-		*set_geneartion_time = *((int*)buf);
+	if(set_generation_time != NULL)
+		*set_generation_time = *((int*)buf);
 	buf += 4;
 	count += 4;
 
@@ -1027,7 +1033,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 				time64 accepte_time,
 				float accepte_threshold,
 				int check_expiry_time,
-				time64 exprity_time,
+				time64 expiry_time,
 				float exprity_threshold,
 				int check_generation_location,
 				int latitude,int longtitude,
@@ -1039,8 +1045,8 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 				
 				time32 *last_recieve_crl_times,int *last_len,
 				time32 *next_expected_crl_times,int *next_len,
-				certificate* send_cert)
-{
+				certificate* send_cert){
+
 	if((detect_reply != 0 && detect_reply != 1) ||
 		(check_generation_time != 0 && check_generation_time != 1) ||
 		(check_expiry_time != 0 && check_expiry_time != 1) ||
@@ -1053,13 +1059,14 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 	int len = 4 + sizeof(app_tag) + sizeof(int)*13 + sizeof(float)*3 + sizeof(psid) + sizeof(time64)*5
 				+ 3 + sizeof(lsis) + signed_len + external_len;
 	char* buf = (char*)malloc(len);
+    app_tag  tag = SEC_SIGNED_DATA_VERIFICATION;
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
 		return -1;
 	}
 	char* buf_beg = buf;
 
-	memcpy(buf,&SEC_SIGNED_DATA_VERIFICATION,sizeof(app_tag));
+	memcpy(buf,&tag,sizeof(app_tag));
 	buf += sizeof(app_tag);
 
 	*((int*)buf) = len - 4 - sizeof(app_tag);
