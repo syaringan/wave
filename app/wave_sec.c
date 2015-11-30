@@ -12,68 +12,18 @@
 
 #define	ERROR_PRINTF(n) printf("n %s %d",__FILE__,__LINE__)
 
-
-static struct list_head head ={
-    .next = &head,
-    .prev = &head,
-};//我们用链表实现我们的map
-struct map{
-    struct list_head list;
-    int fd;
-    pthread_t tid;
-};
-static void socket_close(void *ptr){
-    struct map *map;
-    pthread_t tid;
-    tid = pthread_self();
-
-    list_for_each_entry(map,&head,list){
-        if(map->tid == tid){
-            break;
-        }
-    }
-    if(&map->list != &head){
-        list_del(&map->list);
-        free(map);
-    }
-    close(map->fd);
-}
 static int getsocket(){
-    struct list_head *node;
-    struct map *map,*new = NULL;
     int fd = -1;
-    pthread_t tid;
-    tid = pthread_self();
-    list_for_each_entry(map,&head,list){
-        if(map->tid == tid){
-            return fd;
-        }
-    }
-    if( (fd = cli_connect(SERVICE)) < 0){
-        goto fail;
-    }
-    if( (new = (struct map*)malloc(sizeof(struct map))) == NULL){
-        wave_malloc_error();
-        goto fail;
-    }
-    new->fd = fd;
-    new->tid = tid;
-    list_add_tail(&new->list,&head);
-    pthread_cleanup_push(socket_close,NULL);
+    fd = cli_connect(SERVICE);
     return fd;
-fail:
-    if(fd > 0)
-        close(fd);
-    if(new != NULL)
-        free(new);
-    return -1;
 }
 int cme_lsis_request(cme_lsis* lsis){
 	int fd;
     fd = getsocket();
-    if(write(fd,&CME_LSIS_REQUEST,sizeof(app_tag)) != sizeof(app_tag)){
+    app_tag  tag = CME_LSIS_REQUEST;
+    if(write(fd,&tag,sizeof(app_tag)) != sizeof(app_tag)){
         ERROR_PRINTF("写入失败");
-        return -1;
+        close(fd);return -1;
     }
 
 	int slen = 0;
@@ -81,7 +31,8 @@ int cme_lsis_request(cme_lsis* lsis){
 	char* buf = (char*)malloc(len);
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
-		return -1;
+        close(fd);
+		close(fd);return -1;
 	}
 	char* buf_beg = buf;
 
@@ -90,7 +41,7 @@ int cme_lsis_request(cme_lsis* lsis){
 		len_r = read(fd,buf+slen,4-slen);
 		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
-			return -1;
+			close(fd);return -1;
 		}
 		slen += len_r;
 	}
@@ -102,7 +53,8 @@ int cme_lsis_request(cme_lsis* lsis){
 		len_r = read(fd,buf+slen,len-slen);
 		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
-			return -1;
+			close(fd);
+            return -1;
 		}
 		slen += len_r;
 	}
@@ -112,7 +64,8 @@ int cme_lsis_request(cme_lsis* lsis){
 	}
 
 	free(buf_beg);
-	return 0;
+	close(fd);
+    return 0;
 }
 
 int cme_cmh_request(cmh* cmh){
@@ -120,6 +73,7 @@ int cme_cmh_request(cmh* cmh){
     enum app_tag tag = CME_CMH_REQUEST;
     if(write(fd,&tag,sizeof(tag)) != sizeof(tag)){
         ERROR_PRINTF("写入失败");
+        close(fd);
         return -1;
     }
 
@@ -128,7 +82,8 @@ int cme_cmh_request(cmh* cmh){
 	char* buf = (char*)malloc(len);
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
-		return -1;
+		close(fd);
+        return -1;
 	}
 	char* buf_beg = buf;
 
@@ -138,7 +93,8 @@ int cme_cmh_request(cmh* cmh){
 		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		slen += len_r;
 	}
@@ -151,7 +107,8 @@ int cme_cmh_request(cmh* cmh){
 		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		slen += len_r;
 	}
@@ -161,7 +118,8 @@ int cme_cmh_request(cmh* cmh){
 	}
 
 	free(buf_beg);
-	return 0;
+	close(fd);
+    return 0;
 }
 
 int cme_generate_keypair(cmh cmh,int algorithm,
@@ -172,7 +130,7 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 {
 	if(algorithm<0 || (algorithm>2 && algorithm != 255)){
 		ERROR_PRINTF("算法错误");
-		return -1;
+        return -1;
 	}
 
 	int len = 4 + sizeof(app_tag) + sizeof(int) + sizeof(cmh);
@@ -180,7 +138,7 @@ int cme_generate_keypair(cmh cmh,int algorithm,
     app_tag tag = CME_GENERATE_KEYPARI;
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
-		return -1;
+        return -1;
 	}
 	char* buf_beg = buf;
 
@@ -200,7 +158,8 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 	if( write(fd,buf_beg,len) != len){ //判断写入是否成功
 		ERROR_PRINTF("写入失败");
 		free(buf_beg);
-		return -1;
+		close(fd);
+        return -1;
 	}
 	free(buf_beg);
 
@@ -210,7 +169,8 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 	buf = (char*)malloc(len);
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
-		return -1;
+		close(fd);
+        return -1;
 	}
 	buf_beg = buf;
 
@@ -220,7 +180,8 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 		if(len_r <= 0){
 			ERROR_PRINTF("读取失败");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		slen += len_r;
 	}
@@ -237,7 +198,8 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 		if(len_r <= 0){
 			ERROR_PRINTF("读取失败");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		slen += len_r;
 	}
@@ -247,7 +209,8 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 		if(*x_len < slen){
 			ERROR_PRINTF("分配空间不足");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 	    *x_len = slen;
     }
@@ -263,7 +226,8 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 		if(*y_len < slen){
 			ERROR_PRINTF("分配空间不足");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		*y_len = slen;
 	}
@@ -278,7 +242,8 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 		if(*pri_len < slen){
 			ERROR_PRINTF("分配空间不足");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		*pri_len = slen;
 	}
@@ -288,9 +253,10 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 		memcpy(pri_key,buf,slen);
 
 	free(buf_beg);
-	return 0;
+	close(fd);
+    return 0;
 }
-//???????????????
+//????????????
 int cme_store_keypair(cmh cmh,int algorithm,
 						char* pub_key_x,int x_len,
 						char* pub_key_y,int y_len,
@@ -298,14 +264,14 @@ int cme_store_keypair(cmh cmh,int algorithm,
 {
 	if(algorithm<0 || (algorithm>2 && algorithm != 255)){
 		ERROR_PRINTF("算法错误");
-		return -1;
+        return -1;
 	}
 	
 	int len = 4 + sizeof(app_tag) + sizeof(int)*4 + x_len + y_len + pri_len; //app_tag??
 	char* buf = (char*)malloc(len);
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
-		return -1;
+        return -1;
 	}
 	char* buf_beg = buf;
 
@@ -341,7 +307,7 @@ int cme_store_keypair(cmh cmh,int algorithm,
 		memcpy(buf,pri_key,pri_len);
 
 	free(buf_beg);
-	return 0;
+    return 0;
 }
 
 
@@ -356,7 +322,7 @@ int cme_store_cert(cmh cmh,certificate* cert,
     app_tag tag = CME_STORE_CERT;
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
-		return -1;
+        return -1;
 	}
 	char* buf_beg = buf;
 
@@ -382,7 +348,7 @@ int cme_store_cert(cmh cmh,certificate* cert,
 			if(cert_len == -1){
 				ERROR_PRINTF("certificate_2_buf失败");
 				free(buf_beg);
-				return -1;
+                return -1;
 			}else if(cert_len == -2){
 				len *= 2;
 				buf_beg = (char*)realloc(buf_beg,len);
@@ -416,11 +382,13 @@ int cme_store_cert(cmh cmh,certificate* cert,
 	if(write(fd,buf_beg,count) != count){
 		ERROR_PRINTF("写入失败");
 		free(buf_beg);
-		return -1;
+		close(fd);
+        return -1;
 	}
 
 	free(buf_beg);
-	return 0;
+	close(fd);
+    return 0;
 }
 
 int cme_store_cert_key(cmh cmh,certificate* cert,
@@ -432,7 +400,7 @@ int cme_store_cert_key(cmh cmh,certificate* cert,
     app_tag tag = CME_STORE_CERT_KEY;
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
-		return -1;
+        return -1;
 	}
 	char* buf_beg = buf;
 
@@ -458,7 +426,7 @@ int cme_store_cert_key(cmh cmh,certificate* cert,
 			if(cert_len == -1){
 				ERROR_PRINTF("certificate_2_buf失败");
 				free(buf_beg);
-				return -1;
+                return -1;
 			}else if(cert_len == -2){
 				len *= 2;
 				buf_beg = (char*)realloc(buf_beg,len);
@@ -492,11 +460,13 @@ int cme_store_cert_key(cmh cmh,certificate* cert,
 	if(write(fd,buf_beg,count) != count){
 		ERROR_PRINTF("写入失败");
 		free(buf_beg);
-		return -1;
+		close(fd);
+        return -1;
 	}
 
 	free(buf_beg);
-	return 0;
+	close(fd);
+    return 0;
 }
 
 /**
@@ -522,7 +492,7 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 		(fs_type < 0 || fs_type > 2) )
 	{
 		ERROR_PRINTF("参数错误");
-		return -1;
+        return -1;
 	}
 
 	int len = 4 + sizeof(app_tag) + sizeof(int)*14 + sizeof(cmh) + sizeof(psid) + sizeof(time64)*2
@@ -531,7 +501,7 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
     app_tag tag = SEC_SIGNED_DATA;
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
-		return -1;
+        return -1;
 	}
 	char* buf_beg = buf;
 
@@ -616,7 +586,8 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 	if(write(fd,buf_beg,len) != len){
 		ERROR_PRINTF("写入失败");
 		free(buf_beg);
-		return -1;
+		close(fd);
+        return -1;
 	}
 	free(buf_beg);
 
@@ -625,7 +596,8 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 	buf = (char*)malloc(len);
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
-		return -1;
+		close(fd);
+        return -1;
 	}
 	buf_beg = buf;
 
@@ -635,7 +607,8 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 		if(len_r <= 0){
 			ERROR_PRINTF("读取失败");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		slen += len_r;
 	}
@@ -652,7 +625,8 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 		if(len_r <= 0){
 			ERROR_PRINTF("读取失败");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		slen += len_r;
 	}
@@ -662,7 +636,8 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 		if(*signed_data_len < slen){
 			ERROR_PRINTF("分配空间不足");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		*signed_data_len = slen;
 	}
@@ -676,7 +651,8 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 		*len_of_cert_chain = *((int*)buf);
 
 	free(buf_beg);
-	return 0;
+	close(fd);
+    return 0;
 }
 
 
@@ -692,7 +668,7 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 		(type < 0 || type > 12))
 	{
 		ERROR_PRINTF("参数错误");
-		return -1;
+        return -1;
 	}
 
 	int len = 4 + sizeof(app_tag) + sizeof(int)*4 + sizeof(time64) + data_len + certs_len;
@@ -700,7 +676,7 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 	char* buf = (char*)malloc(len);
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
-		return -1;
+        return -1;
 	}
 	char* buf_beg = buf;
 
@@ -727,7 +703,7 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 		if(certificate_2_buf(certs,buf,certs_len) < 0){
 			ERROR_PRINTF("certificate_2_buf失败");
 			free(buf_beg);
-			return -1;
+            return -1;
 		}
 	}
 	buf += certs_len;
@@ -742,7 +718,8 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 	if(write(fd,buf_beg,len) != len){
 		ERROR_PRINTF("写入失败");
 		free(buf_beg);
-		return -1;
+		close(fd);
+        return -1;
 	}
 	free(buf_beg);
 
@@ -751,7 +728,8 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 	buf = (char*)malloc(len);
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
-		return -1;
+		close(fd);
+        return -1;
 	}
 	buf_beg = buf;
 
@@ -761,7 +739,8 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		slen += len_r;
 	}
@@ -778,7 +757,8 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		slen += len_r;
 	}
@@ -788,7 +768,8 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 		if(*encrypted_len < slen){
 			ERROR_PRINTF("分配空间不足");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		*encrypted_len = slen;
 	}
@@ -803,7 +784,8 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 		if(*failed_certs_len < slen){
 			ERROR_PRINTF("分配空间不足");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		*failed_certs_len = slen;
 	}
@@ -813,12 +795,14 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 		if(buf_2_certificate(buf,failed_certs_len,failed_certs) < 0){
 			ERROR_PRINTF("buf_2_certificate失败");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 	}
 
 	free(buf_beg);
-	return 0;
+	close(fd);
+    return 0;
 }
 
 /**
@@ -861,7 +845,8 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 	if(write(fd,buf_beg,len) != len){
 		ERROR_PRINTF("写入失败");
 		free(buf_beg);
-		return -1;
+		close(fd);
+        return -1;
 	}
 	free(buf_beg);
 
@@ -871,7 +856,8 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 	buf = (char*)malloc(len);
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
-		return -1;
+		close(fd);
+        return -1;
 	}
 	buf_beg = buf;
 	
@@ -881,7 +867,8 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		slen += len_r;
 	}
@@ -898,7 +885,8 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		slen += len_r;
 	}
@@ -918,7 +906,8 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 		if(*data_len < slen){
 			ERROR_PRINTF("分配空间不足");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		*data_len = slen;
 	}
@@ -935,7 +924,8 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 		if(*signed_len < slen){
 			ERROR_PRINTF("分配空间不足");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		*signed_len = slen;
 	}
@@ -957,7 +947,8 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 		if(*ssp_len < slen){
 			ERROR_PRINTF("分配空间不足");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		*ssp_len = slen;
 	}
@@ -1007,12 +998,14 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 		if(buf_2_certificate(buf,len-count,send_cert) < 0){
 			ERROR_PRINTF("buf_2_certificate失败");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 	}
 	
 	free(buf_beg);
-	return 0;
+	close(fd);
+    return 0;
 }
 
 
@@ -1158,7 +1151,8 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 	if(write(fd,buf_beg,len) != len){
 		ERROR_PRINTF("写入失败");
 		free(buf_beg);
-		return -1;
+		close(fd);
+        return -1;
 	}
 	free(buf_beg);
 
@@ -1167,8 +1161,9 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 	buf = (char*)malloc(len);
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
-		return -1;
-	}
+		close(fd);
+        return -1;	
+    }
 	buf_beg = buf;
 
 	int len_r;
@@ -1177,7 +1172,8 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		slen += len_r;
 	}
@@ -1194,7 +1190,8 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		slen += len_r;
 	}
@@ -1204,7 +1201,8 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 		if(*last_len < slen){
 			ERROR_PRINTF("分配空间不足");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 		*last_len = slen;
 	}
@@ -1219,8 +1217,9 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 		if(*next_len < slen){
 			ERROR_PRINTF("分配空间不足");
 			free(buf_beg);
-			return -1;
-		}
+			close(fd);   
+            return -1;
+        }
 		*next_len = slen;
 	}
 	buf += 4;
@@ -1233,12 +1232,14 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 		if(buf_2_certificate(buf,len-8-sizeof(time32)*2,send_cert) < 0){
 			ERROR_PRINTF("buf_2_certificate失败");
 			free(buf_beg);
-			return -1;
+			close(fd);
+            return -1;
 		}
 	}
 	
 	free(buf_beg);
-	return 0;
+	close(fd);
+    return 0;
 }
 
 
