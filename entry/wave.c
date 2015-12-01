@@ -2,9 +2,12 @@
 #include<pthread.h>
 #include<stdio.h>
 #include<stdlib.h>
-#include"../utils/netlink.h"
-#include "../sec/sec.h"
+#include"utils/netlink.h"
+#include "sec/sec_db.h"
+#include "cmp/cmp.h"
 #define SERVICE "/var/tmp/wave_sec.socket"
+#define CME_DB_CONFIG "/var/tmp/cme_db.config"
+#define PSSME_DB_CONFIG "/var/tmp/pssme_db.config"
 #define INIT(m) memset(&m, 0, sizeof(m));
 #define RECV_S_HEAD_LEN 15
 #define RECV_V_HEAD_LEN 12 
@@ -278,7 +281,7 @@ destructor:
         certificate_free(&cert);
     }
 }
-static int app_do_request(void *ptr){
+static void* app_do_request(void *ptr){
     int fd = *((int*)ptr);
     struct sec_db* sdb = &sec_db;
     
@@ -292,7 +295,7 @@ static int app_start(struct sec_db* sdb){
         return -1;
     }
     while(1){
-        if( (fd = serv_accept(serv_fd,NULL)) < 0){
+        if( (fd = serv_accept(serve_fd,NULL)) < 0){
             return -1;
         }
         if( init_pthread_attr_t(&attr))
@@ -329,21 +332,15 @@ static int inline init_wme_pthread_attr_t(pthread_attr_t* attr){
     return 0;
 }
 static struct sec_db* init_sec_db(){
-
-    return &sdb;
+    pssme_db_init(&sec_db.pssme_db);
+    if( file_2_pdb(&sec_db.pssme_db,PSSME_DB_CONFIG))
+        return NULL;
+    cme_db_init(&sec_db.cme_db);
+    if( file_2_cme_db(&sec_db.cme_db,CME_DB_CONFIG))
+        return NULL;
+    return &sec_db;
 }
-int wave_start(){
-    struct sec_db* sdb;
-    int res;
-    sdb = init_sec_db();
-    if(sdb == NULL){
-        return -1;
-    }
 
-    wme_serv_start(sdb);
-    res = app_start(sdb);
-    exit(res);
-}
 int wme_serv_start(struct sec_db* sdb){
    pthread_t wmes;
    pthread_attr_t attr;
@@ -354,3 +351,39 @@ int wme_serv_start(struct sec_db* sdb){
    pthread_attr_destroy(&attr);
    return 0;
 }
+void* cmp_loop(void *ptr){
+    struct sec_db* sdb = (struct sec_db*)ptr;
+    cmp_run(sdb);
+    return 0;
+}
+int wave_cmp_start(struct sec_db* sdb){
+    pthread_t cmp_pt;
+    if(pthread_create(&cmp_pt,NULL,cmp_loop,(void*)sdb))
+        return -1;
+    return 0;
+}
+void wave_exit_fun(){
+    pdb_2_file(&sec_db.pssme_db,PSSME_DB_CONFIG);
+    cme_db_2_file(&sec_db.cme_db,CME_DB_CONFIG);
+    cmp_end();
+}
+int wave_start(){
+    struct sec_db* sdb;
+    int res;
+    sdb = init_sec_db();
+    if(sdb == NULL){
+        return -1;
+    }
+    if(atexit(wave_exit_fun)){
+        wave_error_printf("注册退出程序失败");
+        return -1;
+    }
+    if(wme_serv_start(sdb))
+        return -1;
+    if(wave_cmp_start(sdb))
+        return -1;
+    if( app_start(sdb))
+        return -1;
+    return 0;
+}
+

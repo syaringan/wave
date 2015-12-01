@@ -1,11 +1,11 @@
 #ifndef PSSME_DB_H
 #define PSSME_DB_H
-#include "../utils/string.h"
-#include "../data/data.h"
-#include "../utils/list.h"
-#include "../utils/rb.h"
-#include "../utils/lock.h"
-#include "../utils/common.h"
+#include "utils/string.h"
+#include "data/data.h"
+#include "utils/list.h"
+#include "utils/rb.h"
+#include "utils/lock.h"
+#include "utils/common.h"
 #include "cme/cme_db.h"
 
 typedef u32 pssme_lsis;

@@ -1,7 +1,7 @@
 #ifndef CMP_H
 #define CMP_H
-#include "../utils/common.h"
-#include "../data/data.h"
+#include "utils/common.h"
+#include "data/data.h"
 void cmp_do_certificate_applycation();
 void cmp_do_recieve_data();
 u32 cmp_init();

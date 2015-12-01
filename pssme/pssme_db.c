@@ -600,7 +600,7 @@ void pssme_db_free(struct pssme_db* pdb){
 }
 void pssme_db_init(struct pssme_db* pdb){
     if(pdb == NULL)
-        return
+        return;
     lock_init(&pdb->lock);
     INIT_LIST_HEAD(&pdb->cert_db.local_cert.list);
     INIT_LIST_HEAD(&pdb->cert_db.receive_cert.list);

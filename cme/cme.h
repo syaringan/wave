@@ -1,7 +1,6 @@
 #ifndef CME_H
 #define CME_H
 #include"utils/common.h"
-#include"data/data.h"
 #include"sec/sec_db.h"
 enum identifier_type{
     ID_CERTIFICATE = 0,//这个有两重意义，在construct——chain中为certificate_array

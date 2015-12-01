@@ -2,9 +2,10 @@
 #define PSSME_H
 
 #include"pssme_db.h"
-#include"../utils/common.h"
-#include"../data/data.h"
-#include"../cme/cme_db.h"
+#include"utils/common.h"
+#include"data/data.h"
+#include"cme/cme_db.h"
+#include"cme/cme.h"
 
 struct sec_db;
 typedef enum action{

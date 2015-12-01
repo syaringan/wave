@@ -1,6 +1,5 @@
 #ifndef CME_HELPER_H
 #define CME_HELPER_H
-#include"data/data.h"
 #include"sec/sec_db.h"
 #include"utils/common.h"
 #include"cme.h" 

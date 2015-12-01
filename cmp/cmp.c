@@ -51,7 +51,6 @@ struct cmp_db{
     certificate ca_cert;
 
     u32 pending;
-    int socket;
     pthread_mutex_t lock;
 };
 
@@ -502,14 +501,9 @@ u32 cmp_init(){
     cmdb->pending = 0;
     pthread_mutex_init(&cmdb->lock,NULL);
     INIT_LIST_HEAD(&cmdb->crl_time.list);
-    //cmdb->indentifier == ??????车牌好，这个就是个名字还是同意发送
-    //geographic_region region 这个获得怎么获得？？？
-    cmdb->life_time = 10;
-    cmdb->ca_cmh = 1;
-    //ca_cert证书来字外部，，
 
     res = file_2_cmp_db(cmdb,"./cmp_db.txt");
-    if( res == -2){
+    if( res ){
         return file_2_cmp_db(cmdb,"./cmp_db.init");
     }
     return res;
@@ -884,11 +878,12 @@ void* read_progress(void* value){
     string_free(&rec_data);
     return 0;
 }
-void cmp_run(struct sec_db* sdb){
-    cmdb->socket = socket(AF_INET,SOCK_DGRAM,0);
+int cmp_run(struct sec_db* sdb){
     pthread_t read_pthread;
     if(ca_init())
-        return ;
+        return -1;
+    if(cmp_init())
+        return -1;
     pthread_create(&read_pthread,NULL,read_progress,sdb);//这个地方默认都可以，毕竟这个线程是不会停止，所以不用让他有分离状态
     while(1){
         pthread_mutex_lock(&cmdb->lock);
@@ -905,6 +900,6 @@ void cmp_run(struct sec_db* sdb){
         }
         pthread_mutex_unlock(&cmdb->lock);
     }
-    return;
+    return 0;
 }
 
