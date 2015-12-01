@@ -6,7 +6,7 @@
 #include <string.h>
 typedef struct string{
     u8 *buf;
-    u16 len;
+    int len;
 }string;
 /**
  * 释放一个string的指针

@@ -261,9 +261,9 @@ int AES_128_CCM_Get_Key_and_Nonce(char* sym_key, int *sym_key_len, char* nonce, 
  * @nonce:输入的随机值
  * @ciphertext:输出的密文          @length_of_plaintext:输出密文长度,理应比输出原文长度要长16字节(因为会产生16字节的tag)
  */
-int AES_128_CCM_encrypto_message(char *plaintext, int *length_of_plaintext,
-                                 unsigned char *sym_key, int* sym_key_len,
-                                 unsigned char *nonce, int* nonce_len,
+int AES_128_CCM_encrypto_message(char *plaintext, int length_of_plaintext,
+                                 unsigned char *sym_key, int sym_key_len,
+                                 unsigned char *nonce, int nonce_len,
                                  char *ciphertext, int *length_of_ciphertext);
 
 /*
@@ -273,9 +273,9 @@ int AES_128_CCM_encrypto_message(char *plaintext, int *length_of_plaintext,
  * @nonce:输入的随机值
  * @plaintext:输出的解密后的原文
  */
-int AES_128_CCM_decrypto_message(char *ciphertext, int *length_of_ciphertext,
-                                 const unsigned char *sym_key, int* sym_key_len,
-                                 const unsigned char *nonce, int* nonce_len,
+int AES_128_CCM_decrypto_message(char *ciphertext, int length_of_ciphertext,
+                                 const unsigned char *sym_key, int sym_key_len,
+                                 const unsigned char *nonce, int nonce_len,
                                  char *plaintext, int *length_of_plaintext);
 
 
@@ -288,7 +288,7 @@ int AES_128_CCM_decrypto_message(char *ciphertext, int *length_of_ciphertext,
  * @digest:输出的对该消息求到的摘要
  * @digest_len:摘要的长度,在sha_256中,摘要长度一定是32字节
  */
-int Sha_256(char* message, int* message_len, char* digest, int* digest_len);
+int sha_256(char* message, int message_len, char* digest, int* digest_len);
 
 
 /*
@@ -307,7 +307,7 @@ int Sha_256(char* message, int* message_len, char* digest, int* digest_len);
  * @digest:输出的对该消息求到的摘要
  * @digest_len:摘要的长度,在sha_256中,摘要长度一定是28字节
  */
-int Sha_224(char* message, int* message_len, char* digest, int* digest_len);
+int Sha_224(char* message, int message_len, char* digest, int* digest_len);
 
 
 /*
@@ -332,11 +332,11 @@ int Sha_224(char* message, int* message_len, char* digest, int* digest_len);
  * @U_public_key_x:从隐式证书中恢复出来的对端的公钥的x点,长度28字节
  * @U_public_key_y:从隐式证书中恢复出来的对端的公钥的y点,长度28字节
  */
-int cert_pk_extraction_SHA224(char* CA_public_key_x, int* CA_public_key_x_len,
-                              char* CA_public_key_y, int* CA_public_key_y_len,
-                              char* Pu_x, int* Pu_x_len,
-                              char* Pu_y, int* Pu_y_len,
-                              char* e, int* e_len,
+int cert_pk_extraction_SHA224(char* CA_public_key_x, int CA_public_key_x_len,
+                              char* CA_public_key_y, int CA_public_key_y_len,
+                              char* Pu_x, int Pu_x_len,
+                              char* Pu_y, int Pu_y_len,
+                              char* e, int e_len,
                               char* U_public_key_x, int* U_public_key_x_len,
                               char* U_public_key_y, int* U_public_key_y_len);
 
@@ -355,13 +355,13 @@ int cert_pk_extraction_SHA224(char* CA_public_key_x, int* CA_public_key_x_len,
  * @new_U_public_key_y:重建后的新的申请者的公钥y点,长度为28字节,长度28字节
  * @new_U_private_key:重建后的新的申请者的私钥,长度为28字节,长度28字节
  */
-int cert_reception_SHA224(char* CA_public_key_x, int* CA_public_key_x_len,
-                          char* CA_public_key_y, int* CA_public_key_y_len,
-                          char* Pu_x, int* Pu_x_len,
-                          char* Pu_y, int* Pu_y_len,
-                          char* old_u_private_key, int* old_u_private_key_len,
-                          char* e, int* e_len,
-                          char* r, int* r_len,
+int cert_reception_SHA224(char* CA_public_key_x, int CA_public_key_x_len,
+                          char* CA_public_key_y, int CA_public_key_y_len,
+                          char* Pu_x, int Pu_x_len,
+                          char* Pu_y, int Pu_y_len,
+                          char* old_u_private_key, int old_u_private_key_len,
+                          char* e, int e_len,
+                          char* r, int r_len,
                           char* new_U_public_key_x, int* new_U_public_key_x_len,
                           char* new_U_public_key_y, int* new_U_public_key_y_len,
                           char* new_U_private_key, int* new_U_private_key_len);
@@ -388,11 +388,11 @@ int cert_reception_SHA224(char* CA_public_key_x, int* CA_public_key_x_len,
  * @U_public_key_x:从隐式证书中恢复出来的对端的公钥的x点,长度32字节
  * @U_public_key_y:从隐式证书中恢复出来的对端的公钥的y点,长度32字节
  */
-int cert_pk_extraction_SHA256(char* CA_public_key_x, int* CA_public_key_x_len,
-                              char* CA_public_key_y, int* CA_public_key_y_len,
-                              char* Pu_x, int* Pu_x_len,
-                              char* Pu_y, int* Pu_y_len,
-                              char* e, int* e_len,
+int cert_pk_extraction_SHA256(char* CA_public_key_x, int CA_public_key_x_len,
+                              char* CA_public_key_y, int CA_public_key_y_len,
+                              char* Pu_x, int Pu_x_len,
+                              char* Pu_y, int Pu_y_len,
+                              char* e, int e_len,
                               char* U_public_key_x, int* U_public_key_x_len,
                               char* U_public_key_y, int* U_public_key_y_len);
 
@@ -411,13 +411,13 @@ int cert_pk_extraction_SHA256(char* CA_public_key_x, int* CA_public_key_x_len,
  * @new_U_public_key_y:重建后的新的申请者的公钥y点,长度为32字节
  * @new_U_private_key:重建后的新的申请者的私钥,长度为32字节
  */
-int cert_reception_SHA256(char* CA_public_key_x, int* CA_public_key_x_len,
-                          char* CA_public_key_y, int* CA_public_key_y_len,
-                          char* Pu_x, int* Pu_x_len,
-                          char* Pu_y, int* Pu_y_len,
-                          char* old_u_private_key, int* old_u_private_key_len,
-                          char* e, int* e_len,
-                          char* r, int* r_len,
+int cert_reception_SHA256(char* CA_public_key_x, int CA_public_key_x_len,
+                          char* CA_public_key_y, int CA_public_key_y_len,
+                          char* Pu_x, int Pu_x_len,
+                          char* Pu_y, int Pu_y_len,
+                          char* old_u_private_key, int old_u_private_key_len,
+                          char* e, int e_len,
+                          char* r, int r_len,
                           char* new_U_public_key_x, int* new_U_public_key_x_len,
                           char* new_U_public_key_y, int* new_U_public_key_y_len,
                           char* new_U_private_key, int* new_U_private_key_len);
