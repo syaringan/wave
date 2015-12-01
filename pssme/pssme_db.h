@@ -40,7 +40,7 @@ struct pssme_lsis_array{
 };
 struct pssme_local_cert{
     struct list_head list;
-    cmh cmh;
+    cmh cmh;//这个是个数
     struct pssme_lsis_array lsis_array;
 };
 struct pssme_receive_cert{
