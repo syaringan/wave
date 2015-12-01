@@ -22,7 +22,7 @@ extern "C"{
  *所以传入参数均为输出
  *最后一个参数flag的输出应该会恒等于4,与1609.2一致,表明这是一个未压缩的公钥
  */
-int ECDSA_224_get_key( char* privatekey_buf, int* prlen, char* public_key_x_buf, int* xlen, char* public_key_y_buf, int* ylen, char* flag );
+int ECDSA_224_get_key( char* privatekey_buf, int* prlen, char* public_key_x_buf, int* xlen, char* public_key_y_buf, int* ylen );
 
 /*
  *用来将未压缩的ECDSA_224的公钥变成压缩形式:
@@ -31,11 +31,11 @@ int ECDSA_224_get_key( char* privatekey_buf, int* prlen, char* public_key_x_buf,
  *输出有以下三个:
  *
  * @compress_key:压缩后的公钥
- * @compress_key_len:压缩后的公钥长度(应该是32字节,即未压缩公钥的x坐标
+ * @compress_key_len:压缩后的公钥长度(应该是28字节,即未压缩公钥的x坐标 
  * @flag:用来表明y的奇偶性,与1609.2一致,y为偶数,则flag等于2,y为奇数则flag等于3
  */
-int ECDSA_224_uncompress_key_2_compress_key(char *public_key_x, int* public_key_x_len,
-                                            char *public_key_y, int* public_key_y_len,
+int ECDSA_224_uncompress_key_2_compress_key(char *public_key_x, int public_key_x_len,
+                                            char *public_key_y, int public_key_y_len,
                                             char *compress_key, int *compress_key_len,
                                             char *flag);
 
@@ -47,10 +47,12 @@ int ECDSA_224_uncompress_key_2_compress_key(char *public_key_x, int* public_key_
  * @old_flag:是函数的输入即表明y的奇偶性的flag,与是那个面函数一致,他的值也与1609.2一致
  * @new_flag:是函数的输出,应会恒等于4,表明恢复成了未压缩的公钥
  */
-int ECDSA_224_compress_key_2_uncompress(char *public_key_x_buf, int* public_key_x_len,
-                                        char *public_key_y_buf, int* public_key_y_len,
-                                        char *compress_key, int *compress_key_len,
-                                        char *old_flag, char *new_flag);
+int ECDSA_224_compress_key_2_uncompress(char *compress_key, int compress_key_len,
+                                        char old_flag,
+
+                                        char *public_key_x_buf, int *public_key_x_len,
+                                        char *public_key_y_buf, int *public_key_y_len,
+                                        char *new_flag);
 
 /*
  *ECDSA_224的签名函数
@@ -59,9 +61,11 @@ int ECDSA_224_compress_key_2_uncompress(char *public_key_x_buf, int* public_key_
  *输出是签名消息signed_mess_buf
  *需要注意的是:signed_mess_buf仅仅就是签名,也就是仅仅是长度为56字节的签名,该字符数组中不包含被签名的消息mess_buf的内容.
  */
-int ECDSA_224_sign_message(char* private_key_buf, int* prilen,
-                           char* mess_buf, int* mess_len,
-			   char* signed_mess_buf, int* signed_mess_len);
+int ECDSA_224_sign_message(char* private_key_buf, int prilen,
+                           char* mess_buf, int mess_len,
+
+			                char* r,int *r_len, 
+                            char* s,int *s_len);
 
 /*
  *ECDSA_224的签名验证函数
@@ -71,10 +75,11 @@ int ECDSA_224_sign_message(char* private_key_buf, int* prilen,
  *还需输入签名信息signed_mess_buf和消息mess_buf
  *即 该函数的参数全是输入,输出仅是该函数的返回值,验证成功返回0,失败返回-1
  */
-int ECDSA_224_verify_message(char* public_key_x_buf, int* xlen,
-                             char* public_key_y_buf, int* ylen,
-                             char* signed_mess_buf, int* signed_mess_len,
-                             char* mess_buf, int* mess_len);
+int ECDSA_224_verify_message(char* public_key_x_buf, int xlen,
+                             char* public_key_y_buf, int ylen,
+                             char* r,int r_len,
+                             char* s,int s_len,
+                             char* mess_buf, int mess_len);
 
 /*
  *ECDSA_224的快速签名函数
@@ -86,8 +91,9 @@ int ECDSA_224_verify_message(char* public_key_x_buf, int* xlen,
  *输出包括:临时公钥signed_R_x和signed_R_y,
  *        以及签名产生的signed_S,也就是1609.2中快速签名结构体中的S
  */
-int ECDSA_224_FAST_sign_message(char* private_key_buf, int* prilen,
-                                char* mess_buf, int* mess_len,
+int ECDSA_224_FAST_sign_message(char* private_key_buf, int prilen,
+                                char* mess_buf, int mess_len,
+
                                 char* signed_R_x, int* signed_R_x_len,
                                 char* signed_R_y, int* signed_R_y_len,
                                 char* signed_S, int* signed_S_len);
@@ -99,12 +105,12 @@ int ECDSA_224_FAST_sign_message(char* private_key_buf, int* prilen,
  *
  *验证成功函数返回0,验证失败函数返回-1
  */
-int ECDSA_224_FAST_verify_message(char* public_key_x_buf, int* xlen,
-                                  char* public_key_y_buf, int* ylen,
-                                  char* mess_buf, int* mess_len,
-                                  char* signed_R_x, int* signed_R_x_len,
-                                  char* signed_R_y, int* signed_R_y_len,
-                                  char* signed_S, int* signed_S_len);
+int ECDSA_224_FAST_verify_message(char* public_key_x_buf, int xlen,
+                                  char* public_key_y_buf, int ylen,
+                                  char* mess_buf, int mess_len,
+                                  char* signed_R_x, int signed_R_x_len,
+                                  char* signed_R_y, int signed_R_y_len,
+                                  char* signed_S, int signed_S_len);
 
 
 
@@ -119,39 +125,44 @@ int ECDSA_224_FAST_verify_message(char* public_key_x_buf, int* xlen,
  *在接下来的ECDSA_256中输出长度都是32字节,
  *函数使用没有区别
  */
-int ECDSA_256_get_key( char* privatekey_buf, int* prlen, char* public_key_x_buf, int* xlen, char* public_key_y_buf, int* ylen, char* flag );
+int ECDSA_256_get_key( char* privatekey_buf, int* prlen, char* public_key_x_buf, int* xlen, char* public_key_y_buf, int* ylen);
 
-int ECDSA_256_uncompress_key_2_compress_key(char *public_key_x, int* public_key_x_len,
-                                            char *public_key_y, int* public_key_y_len,
+int ECDSA_256_uncompress_key_2_compress_key(char *public_key_x, int public_key_x_len,
+                                            char *public_key_y, int public_key_y_len,
                                             char *compress_key, int *compress_key_len,
                                             char *flag);
 
-int ECDSA_256_compress_key_2_uncompress(char *public_key_x_buf, int* public_key_x_len,
+int ECDSA_256_compress_key_2_uncompress(char *compress_key,int compress_key_len,
+                                        char old_flag,
+
+                                        char *public_key_x_buf, int* public_key_x_len,
                                         char *public_key_y_buf, int* public_key_y_len,
-                                        char *compress_key, int *compress_key_len,
-                                        char *old_flag, char *new_flag);
+                                        char *new_flag);
 
-int ECDSA_256_sign_message(char* private_key_buf, int* prilen,
-                           char* mess_buf, int* mess_len,
-			   char* signed_mess_buf, int* signed_mess_len);
+int ECDSA_256_sign_message(char* private_key_buf, int prilen,
+                           char* mess_buf, int mess_len,
 
-int ECDSA_256_verify_message(char* public_key_x_buf, int* xlen,
-                             char* public_key_y_buf, int* ylen,
-                             char* signed_mess_buf, int* signed_mess_len,
-                             char* mess_buf, int* mess_len);
+                           char* r,int *r_len,
+                           char* s,int *s_len);
 
-int ECDSA_256_FAST_sign_message(char* private_key_buf, int* prilen,
-                                char* mess_buf, int* mess_len,
+int ECDSA_256_verify_message(char* public_key_x_buf, int xlen,
+                             char* public_key_y_buf, int ylen,
+                             char* r, int r_len,
+                             char* s,  int s_len,
+                             char* mess_buf, int mess_len);
+
+int ECDSA_256_FAST_sign_message(char* private_key_buf, int prilen,
+                                char* mess_buf, int mess_len,
                                 char* signed_R_x, int* signed_R_x_len,
                                 char* signed_R_y, int* signed_R_y_len,
                                 char* signed_S, int* signed_S_len);
 
-int ECDSA_256_FAST_verify_message(char* public_key_x_buf, int* xlen,
-                                  char* public_key_y_buf, int* ylen,
-                                  char* mess_buf, int* mess_len,
-                                  char* signed_R_x, int* signed_R_x_len,
-                                  char* signed_R_y, int* signed_R_y_len,
-                                  char* signed_S, int* signed_S_len);
+int ECDSA_256_FAST_verify_message(char* public_key_x_buf, int xlen,
+                                  char* public_key_y_buf, int ylen,
+                                  char* mess_buf, int mess_len,
+                                  char* signed_R_x, int signed_R_x_len,
+                                  char* signed_R_y, int signed_R_y_len,
+                                  char* signed_S, int signed_S_len);
 
 /*
  *****************************************椭圆加密ECIES相关*****************************************:
@@ -167,15 +178,14 @@ int ECDSA_256_FAST_verify_message(char* public_key_x_buf, int* xlen,
  */
 int ECIES_get_key(char* private_key_buf, int* private_klen,
                   char *public_key_x_buf, int* public_key_x_len,
-                  char *public_key_y_buf, int* public_key_y_len,
-                  char *flag);
+                  char *public_key_y_buf, int* public_key_y_len);
 
 /*
  *将椭圆加密需要的公钥从未压缩形式转换为压缩形式:
  * @flag:若y为偶数,则等于2,若y为奇数,则等于3
  */
-int ECIES_uncompress_key_2_compress_key(char *public_key_x, int* public_key_x_len,
-                                        char *public_key_y, int* public_key_y_len,
+int ECIES_uncompress_key_2_compress_key(char *public_key_x, int public_key_x_len,
+                                        char *public_key_y, int public_key_y_len,
                                         char *compress_key, int *compress_key_len,
                                         char *flag);
 
@@ -187,10 +197,12 @@ int ECIES_uncompress_key_2_compress_key(char *public_key_x, int* public_key_x_le
  * @flag:伴随压缩公钥的标志位,y位偶数,flag等于2,y为奇数,flag等于3
  * @new_flag:为函数输出,理应输出4,表示公钥已转变为未压缩形式
  */
-int ECIES_compress_key_2_uncompress(char *public_key_x_buf, int* public_key_x_len,
+int ECIES_compress_key_2_uncompress(char *compress_key,int compress_key_len,
+                                    char old_flag,
+
+                                    char *public_key_x_buf, int* public_key_x_len,
                                     char *public_key_y_buf, int* public_key_y_len,
-                                    char *compress_key, int *compress_key_len,
-                                    char *flag, char *new_flag);
+                                    char *new_flag);
 
 /*
  *椭圆加密算法ECIES的加密函数:
@@ -203,13 +215,14 @@ int ECIES_compress_key_2_uncompress(char *public_key_x_buf, int* public_key_x_le
  * @public_key_x_buf:输入的加密需要的对端公钥的x坐标
  * @public_key_y_buf:输入的加密需要的对端公钥的y坐标
  */
-int ECIES_encrypto_message(char* mess_buf, int* mess_len,
-                           char* flag,
-                           char* ephe_public_key_x, int* ephe_public_key_x_len,
-                           char* ephe_public_key_y, int* ephe_public_key_y_len,
-		           char* encrypto_mess_buf, int* encrypto_mess_len,
-                           char* public_key_x_buf, int* xlen,
-                           char* public_key_y_buf, int* ylen);
+int ECIES_encrypto_message(char* mess_buf, int mess_len,
+                           char* public_key_x_buf, int xlen,
+                           char* public_key_y_buf, int ylen,
+
+                           char* ephe_public_key_x, int *ephe_public_key_x_len,
+                           char* ephe_public_key_y, int *ephe_public_key_y_len,
+		                   char* encrypto_mess_buf, int *encrypto_mess_len,
+                           char* tag, int *tag_len);
 
 /*
  *椭圆加密算法ECIES的解密函数:
@@ -221,12 +234,13 @@ int ECIES_encrypto_message(char* mess_buf, int* mess_len,
  * @decrypto_mess_buf:解密密文获得的原文,     @decrypto_mess_len解密出的原文长度,与密文长度一致
  * @private_key_buf:输入的解密需要的本方私钥
  */
-int ECIES_decrypto_message(char* flag,
-                           char* ephe_public_key_x, int* ephe_public_key_x_len,
-                           char* ephe_public_key_y, int* ephe_public_key_y_len,
-                           char* encrypto_mess_buf, int* encrypto_mess_len,
-		           char* decrypto_mess_buf, int* decrypto_mess_len,
-		           char* private_key_buf, int* prilen);
+int ECIES_decrypto_message( char* encrypto_mess_buf, int encrypto_mess_len,
+                           char* ephe_public_key_x, int ephe_public_key_x_len,
+                           char* ephe_public_key_y, int ephe_public_key_y_len,
+                           char* tag,int tag_len,
+                           char* private_key_buf, int prilen,
+
+		                    char* decrypto_mess_buf, int* decrypto_mess_len);
 
 
 /*
@@ -238,7 +252,7 @@ int ECIES_decrypto_message(char* flag,
  * @sym_key:函数产生的对称密钥         @sym_key_len:函数产生的对称密钥的长度,函数输出的此值理应只能是16(字节位单位)
  * @nonce:函数产生的随机值             @nonce_len:函数长生的随机值的长度,函数输出的此值理应只能是12(字节位单位)
  */
-int AES_128_CCM_Get_Key_and_Nonce(unsigned char* sym_key, int* sym_key_len, unsigned char* nonce, int* nonce_len);
+int AES_128_CCM_Get_Key_and_Nonce(char* sym_key, int *sym_key_len, char* nonce, int* nonce_len);
 
 /*
  *AES_128_CCM对称加密函数:
