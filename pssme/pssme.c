@@ -1,7 +1,7 @@
 #include "pssme.h"
-#include "../cme/cme.h"
-#include "../sec/sec.h"
-#include "../utils/debug.h"
+#include "cme/cme.h"
+#include "sec/sec.h"
+#include "utils/debug.h"
 #include<stdlib.h>
 #define INIT(m) memset(&m,0,sizeof(m))
 #define max_chain_length 8
@@ -21,27 +21,6 @@ void pssme_lsis_array_free(struct pssme_lsis_array* lsises){
     lsises->lsis = NULL;
 }
 
-//未测
-void pssme_local_cert_free(struct pssme_local_cert *node){
-    if(!node){
-        pssme_lsis_array_free(&node->lsis_array);
-        free(node);
-        node = NULL;
-    }
-}
-//未测
-void pssme_local_cert_list_free(struct pssme_local_cert *plc){
-    struct pssme_local_cert *node = NULL;
-    struct list_head* head;
-    head = &plc->list;
-    if(head != NULL){
-        while(!list_empty(head)){
-            node = list_entry(head->next, struct pssme_local_cert, list);
-            list_del(&node->list);
-            pssme_local_cert_free(node);
-        }
-    }
-}
 //未测
 result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_array,two_d_location* two_dl,
         

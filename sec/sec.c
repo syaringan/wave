@@ -20,6 +20,22 @@ extern struct region_type_array certificate_request_support_region_types;//é…ç½
 extern u32 certificate_request_rectangle_max_length;
 extern u32 certificate_request_polygonal_max_length;
 
+void ssp_array_free(struct ssp_array* ptr){
+    if(ptr == NULL)
+        return ;
+    free(ptr->ssps);
+    ptr->ssps = NULL;
+    ptr->len = 0;
+}
+
+void result_array_free(struct result_array* ptr){
+    if(ptr == NULL)
+        return;
+    free(ptr->result);
+    ptr->len = 0;
+    ptr->result = NULL;
+}
+
 static int 
 locate_header_ext(char *wsa, unsigned int *shift, unsigned int length, 
 		struct wsa_header_ext *head_ext)

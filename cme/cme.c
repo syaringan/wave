@@ -12,6 +12,13 @@
 #define IMPLICT 3
 #define EXPLICT 2
 
+void time32_array_free(struct time32_array *ptr){
+    if(ptr == NULL)
+        return ;
+    free(ptr->times);
+    ptr->times = NULL;
+    ptr->len = 0;
+}
 void cme_permissions_free(struct cme_permissions* permissions){
     switch(permissions->type){
         case PSID:
@@ -48,14 +55,6 @@ void verified_array_free(struct verified_array *verified_array){
     free(verified_array->verified);
     verified_array->verified = NULL;
     verified_array->len = 0;
-}
-void time32_array_free(struct time32_array *array){
-    if(array->times == NULL){
-        return;
-    }
-    free(array->times);
-    array->times = NULL;
-    array->len = 0;
 }
 
 void certificate_chain_free(struct certificate_chain* certs_chain){

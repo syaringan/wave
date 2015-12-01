@@ -1,10 +1,10 @@
 #ifndef SEC_H
 #define SEC_H
 #include <linux/types.h>
-#include"../pssme/pssme_db.h"
-#include"../cme/cme_db.h"
-#include"../cme/cme.h"
-#include"../pssme/pssme.h"
+#include"pssme/pssme_db.h"
+#include"cme/cme_db.h"
+#include"cme/cme.h"
+#include"pssme/pssme.h"
 
 
 
@@ -33,6 +33,10 @@ struct region_type_array{
     region_type* types;
     u32 len;
 };
+
+void ssp_array_free(struct ssp_array* ptr);
+
+void result_array_free(struct result_array* ptr);
 
 /*
  * 签名数据

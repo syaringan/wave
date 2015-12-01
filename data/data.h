@@ -257,8 +257,6 @@ typedef struct geographic_region{
  * 8 free buf_to  13
  */
 
-
-
 typedef struct psid_priority{
     psid psid;
     u8 max_priority;

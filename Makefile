@@ -5,7 +5,7 @@ wave_sec:
 	#echo $(SUBDIRS)
 	for a in $(SUBDIRS);\
 		do $(MAKE) -C $$a;done;
-	$(CC) main.c  -o $@  $(libs)
+	$(CC) main.c  -o $@  $(libs) -lpthread
 
 clean:
 	for a in $(SUBDIRS);\

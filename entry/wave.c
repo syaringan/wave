@@ -3,8 +3,11 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include"utils/netlink.h"
-#include "sec/sec_db.h"
+#include "sec/sec.h"
 #include "cmp/cmp.h"
+#include "pssme/pssme.h"
+
+
 #define SERVICE "/var/tmp/wave_sec.socket"
 #define CME_DB_CONFIG "/var/tmp/cme_db.config"
 #define PSSME_DB_CONFIG "/var/tmp/pssme_db.config"

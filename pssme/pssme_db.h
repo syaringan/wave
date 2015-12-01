@@ -70,4 +70,14 @@ int file_2_pdb(struct pssme_db* pdb,char *name);
 int pdb_2_file(struct pssme_db* pdb,char *name);
 void psme_db_init(struct pssme_db* pdb);
 void pssme_db_free(struct pssme_db* pdb);
+
+
+/**
+ * 释放一个pssme_local_cert链表
+ */
+void pssme_local_cert_list_free(struct pssme_local_cert *head);
+/*
+ * 释放一个pssme_local_cert节点
+ * */
+void pssme_local_cert_free(struct pssme_local_cert *node);
 #endif
