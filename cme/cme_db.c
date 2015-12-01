@@ -312,7 +312,7 @@ static int cmh_key_cert_2_file(struct cmh_key_cert* key_cert,FILE *fp){
         res = -1;
         goto end;
     }
-    memset(&cert_string,sizeof(cert_string),0);
+    memset(&cert_string,0,sizeof(cert_string));
     if( certificate_2_string(key_cert->cert,&cert_string)){
         wave_error_printf("证书编码失败 %s %d",__FILE__,__LINE__);
         res = -1;
@@ -556,7 +556,7 @@ static int cert_info_2_file(struct cert_info *cinfo,FILE *fp){
     string cert_string;
     int res = 0;
     int len;
-    memset(&cert_string,sizeof(cert_string),0);
+    memset(&cert_string,0,sizeof(cert_string));
     if( certificate_2_string(cinfo->cert,&cert_string)){
         wave_error_printf("证书编码失败");
         res = -1;
@@ -664,7 +664,7 @@ static int file_2_cmh_key_cert(struct cme_db *cdb,struct cmh_key_cert* key_cert,
         res = -1;
         goto end;
     }
-    memset(cert,sizeof(certificate),0);
+    memset(cert,0,sizeof(certificate));
 
     if( (len = fread(buf,1,READ_BUF_LEN,fp)) <= 0){
         wave_error_printf("read文件错误 %s %d",__FILE__,__LINE__);
@@ -751,7 +751,7 @@ static int file_2_alloced_cmhs(struct cme_db *cdb,struct alloced_cmhs* alloced_c
             wave_malloc_error();
             return -1;
         }
-        memset(key_cert_temp,sizeof(struct cmh_key_cert),0);
+        memset(key_cert_temp,0,sizeof(struct cmh_key_cert));
         ckc_init_rb(key_cert_temp); 
         if( file_2_cmh_key_cert(cdb,key_cert_temp,fp)){
             cmh_key_cert_free(key_cert_temp);
@@ -969,7 +969,7 @@ static int file_2_cert_info(struct cert_info* cinfo,FILE *fp){
         res = -1;
         goto end;
     }
-    memset(cert,sizeof(*cert),0); 
+    memset(cert,0,sizeof(*cert)); 
     len = fread(buf,1,READ_BUF_LEN,fp);
     if( len <= 0){
         wave_error_printf("读取文件出错 %s %d",__FILE__,__LINE__);

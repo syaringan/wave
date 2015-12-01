@@ -1,23 +1,11 @@
-/**
- * @buf_beg:
- * @len:
- * @slen:
- * @len_r:
- * @
- */
-
 #include<stdio.h>
 #include "wave_service.h"
 #include"../cme/cme.h"
 
 #define ERROR_PRINTF(n) printf("n %s %d",__FILE__,__LINE__)
 
-int do_client_request(struct sec_db* sdb,int fd){
-    if(sdb == NULL){
-        ERROR_PRINTF("参数错误");
-        return -1;
-    }
-
+int do_client_request(struct sec_db* sdb,int fd)
+{
     int len = sizeof(app_tag);
     char* buf = (char*)malloc(len);
     if(buf == NULL){
@@ -82,12 +70,9 @@ int do_client_request(struct sec_db* sdb,int fd){
     return 0;
 }
 
-static int do_cme_lsis_request(struct sec_db* sdb){
-    if(sdb == NULL){
-        ERROR_PRINTF("参数错误");
-        return -1;
-    }
 
+static int do_cme_lsis_request(struct sec_db* sdb)
+{
     int len = sizeof(int) + sizeof(cme_lsis);
     char* buf = (char*)malloc(len);
     if(buf == NULL){
@@ -113,12 +98,9 @@ static int do_cme_lsis_request(struct sec_db* sdb){
     return 0;
 }
 
-static int do_cme_cmh_request(struct sec_db* sdb){
-    if(sdb == NULL){
-        ERROR_PRINTF("参数错误");
-        return -1;
-    }
 
+static int do_cme_cmh_request(struct sec_db* sdb)
+{
     len = sizeof(int) + sizeof(cmh);
     char* buf = (char*)malloc(len);
     if(buf == NULL){
@@ -144,12 +126,9 @@ static int do_cme_cmh_request(struct sec_db* sdb){
     return 0;
 }
 
-static int do_cme_generate_keypair(struct sec_db* sdb,int fd){
-    if(sdb == NULL){
-        ERROR_PRINTF("参数错误");
-        return -1;
-    }
 
+static int do_cme_generate_keypair(struct sec_db* sdb,int fd)
+{
     int len = sizeof(int)*2 + sizeof(cmh);
     char* buf = (char*)malloc(len);
     if(buf == NULL){
@@ -184,16 +163,20 @@ static int do_cme_generate_keypair(struct sec_db* sdb,int fd){
     INIT(*pub_key_x);
     INIT(*pub_key_y);
 
-    int res = cme_generate_keypair(sdb,cmh,algorithm,pub_key_x,pub_key_y); //函数内部负责free string??
+    int res = cme_generate_keypair(sdb,cmh,algorithm,pub_key_x,pub_key_y);
     if(res != 0){
         ERROR_PRINTF("cme_generate_keypair失败");
+        string_free(pub_key_x);
+        string_free(pub_key_y);
         return -1;
     }
 
-    len = sizeof(int)*3 + pub_key_x->len + pub_key_y->len; //string里的len是pub_key的长度还是个数？？
+    len = sizeof(int)*3 + pub_key_x->len + pub_key_y->len;
     buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
+        string_free(pub_key_x);
+        string_free(pub_key_y);
         return -1;
     }
     buf_beg = buf;
@@ -215,7 +198,7 @@ static int do_cme_generate_keypair(struct sec_db* sdb,int fd){
     string_free(pub_key_x);
     string_free(pub_key_y);
 
-    if(write(fd,buf,len) != len){
+    if(write(fd,buf_beg,len) != len){
         ERROR_PRINTF("写入失败");
         free(buf_beg);
         return -1;
@@ -225,12 +208,9 @@ static int do_cme_generate_keypair(struct sec_db* sdb,int fd){
     return 0;
 }
 
-static int do_cme_store_keypair(struct sec_db* sdb,int fd){
-    if(sdb == NULL){
-        ERROR_PRINTF("参数错误");
-        return -1;
-    }
 
+static int do_cme_store_keypair(struct sec_db* sdb,int fd)
+{
     int len = 1024;
     char* buf = (char*)malloc(len);
     if(buf == NULL){
@@ -275,7 +255,8 @@ static int do_cme_store_keypair(struct sec_db* sdb,int fd){
     int algorithm = *((int*)buf);
     buf += 4;
 
-    string* pub_key_x;              //需要初始化么？？
+    string* pub_key_x;
+    INIT(*pub_key_x);
     pub_key_x->len = *((int*)buf);
     buf += 4;
     pub_key_x->buf = (char*)malloc(pub_key_x->len);
@@ -288,6 +269,7 @@ static int do_cme_store_keypair(struct sec_db* sdb,int fd){
     buf += pub_key_x->len;
 
     string* pub_key_y;
+    INIT(*pub_key_y);
     pub_key_y->len = *((int*)buf);
     buf += 4;
     pub_key_y->buf = (char*)malloc(pub_key_y->len);
@@ -301,6 +283,7 @@ static int do_cme_store_keypair(struct sec_db* sdb,int fd){
     buf += pub_key_y->len;
 
     string* pri_key;
+    INIT(*pri_key);
     pri_key->len = *((int*)buf);
     buf += 4;
     pri_key->buf = (char*)malloc(pri_key->len);
@@ -328,12 +311,9 @@ static int do_cme_store_keypair(struct sec_db* sdb,int fd){
     return 0;
 }
 
-static int do_cme_store_cert(struct sec_db* sdb,int fd){
-    if(sdb == NULL){
-        ERROR_PRINTF("参数错误");
-        return -1;
-    }
 
+static int do_cme_store_cert(struct sec_db* sdb,int fd)
+{
     len = 1024;
     char* buf = (char*)malloc(len);
     if(buf == NULL){
@@ -379,19 +359,23 @@ static int do_cme_store_cert(struct sec_db* sdb,int fd){
     buf += 4;
 
     certificate* cert;
+    INIT(*cert);
     if(buf_2_certificate(buf,cert_len,cert) < 0){
         ERROR_PRINTF("buf_2_certificate失败");
+        certificate_free(cert);
         free(buf_beg);
         return -1;
     }
     buf += cert_len;
 
     string* transfor;
+    INIT(*transfor);
     transfor->len = *((int*)buf);
     buf += 4;
     transfor->buf = (char*)malloc(transfor->len);
     if(transfor->buf == NULL){
         ERROR_PRINTF("内存分配失败");
+        certificate_free(cert);
         free(buf_beg);
         return -1;
     }
@@ -400,6 +384,7 @@ static int do_cme_store_cert(struct sec_db* sdb,int fd){
     free(buf_beg);
 
     int res = cme_store_cert(sdb,cmh,cert,transfor);
+    certificate_free(cert);
     string_free(transfor);
     if(res != 0){
         ERROR_PRINTF("cme_store_cert失败");
@@ -409,12 +394,9 @@ static int do_cme_store_cert(struct sec_db* sdb,int fd){
     return 0;
 }
 
-static int do_cme_store_cert_key(struct sec_db* sdb,int fd){
-    if(sdb == NULL){
-        ERROR_PRINTF("参数错误");
-        reutrn -1;
-    }
 
+static int do_cme_store_cert_key(struct sec_db* sdb,int fd)
+{
     int len = 1024;
     char* buf = (char*)malloc(len);
     if(buf == NULL){
@@ -460,19 +442,23 @@ static int do_cme_store_cert_key(struct sec_db* sdb,int fd){
     buf += 4;
 
     certificate* cert;
+    INIT(*cert);
     if(buf_2_certificate(buf,cert_len,cert) < 0){
         ERROR_PRINTF("buf_2_certificate失败");
+        certificate_free(cert);
         free(buf_beg);
         return -1;
     }
     buf += cert_len;
 
     string* pri_key;
+    INIT(*pri_key);
     pri_key->len = *((int*)buf);
     buf += 4;
     pri_key->buf = (char*)malloc(pri_key->len);
     if(pri_key->buf == NULL){
         ERROR_PRINTF("内存分配失败");
+        certificate_free(cert);
         free(buf_beg);
         return -1;
     }
@@ -481,6 +467,7 @@ static int do_cme_store_cert_key(struct sec_db* sdb,int fd){
     free(buf_beg);
 
     int res = cme_store_cert_key(sdb,cert,pri_key);
+    certificate_free(cert);
     string_free(pri_key);
     if(res != 0){
         ERROR_PRINTF("cme_store_cert_key失败");
@@ -490,14 +477,9 @@ static int do_cme_store_cert_key(struct sec_db* sdb,int fd){
     return 0;
 }
 
-///////////////////////////////////////////////////////
 
-static int do_sec_signed_data(struct sec_db* sdb,int fd){
-    if(sdb == NULL){
-        ERROR_PRINTF("参数错误");
-        return -1;
-    }
-
+static int do_sec_signed_data(struct sec_db* sdb,int fd)
+{
     int len = 1024;
     char* buf = (char*)malloc(len);
     if(buf == NULL){
@@ -543,6 +525,7 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd){
     buf += 4;
 
     string* data;
+    INIT(*data);
     data->len = *((int*)buf);
     buf += 4;
     data->buf = (char*)malloc(data->len);
@@ -555,6 +538,7 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd){
     buf += data->len;
 
     string* exter_data;
+    INIT(*exter_data);
     exter_data->len = *((int*)buf);
     buf += 4;
     exter_data->buf = (char*)malloc(exter_data->len);
@@ -562,6 +546,7 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd){
         ERROR_PRINTF("内存分配失败");
         string_free(data);
         free(buf_beg);
+        return -1;
     }
     memcpy(exter_data->buf,buf,exter_data->len);
     buf += exter_data->len;
@@ -570,6 +555,7 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd){
     buf += sizeof(psid);
 
     string* ssp;
+    INIT(*ssp);
     ssp->len = *((int*)buf);
     buf += 4;
     ssp->buf = (char*)malloc(ssp->len);
@@ -578,6 +564,7 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd){
         string_free(data);
         string_free(exter_data);
         free(buf_beg);
+        return -1;
     }
     memcpy(ssp->buf,buf,ssp->len);
     buf += ssp->len;
@@ -586,6 +573,7 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd){
     buf += 4;
 
     time64_with_standard_deviation* generation_time;
+    INIT(*generation_time);
     generation_time->time = *((time64*)buf);
     buf += sizeof(time64);
     generation_time->long_std_dev = *buf++;
@@ -594,6 +582,7 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd){
     buf += 4;
 
     three_d_location* location;
+    INIT(*location);
     location->latitude = *((int*)buf);
     buf += 4;
     location->longtitude = *((int*)buf);
@@ -662,7 +651,7 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd){
 
     string_free(signed_data);
 
-    if(write(fd,buf,len) != len){
+    if(write(fd,buf_beg,len) != len){
         ERROR_PRINTF("写入失败");
         free(buf_beg);
         return -1;
@@ -672,12 +661,9 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd){
     return 0;
 }
 
-static int do_sec_encrypted_data(struct sec_db* sdb,int fd){
-    if(sdb == NULL){
-        ERROR_PRINTF("参数错误");
-        return -1;
-    }
 
+static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
+{
     int len = 1024;
     char* buf = (char*)malloc(len);
     if(buf == NULL){
@@ -700,7 +686,7 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd){
 
     len = *((int*)buf);
     if(len > 1020){
-        buf = (char*)realloc(buf,len + 4);
+buf = (char*)realloc(buf,len + 4);
         buf_beg = buf;
     }
     slen = 0;
@@ -720,6 +706,7 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd){
     buf += 4;
 
     string* data;
+    INIT(*data);
     data->len = *((int*)buf);
     buf += 4;
     data->buf = (char*)malloc(data->len);
@@ -731,7 +718,7 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd){
     memcpy(data->buf,buf,data->len);
     buf += data->len;
 
-    struct certificate_chain* certs;
+    struct certificate_chain* certs;  //证书链，待处理??
     certs->len = *((int*)buf);
     buf += 4;
     if(buf_2_certificate(buf,certs->len,certs->certs) < 0){
@@ -750,14 +737,18 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd){
     free(buf_beg);
 
     string* encrypted_data;
-    INIT(*encrypted_data);
     struct certificate_chain* failed_certs;
+    INIT(*encrypted_data);
+    INIT(*failed_certs);
 
     int res = sec_encrypted_data(sdb,type,data,certs,compressed,time,
                                 encrypted_data,failed_certs);
+    certificate_free(certs->certs);
     string_free(data);
     if(res != 0){
         ERROR_PRINTF("sec_encrypted_data失败");
+        string_free(encrypted_data);
+        certificate_free(failed_certs->certs);
         return -1;
     }
 
@@ -765,6 +756,8 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd){
     buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
+        string_free(encrypted_data);
+        certificate_free(failed_certs->certs);
         return -1;
     }
     buf_beg = buf;
@@ -783,9 +776,10 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd){
 
     memcpy(buf,failed_certs->certs,failed_certs->len);
 
+    certificate_free(failed_certs->certs);
     string_free(encrypted_data);
 
-    if(write(fd,buf,len) != len){
+    if(write(fd,buf_beg,len) != len){
         ERROR_PRINTF("写入失败");
         free(buf_beg);
         return -1;
@@ -799,12 +793,8 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd){
  * @set_geneartion_time/set_expiry_time/set_generation_location:只能为0或者1
  * @elevation:默认是两字节，只能为两字节
  */
-static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd){
-    if(sdb == NULL){
-        ERROR_PRINTF("参数错误");
-        return -1;
-    }
-
+static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
+{
     int len = 1024;
     char* buf = (char*)malloc(len);
     if(buf == NULL){
@@ -844,6 +834,7 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd){
     }
 
     string* recieve_data;
+    INIT(*recieve_data);
     recieve_data->len = *((int*)buf);
     buf += 4;
     recieve_data->buf = (char*)malloc(recieve_data->len);
@@ -873,9 +864,12 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd){
     three_d_location* location;
     certificate* send_cert;
 
-    INIT(data);
-    INIT(signed_data);
-    INIT(ssp);
+    INIT(*data);
+    INIT(*signed_data);
+    INIT(*ssp);
+    INIT(*generation_time);
+    INIT(*location);
+    INIT(*send_cert);
 
     int res = sec_secure_data_content_extration(sdb,recieve_data,cmh
             &type,&inner_type,data,signed_data,&psid,ssp,&set_geneartion_time,
@@ -887,6 +881,7 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd){
         string_free(data);
         string_free(signed_data);
         string_free(ssp);
+        certificate_free(send_cert);
         return -1;
     }
     if((set_geneartion_time != 0 && set_geneartion_time != 1) ||
@@ -896,10 +891,11 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd){
         string_free(data);
         string_free(signed_data);
         string_free(ssp);
+        certificate_free(send_cert);
         return -1;
     }
 
-    //将send_cert转换为数据流，并计算数据长度
+    //将send_cert转换为数据流，并计算数据长度，之后将certificate释放
     int send_cert_len = 1024;
     char* cert_buf = (char*)malloc(len);
     res = -2;
@@ -911,6 +907,7 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd){
             string_free(data);
             string_free(signed_data);
             string_free(ssp);
+            certificate_free(send_cert);
             return -1;
         }
         else if(res == -2){
@@ -918,9 +915,10 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd){
             cert_buf = (char*)realloc(cert_buf,send_cert_len);
         }
     }
+    certificate_free(send_cert);
     send_cert_len = res;
 
-    len = sizeof(int)*10 + sizeof(psid) + sizeof(time64) + 3 + data->len + signed_data->len + ssp->len + send_cert_len;
+    len = sizeof(int)*11 + sizeof(psid) + sizeof(time64)*2 + 3 + data->len + signed_data->len + ssp->len + send_cert_len;
     buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
@@ -932,8 +930,303 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd){
     }
     buf_beg = buf;
 
-    //数据未处理
+    *((int*)buf) = len - 4;
+    buf += 4;
 
+    *((int*)buf) = type;
+    buf += 4;
+
+    *((int*)buf) = inner_type;
+    buf += 4;
+
+    *((int*)buf) = data->len;
+    buf += 4;
+
+    memcpy(buf,data->buf,data->len);
+    buf += data->len;
+
+    *((int*)buf) = signed_data->len;
+    buf += 4;
+
+    memcpy(buf,signed_data->buf,signed_data->len);
+    buf += signed_data->len;
+
+    *((psid*)buf) = psid;
+    buf += sizeof(psid);
+
+    *((int*)buf) = ssp->len;
+    buf += 4;
+
+    memcpy(buf,ssp->buf,ssp->len);
+    buf += ssp->len;
+
+    *((int*)buf) = set_geneartion_time;
+    buf += 4;
+
+    *((time64*)buf) = generation_time->time;
+    buf += sizeof(time64);
+
+    *buf++ = generation_time->long_std_dev;
+
+    *((int*)buf) = set_expiry_time;
+    buf += 4;
+
+    *((time64*)buf) = expiry_time;
+    buf += sizeof(time64);
+
+    *((int*)buf) = set_generation_location;
+    buf += 4;
+
+    *((int*)buf) = location->latitude;
+    buf += 4;
+
+    *((int*)buf) = location->longtitude;
+
+    memcpy(buf,location->elevation,2);
+    buf += 2;
+
+    memcpy(buf,cert_buf,send_cert_len);
+    
+    free(cert_buf);
+    string_free(data);
+    string_free(signed_data);
+    string_free(ssp);
+
+    if(write(fd,buf_beg,len) != len){
+        ERROR_PRINTF("写入失败");
+        free(buf_beg);
+        return -1;
+    }
+
+    free(buf_beg);
+    return 0;
 }
 
-static int do_sec_signed_data_verification(struct sec_db* sdb,int fd);
+static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
+{
+    int len = 1024;
+    char* buf = (char*)malloc(len);
+    if(buf == NULL){
+        ERROR_PRINTF("内存分配失败");
+        return -1;
+    }
+    char* buf_beg = buf;
+
+    int slen = 0;
+    int len_r;
+    while(slen != 4){
+        len_r = read(fd,buf+slen,4-slen);
+        if(len_r <= 0){
+            ERROR_PRINTF("读取失败");
+            free(buf_beg);
+            return -1;
+        }
+        slen += len_r;
+    }
+
+    len = *((int*)buf);
+    if(len > 1020){
+        buf = (char*)realloc(buf,len + 4);
+        buf_beg = buf;
+    }
+    slen = 0;
+    buf += 4;
+
+    while(slen != len){
+        len_r = read(fd,buf+slen,len-slen);
+        if(len_r <= 0){
+            ERROR_PRINTF("读取失败");
+            free(buf_beg);
+            return -1;
+        }
+        slen += len_r;
+    }
+
+    cme_lsis lsis = *((cme_lsis*)buf);
+    buf += sizeof(cme_lsis);
+
+    psid psid = *((psid*)buf);
+    buf += sizeof(psid);
+
+    content_type type = *((int*)buf);
+    buf += 4;
+
+    string* signed_data;
+    INIT(*signed_data);
+    signed_data->len = *((int*)buf);
+    buf += 4;
+    signed_data->buf = (cahr*)malloc(signed_data->len);
+    if(signed_data->buf == NULL){
+        ERROR_PRINTF("内存分配失败");
+        free(buf_beg);
+        return -1;
+    }
+    memcpy(signed_data->buf,buf,signed_data->len);
+    buf += signed_data->len;
+
+    string* external_data;
+    INIT(*external_data);
+    external_data->len = *((int*)buf);
+    buf += 4;
+    external_data->buf = (char*)malloc(external_data->len);
+    if(external_data->buf == NULL){
+        ERROR_PRINTF("内存分配失败");
+        string_free(signed_data);
+        free(buf_beg);
+        return -1;
+    }
+    memcpy(external_data->buf,buf,external_data->len);
+    buf += external_data->len;
+
+    u32 max_cert_chain_len = *((int*)buf);
+    buf += 4;
+
+    bool detect_reply = *((int*)buf);
+    buf += 4;
+
+    bool check_generation_time = *((int*)buf);
+    buf += 4;
+
+    time64 validity_period = *((time64*)buf);
+    buf += sizeof(time64);
+
+    time64_with_standard_deviation* generation_time;
+    INIT(*generation_time);
+    generation_time->time = *((time64*)buf);
+    buf += sizeof(time64);
+    generation_time->long_std_dev = *buf++;
+
+    float generation_threshold = *((float*)buf);
+    buf += 4;
+
+    time64 accepte_time = *((time64*)buf);
+    buf += sizeof(time64);
+
+    float accepte_threshold = *((float*)buf);
+    buf += 4;
+
+    bool check_expiry_time = *((int*)buf);
+    buf += 4;
+
+    time64 expiry_time = *((time*)buf);
+    buf += sizeof(time64);
+
+    float exprity_threshold = *((float*)buf);
+    buf += 4;
+
+    bool check_generation_location = *((int*)buf);
+    buf += 4;
+
+    two_d_location* location;
+    INIT(*location);
+    location->latitude = *((int*)buf);
+    buf += 4;
+    location->longtitude = *((int*)buf);
+    buf += 4;
+
+    u32 validity_distance = *((int*)buf);
+    buf += 4;
+
+    three_d_location* generation_location;
+    INIT(*generation_location);
+    generation_location->latitude = *((int*)buf);
+    buf += 4;
+    generation_location->longtitude = *((int*)buf);
+    buf += 4;
+    memcpy(generation_location->elevation,buf,2);
+    buf += 2;
+
+    time64 overdue_crl_tolerance = *((time64*)buf);
+
+    free(buf_beg);
+
+    time32_array* last_recieve_crl_times;
+    time32_array* next_expected_crl_times;
+    certificate* send_cert;
+
+    INIT(*last_crl_time);
+    INIT(*next_crl_time);
+    INIT(*send_cert);
+
+    int res = sec_signed_data_verification(sdb,lsis,&psid,type,
+                    signed_data,external_data,max_cert_chain_len,
+                    detect_reply,check_generation_time,validity_period,
+                    generation_time,generation_threshold,accepte_time,accepte_threshold,
+                    check_expiry_time,expiry_time,exprity_threshold,
+                    check_generation_location,location,validity_distance,
+                    generation_location,overdue_crl_tolerance,
+                    
+                    last_recieve_crl_times,next_expected_crl_times,send_cert);
+    string_free(signed_data);
+    string_free(external_data);
+    if(res != 0){
+        ERROR_PRINTF("sec_signed_data_verification失败");
+        time32_array_free(last_recieve_crl_times);
+        time32_array_free(next_expected_crl_times);
+        certificate_free(send_cert);
+        return -1;
+    }
+
+    int send_cert_len = 1024;
+    char* cert_buf = (char*)malloc(len);
+    res = -2;
+    while(res == -2){ //分配内存不够
+        res = certificate_2_buf(send_cert,cert_buf,send_cert_len);
+        if(res == -1){
+            ERROR_PRINTF("certificate_2_buf失败");
+            time32_array_free(last_recieve_crl_times);
+            time32_array_free(next_expected_crl_times);
+            certificate_free(send_cert);
+            return -1;
+        }
+        else if(res == -2){
+            send_cert_len *= 2;
+            cert_buf = (char*)realloc(cert_buf,send_cert_len);
+        }
+    }
+    certificate_free(send_cert);
+    send_cert_len = res;
+
+    len = sizeof(int)*3 + sizeof(time32)*(last_recieve_crl_times->len + next_expected_crl_times->len) + send_cert_len;
+    buf = (char*)malloc(len);
+    if(buf == NULL){
+        ERROR_PRINTF("内存分配失败");
+        time32_array_free(last_recieve_crl_times);
+        time32_array_free(next_expected_crl_times);
+        free(cert_buf);
+        return -1;
+    }
+    buf_beg = buf;
+
+    *((int*)buf) = len - 4;
+    buf += 4;
+
+    *((int*)buf) = last_recieve_crl_times->len;
+    buf += 4;
+
+    memcpy(buf,last_recieve_crl_times->times,sizeof(time32)*last_recieve_crl_times->len);
+    buf += sizeof(time32)*last_recieve_crl_times->len;
+
+    *((int*)buf) = next_expected_crl_times->len;
+    buf += 4;
+
+    memcpy(buf,next_expected_crl_times->times,sizeof(time32)*next_expected_crl_times->len);
+    buf += sizeof(time32)*next_expected_crl_times->len;
+
+    memcpy(buf,cert_buf,send_cert_len);
+
+    free(cert_buf);
+    time32_array_free(last_recieve_crl_times);
+    time32_array_free(next_expected_crl_times);
+
+    if(write(fd,buf_beg,len) != len){
+        ERROR_PRINTF("写入失败");
+        free(buf_beg);
+        return -1;
+    }
+
+    free(buf_beg);
+    return -1;
+}
+
+
