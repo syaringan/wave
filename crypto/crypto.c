@@ -598,32 +598,21 @@ fail:
 
 int crypto_cert_reception_SHA224(string* ca_pub_x,string* ca_pub_y,string* recon_x,string* recon_y,string* old_prikey,
 			string* a,string *b,string* pubkey_x,string* pubkey_y,string* prikey){
-    check_args_string(pubkey_x);
-    check_args_string(pubkey_y);
     check_args_string(prikey);
 
-    pubkey_x->len = 28;
-    pubkey_y->len = 28;
     prikey->len = 28;
-    pubkey_x->buf = (u8*)malloc(pubkey_x->len);
-    pubkey_y->buf = (u8*)malloc(pubkey_y->len);
     prikey->buf = (u8*)malloc(prikey->len);
-    if(pubkey_x->buf == NULL || pubkey_y->buf == NULL || prikey->buf == NULL){
-	wave_malloc_error();
-	goto fail;
+    if( prikey->buf == NULL){
+	    wave_malloc_error();
+	    goto fail;
     }
-    if( cert_reception_SHA224(ca_pub_x->buf,ca_pub_x->len,ca_pub_y->buf,ca_pub_y->len,recon_x->buf,recon_x->len,recon_y->buf,
-			recon_y->len,old_prikey->buf,old_prikey->len,a->buf,a->len,b->buf,b->len,
-			pubkey_x->buf,&pubkey_x->len,pubkey_y->buf,&pubkey_y->len,prikey->buf,&prikey->len))
-	goto fail;
+    if( cert_reception_SHA224(old_prikey->buf,old_prikey->len,a->buf,a->len,b->buf,b->len,
+			                prikey->buf,&prikey->len))
+	    goto fail;
     return 0;
 fail:
-    if(pubkey_x->buf != NULL)
-	string_free(pubkey_x);
-    if(pubkey_y->buf != NULL)
-	string_free(pubkey_y);
     if(prikey->buf != NULL)
-	string_free(prikey);
+	    string_free(prikey);
     return -1;
 }
 
@@ -653,34 +642,21 @@ fail:
     return -1;
 }
 
-int crypto_cert_reception_SHA256(string* ca_pub_x,string* ca_pub_y,string* recon_x,string* recon_y,string* old_prikey,
-			string* a,string *b,string* pubkey_x,string* pubkey_y,string* prikey){
-    check_args_string(pubkey_x);
-    check_args_string(pubkey_y);
+int crypto_cert_reception_SHA256(string* old_prikey,string* a,string *b,string* prikey){
     check_args_string(prikey);
 
-    pubkey_x->len = 32;
-    pubkey_y->len = 32;
     prikey->len = 32;
-    pubkey_x->buf = (u8*)malloc(pubkey_x->len);
-    pubkey_y->buf = (u8*)malloc(pubkey_y->len);
     prikey->buf = (u8*)malloc(prikey->len);
-    if(pubkey_x->buf == NULL || pubkey_y->buf == NULL || prikey->buf == NULL){
-	wave_malloc_error();
-	goto fail;
+    if(prikey->buf == NULL){
+	    wave_malloc_error();
+	    goto fail;
     }
-    if( cert_reception_SHA256(ca_pub_x->buf,ca_pub_x->len,ca_pub_y->buf,ca_pub_y->len,recon_x->buf,recon_x->len,recon_y->buf,
-			recon_y->len,old_prikey->buf,old_prikey->len,a->buf,a->len,b->buf,b->len,
-			pubkey_x->buf,&pubkey_x->len,pubkey_y->buf,&pubkey_y->len,prikey->buf,&prikey->len))
-	goto fail;
+    if( cert_reception_SHA256(old_prikey->buf,old_prikey->len,a->buf,a->len,b->buf,b->len,prikey->buf,&prikey->len))
+	    goto fail;
     return 0;
 fail:
-    if(pubkey_x->buf != NULL)
-	string_free(pubkey_x);
-    if(pubkey_y->buf != NULL)
-	string_free(pubkey_y);
     if(prikey->buf != NULL)
-	string_free(prikey);
+	    string_free(prikey);
     return -1;
 }
 

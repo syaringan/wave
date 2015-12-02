@@ -343,50 +343,31 @@ static bool cme_permissions_contain_psid_with_ssp(struct cme_permissions* permis
 static int hash_with_certificate(certificate* cert,string* message,string* hashed){
     switch(cert->version_and_type){
         case 2:
-            if(cert->unsigned_certificate.holder_type  == ROOT_CA){
-                switch(cert->unsigned_certificate.version_and_type.verification_key.algorithm){
+            switch(cert->unsigned_certificate.version_and_type.verification_key.algorithm){
                     case ECDSA_NISTP224_WITH_SHA224:
-                       if( crypto_HASH224(message,hashed) ){
+                       if( crypto_HASH_224(message,hashed) ){
                             goto fail;
                        }  
                        break;
                     case ECDSA_NISTP256_WITH_SHA256:
-                       if( crypto_HASH256(message,hashed))
+                       if( crypto_HASH_256(message,hashed))
                            goto fail;
                        break;
                     case ECIES_NISTP256:
                        wave_error_printf("这个是加密算法，怎么出现在了这个签名中");
                        goto fail;
                        break;
-                }
-            }
-            else{
-                switch(cert->unsigned_certificate.u.no_root_ca.signature_alg){
-                    case ECDSA_NISTP224_WITH_SHA224:
-                       if( crypto_HASH224(message,hashed) ){
-                            goto fail;
-                       }  
-                       break;
-                    case ECDSA_NISTP256_WITH_SHA256:
-                       if( crypto_HASH256(message,hashed))
-                           goto fail;
-                       break;
-                    case ECIES_NISTP256:
-                       wave_error_printf("这个是加密算法，怎么出现在了这个签名中");
-                       goto fail;
-                       break;
-                }
-            }
+            } 
             break;
         case 3:
              switch(cert->unsigned_certificate.u.no_root_ca.signature_alg){
                     case ECDSA_NISTP224_WITH_SHA224:
-                       if( crypto_HASH224(message,hashed) ){
+                       if( crypto_HASH_224(message,hashed) ){
                             goto fail;
                        }  
                        break;
                     case ECDSA_NISTP256_WITH_SHA256:
-                       if( crypto_HASH256(message,hashed))
+                       if( crypto_HASH_256(message,hashed))
                            goto fail;
                        break;
                     case ECIES_NISTP256:
@@ -402,6 +383,296 @@ static int hash_with_certificate(certificate* cert,string* message,string* hashe
     return 0;
 fail:
     return -1;
+}
+static int certificate_verification_point_compress(certificate* cert,bool compressed){
+    pk_algorithm algorithm;
+    elliptic_curve_point *point;
+    string compress;
+    string x,y;
+    int res = 0;
+
+    INIT(comperss);
+    INIT(x);
+    INIT(y);
+
+    if(cert->version_and_type == 3){
+        algorithm = cert->unsigned_certificate.u.no_root_ca.signature_alg;
+        point = &cert->u.reconstruction_value;
+    }
+    else if(cert->version_and_type == 2){
+        algorithm = cert->unsigned_certificate.version_and_type.verification_key.algorithm;
+        if(algorithm != ECDSA_NISTP224_WITH_SHA224 || algorithm != ECDSA_NISTP256_WITH_SHA256){
+            wave_error_printf("这里之支持签名点的压缩  %s %d",__FILE__,__LINE__);
+            return -1; 
+        }
+
+        point = &cert->unsigned_certificate.version_and_type.verification_key.u.public_key;
+    }
+
+    if(comperssed == true){
+        if(point->type == COMPRESSED_LSB_Y_0 || point->type == COMPRESSED_LSB_Y_1)
+            return 0;
+        if(point->type == X_COORDINATE_ONLY){
+            wave_error_printf("这个不可能的指  %s %d",__FILE__,__LINE__);
+            return -1;
+        }
+    
+        x.len = point->x.len;
+        y.len = point->u.y.len;
+        if( (x.buf = (u8*)malloc(x.len)) == NULL || (y.buf = (u8*)malloc(y.len)) == NULL ){
+            wave_malloc_error();
+            res = -1;
+            goto end;
+        }
+        memcpy(x.buf,point->x.buf,x.len);
+        memcpy(y.buf,point->u.y.buf,y.len);
+
+
+        if(algorithm == ECDSA_NISTP224_WITH_SHA224){    
+            if( crypto_ECDSA_224_uncompress_key_2_compress_key(&x,&y,&compress,&point->type)){
+                res = -1;
+                goto end;
+            } 
+        }
+        else{ 
+            if( crypto_ECDSA_256_uncompress_key_2_compress_key(&x,&y,&compress,&point->type)){
+                res = -1;
+            goto end;
+            } 
+        }
+        point->x.len = compress.len;
+        point->x.buf = (u8*)realloc(point->x.buf,compress.len);
+        if(point->x.buf == NULL){
+            wave_malloc_error();
+            wave_error_printf("这个错误是不是会修改证书，引起潜在的问题，但是数据库的证书都是复制出来的，注意chekc %s %d",__FILE__,__LINE__);
+           res = -1;
+            goto end;
+        }
+        memcpy(point->x.buf,compress.buf,compress.len);
+
+        if(point->u.y.buf != NULL){
+            free(point->u.y.buf);
+            point->u.y.buf = NULL;
+            point->u.y.len = 0;
+        }
+    }
+    else{
+        if(point->type == UNCOMPRESSED)
+            goto end;
+        if(point->type == X_COORDINATE_ONLY){
+            wave_error_printf("这个不可能的指  %s %d",__FILE__,__LINE__);
+            res = -1;
+            goto end;
+        }
+        compress.len = point->x.len;
+        compress.buf = (u8*)malloc(compress.len);
+        if(compress.buf == NULL){
+            res = -1;
+            wave_malloc_error();
+            goto end;
+        }
+        memcpy(compress.buf,point->x.buf,compress.len);
+        
+        if(algorithm = ECDSA_NISTP224_WITH_SHA224){
+            if(crypto_ECDSA_224_compress_key_2_uncompress(&compress,point->type, &x,&y,&point->type)){
+                res = -1;
+                goto end;
+            }
+        }
+        else{
+            if(crypto_ECDSA_256_compress_key_2_uncompress(&compress,point->type, &x,&y,&point->type)){
+                res = -1;
+                goto end;
+            }
+        }
+        
+        point->x.len = x.len;
+        point->u.y.len = y.len;
+        point->x.buf = (u8*)realloc(point->x.buf,x.len);
+        point->u.y.buf = (u8*)realloc(point->u.y.buf,y.len);
+        if(point->x.buf == NULL || point->u.y.buf == NULL){
+            wave_malloc_error();
+            res = -1;
+            goto end;
+        }
+
+        memcpy(point->x.buf,x,buf,x.len);
+        memcpy(point->u.y.buf,y.buf,y.len);
+    }
+    goto end;
+end:
+    string_free(&compress);
+    string_free(&x);
+    string_free(&y);
+    return res;
+}
+static int signature_generation(signature *sig,enum pk_algorithm algorithm,enum sign_with_fast_verification fs_type,string *mess,string* prikey){
+    string hash,r,r_x,r_y,s,comp;
+    int res = 0;
+
+    INIT(hash);
+    INIT(r);
+    INIT(r_x);
+    INIT(r_y);
+    INIT(s);
+    INIT(comp);
+
+    if(algorithm != ECDSA_NISTP224_WITH_SHA224 && algorithm != ECDSA_NISTP256_WITH_SHA256){
+        wave_error_printf("我们不支持其他的签名方式  %s %d",__FILE__,__LINE__);
+        res = -1;
+        goto fail;
+    }
+    if(algorithm == ECDSA_NISTP224_WITH_SHA224){
+        if(fs_type == NO){
+            if( crypto_HASH_224(mess,&hash) ||
+                    crypto_ECDSA_224_sign_message(prikey,mess,&r,&s)){
+                res = -1;
+                goto end;
+            }
+            sig->u.ecdsa_signature.r.type = X_COORDINATE_ONLY;
+            sig->u.ecdsa_signature.r.x.len = r.len;
+            sig->u.ecdsa_signature.r.x.buf =(u8*)malloc(r.len);
+            if(sig->u.ecdsa_signature.r.x.buf == NULL){
+                wave_malloc_error();
+                res = -1;
+                goto end;
+            }
+            memcpy(sig->u.ecdsa_signature.r.x.buf,r.buf,r.len);
+        }
+        else{
+            if(crypto_HASH_224(mess,&hash) || 
+                   crypto_ECDSA_224_FAST_sign_message(prikey,mess,&r_x,&r_y,&s)){
+                res = -1;
+                goto end;
+            }
+            if(fs_type == YES_UNCOMPRESSED){
+                sig->u.ecdsa_signature.r.type = UNCOMPRESSED;
+                sig->u.ecdsa_signature.r.x.len = r_x.len;
+                sig->u.ecdsa_signature.r.x.buf =(u8*)malloc(r_x.len);
+                if(sig->u.ecdsa_signature.r.x.buf == NULL){
+                    wave_malloc_error();
+                    res = -1;
+                    goto end;
+                }
+                memcpy(sig->u.ecdsa_signature.r.x.buf,r_x.buf,r_x.len);
+                
+                sig->u.ecdsa_signature.r.u.y.len = r_y.len;
+                sig->u.ecdsa_signature.r.u.y.buf =(u8*)malloc(r_y.len);
+                if(sig->u.ecdsa_signature.r.u.y.buf == NULL){
+                    wave_malloc_error();
+                    res = -1;
+                    goto end;
+                }
+                memcpy(sig->u.ecdsa_signature.r.u.y.buf,r_y.buf,r_y.len);
+            }
+            else if(fs_type == YES_COMPRESSED){
+                 if(crypto_ECDSA_224_uncompress_key_2_compress_key(&r_x,&r_y,&comp,&sig->u.ecdsa_signature.r.type)){
+                    res = -1;
+                    goto end;
+                 }
+                 sig->u.ecdsa_signature.r.x.len = comp.len;
+                 sig->u.ecdsa_signature.r.x.buf = (u8*)malloc(comp.len);
+                 if(sig->u.ecdsa_signature.r.x.buf == NULL){
+                    wave_malloc_error();
+                    res = -1;
+                    goto end;
+                 }
+                 memcpy(sig->u.ecdsa_signature.r.x.buf,comp.buf,comp.len);
+            }
+            else{
+                wave_error_printf("有问题哦 %s %d",__FILE__,__LINE__);
+                res = -1;
+                goto end;
+            }
+        }
+    }
+    else if(algorithm == ECDSA_NISTP256_WITH_SHA256){
+        if(fs_type == NO){
+            if( crypto_HASH_256(mess,&hash) ||
+                    crypto_ECDSA_256_sign_message(prikey,mess,&r,&s)){
+                res = -1;
+                goto end;
+            }
+            sig->u.ecdsa_signature.r.type = X_COORDINATE_ONLY;
+            sig->u.ecdsa_signature.r.x.len = r.len;
+            sig->u.ecdsa_signature.r.x.buf =(u8*)malloc(r.len);
+            if(sig->u.ecdsa_signature.r.x.buf == NULL){
+                wave_malloc_error();
+                res = -1;
+                goto end;
+            }
+            memcpy(sig->u.ecdsa_signature.r.x.buf,r.buf,r.len);
+        }
+        else{
+            if(crypto_HASH_256(mess,&hash) || 
+                   crypto_ECDSA_256_FAST_sign_message(prikey,mess,&r_x,&r_y,&s)){
+                res = -1;
+                goto end;
+            }
+            if(fs_type == YES_UNCOMPRESSED){
+                sig->u.ecdsa_signature.r.type = UNCOMPRESSED;
+                sig->u.ecdsa_signature.r.x.len = r_x.len;
+                sig->u.ecdsa_signature.r.x.buf =(u8*)malloc(r_x.len);
+                if(sig->u.ecdsa_signature.r.x.buf == NULL){
+                    wave_malloc_error();
+                    res = -1;
+                    goto end;
+                }
+                memcpy(sig->u.ecdsa_signature.r.x.buf,r_x.buf,r_x.len);
+                
+                sig->u.ecdsa_signature.r.u.y.len = r_y.len;
+                sig->u.ecdsa_signature.r.u.y.buf =(u8*)malloc(r_y.len);
+                if(sig->u.ecdsa_signature.r.u.y.buf == NULL){
+                    wave_malloc_error();
+                    res = -1;
+                    goto end;
+                }
+                memcpy(sig->u.ecdsa_signature.r.u.y.buf,r_y.buf,r_y.len);
+            }
+            else if(fs_type == YES_COMPRESSED){
+                 if(crypto_ECDSA_256_uncompress_key_2_compress_key(&r_x,&r_y,&comp,&sig->u.ecdsa_signature.r.type)){
+                    res = -1;
+                    goto end;
+                 }
+                 sig->u.ecdsa_signature.r.x.len = comp.len;
+                 sig->u.ecdsa_signature.r.x.buf = (u8*)malloc(comp.len);
+                 if(sig->u.ecdsa_signature.r.x.buf == NULL){
+                    wave_malloc_error();
+                    res = -1;
+                    goto end;
+                 }
+                 memcpy(sig->u.ecdsa_signature.r.x.buf,comp.buf,comp.len);
+            }
+            else{
+                wave_error_printf("有问题哦 %s %d",__FILE__,__LINE__);
+                res = -1;
+                goto end;
+            }
+        }
+    }
+    else{
+        wave_error_printf("参数有问题 %s %d",__FILE__,__LINE__);
+        res = -1;
+        goto end;
+    }
+
+    sig->u.ecdsa_signature.s.len = s.len;
+    sig->u.ecdsa_signature.s.buf = (u8*)malloc(s.len);
+    if(sig->u.ecdsa_signature.s.buf == NULL){
+        wave_malloc_error();
+        res = -1;
+        goto end;
+    }
+    memcpy(sig->u.ecdsa_signature.s.buf,s.buf,s.len);
+    goto end;
+end:
+    string_free(&hash);
+    string_free(&r);
+    string_free(&r_x);
+    string_free(&r_y);
+    string_free(&s);
+    string_free(&comp)
+    return res;
 }
 //cert_chani_len == 257的时候代表MAX
 result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data,string* exter_data,psid psid,
@@ -425,8 +696,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     sec_data sec_data;
     struct signed_data  *s_data;
     time32 start_time,expired_time;
-    string encoded_tbs,hashed_tbs,signed_tbs,privatekey,hash8;
-    elliptic_curve_point point;
+    string encoded_tbs,privatekey;
     pk_algorithm algorithm = PK_ALGOTITHM_NOT_SET;//这里让他等于一个不可能的指
     int i;
 
@@ -436,66 +706,59 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     INIT(construct_cert_chain);
     INIT(regions);
     INIT(permissions);
-    //INIT(tbs_encode);
-   // INIT(tbs_sign);
-   // INIT(s_data);
     INIT(sec_data);
     INIT(encoded_tbs);
-    INIT(hashed_tbs);
-    INIT(signed_tbs);
     INIT(privatekey);
-    INIT(hash8);
-    INIT(point);
     
     s_data = &sec_data.u.signed_data;
     tbs_encode = &s_data->unsigned_data;
     if( res = find_cert_prikey_by_cmh(sdb,cmh,&cert,&privatekey) ){
-        goto fail;
+        goto end;
     }
-    
     cert_chain.certs = &cert;
+    cert_chain.len = 1;
     if(  cme_construct_certificate_chain(sdb,ID_CERTIFICATE,NULL,&cert_chain,true,cert_chain_max_len,
                 &construct_cert_chain,&permissions,&regions,NULL,NULL,NULL)  != FOUND){
         res = NOT_FOUND;
-        goto fail;
+        goto end;
     }
     if(certificate_get_start_time(&cert,&start_time) || 
             certificate_get_expired_time(&cert,&expired_time)){
         wave_error_printf("获取证书相关信息不对，这个证书没有这个信息");
         res = FAILURE;
-        goto fail;
+        goto end;
     }
     if(generation_time->time < start_time){
         wave_error_printf("生产时期早于了证书的开始有效时间");
         res = CERTIFICATE_NOT_YET_VALID;
-        goto fail;
+        goto end;
     }
     if(generation_time->time > expired_time){
          wave_error_printf("生产日期晚育了证书的结束有效时间");
          res = CERTIFICATE_EXPIRED;
-         goto fail;
+         goto end;
     }
     if(set_expiry_time){
         if(expiry_time < start_time){
             wave_error_printf("过期时间早育了证书的开始有效时间");
             res = EXPIRY_TIME_BEFORE_CERTIFICATE_VALIDITY_PERIOD;
-            goto fail;
+            goto end;
         }
         if(expiry_time > expired_time){
             wave_error_printf("过期时间晚育了证书的结束的有效时间");
             res = EXPIRY_TIME_AFTER_CERTIFICATE_VALIDITY_PERIOD;
-            goto fail;
+            goto end;
         }
     }
     if( three_d_location_in_region(location,regions.regions) == false){
         wave_error_printf("生产地点不在证书范围内");
         res = OUTSIDE_CERTIFICATE_VALIDITY_REGION;
-        goto fail;
+        goto end;
     }
     if( cme_permissions_contain_psid_with_ssp(permissions.cme_permissions,psid,ssp) ==false){
         wave_error_printf("证书权限和用户要求的不一致");
         res = INCONSISTENT_PERMISSIONS_IN_CERTIFICATE;
-        goto fail;
+        goto end;
     }
 
     if(signer_type == CERTIFICATE_CHAIN && 
@@ -504,7 +767,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
             *len_of_cert_chain = construct_cert_chain.len;
         wave_error_printf("证书连请求长度请求不正确");
         res = INCORRECT_REQUSET_CERTIFICATE_CHAIN_LENGTH;
-        goto fail;
+        goto end;
     } 
 
     switch(type){
@@ -516,7 +779,8 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
                     (u8*)malloc(data->len);
             if(tbs_encode->u.type_signed_partical.data.buf == NULL){
                 wave_malloc_error();
-                goto fail;
+                res = -1;
+                goto end;
             }
             memcpy(tbs_encode->u.type_signed_partical.data.buf,data->buf,data->len);
             break;
@@ -528,7 +792,8 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
                     (u8*)malloc(data->len);
             if(tbs_encode->u.type_signed_partical.data.buf == NULL){
                 wave_malloc_error();
-                goto fail;
+                res = -1;
+                goto end;
             }
             memcpy(tbs_encode->u.type_signed_partical.data.buf,data->buf,data->len);
 
@@ -538,7 +803,8 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
                     (u8*)malloc(exter_data->len);
                 if(tbs_encode->u.type_signed_partical.ext_data.buf == NULL){
                     wave_malloc_error();
-                    goto fail;
+                    res = -1;
+                    goto end;
                 }
                 memcpy(tbs_encode->u.type_signed_partical.ext_data.buf,exter_data->buf,exter_data->len);
             }
@@ -552,13 +818,15 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
                     (u8*)malloc(exter_data->len);
                 if(tbs_encode->u.type_signed_external.ext_data.buf == NULL){
                     wave_malloc_error();
-                    goto fail;
+                    res = -1;
+                    goto end;
                 }
                 memcpy(tbs_encode->u.type_signed_external.ext_data.buf,exter_data->buf,exter_data->len);
             }
             else{
                 wave_error_printf("模式为external_payload,但是你的exter_data为null");
-                goto fail;
+                res = -1;
+                goto end;
             }
             break;
         default:
@@ -585,92 +853,37 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
 
     if( tobesigned_data_2_string(&tbs_encode,&encoded_tbs) ){
         wave_error_printf("编码失败");
+        res = -1;
         goto fail;
     }
     
-    //我要hash和签名了
     switch(cert.version_and_type){
         case 2:
-            if(cert.unsigned_certificate.holder_type  == ROOT_CA){
-                switch(cert.unsigned_certificate.version_and_type.verification_key.algorithm){
-                    case ECDSA_NISTP224_WITH_SHA224:
-                       algorithm = ECDSA_NISTP224_WITH_SHA224;
-                       if( crypto_HASH224(&encoded_tbs,&hashed_tbs) ){
-                            goto fail;
-                       }  
-                       if(crypto_ECDSA224_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
-                           goto fail;
-                       break;
-                    case ECDSA_NISTP256_WITH_SHA256:
-                       algorithm = ECDSA_NISTP256_WITH_SHA256;
-                       if( crypto_HASH256(&encoded_tbs,&hashed_tbs))
-                           goto fail;
-                       if(crypto_ECDSA256_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
-                           goto fail;
-                       break;
-                    case ECIES_NISTP256:
-                       wave_error_printf("这个是加密算法，怎么出现在了这个签名中");
-                       goto fail;
-                       break;
-                }
-            }
-            else{
-                switch(cert.unsigned_certificate.u.no_root_ca.signature_alg){
-                    case ECDSA_NISTP224_WITH_SHA224:
-                       algorithm = ECDSA_NISTP224_WITH_SHA224;
-                       if( crypto_HASH224(&encoded_tbs,&hashed_tbs) ){
-                            goto fail;
-                       } 
-                       if(crypto_ECDSA224_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
-                           goto fail; 
-                       break;
-                    case ECDSA_NISTP256_WITH_SHA256:
-                       algorithm = ECDSA_NISTP256_WITH_SHA256;
-                       if( crypto_HASH256(&encoded_tbs,&hashed_tbs))
-                           goto fail;
-                       if(crypto_ECDSA256_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
-                           goto fail;
-                       break;
-                    case ECIES_NISTP256:
-                       wave_error_printf("这个是加密算法，怎么出现在了这个签名中");
-                       goto fail;
-                       break;
-                }
-            }
+            algorithm = cert.unsigned_certificate.version_and_type.verification_key.algorithm;
             break;
         case 3:
-            //这个地方有可能是有问题的  
-             switch(cert.unsigned_certificate.u.no_root_ca.signature_alg){
-                    case ECDSA_NISTP224_WITH_SHA224:
-                       algorithm = ECDSA_NISTP224_WITH_SHA224;
-                       if( crypto_HASH224(&encoded_tbs,&hashed_tbs) ){
-                            goto fail;
-                       }  
-                       if(crypto_ECDSA224_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
-                            goto fail;
-                       break;
-                    case ECDSA_NISTP256_WITH_SHA256:
-                       algorithm = ECDSA_NISTP256_WITH_SHA256;
-                       if( crypto_HASH256(&encoded_tbs,&hashed_tbs))
-                           goto fail;
-                       if(crypto_ECDSA256_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
-                            goto fail;
-                       break;
-                    case ECIES_NISTP256:
-                       wave_error_printf("这个是加密算法，怎么出现在了这个签名中");
-                       goto fail;
-                       break;
-            } 
+            algorithm = cert.unsigned_certificate.u.no_root_ca.signature_alg;
             break;
         default:
             wave_error_printf("出现了不可能出现的指 %s %d ",__FILE__,__LINE__);
             goto fail;
     }
-
+    if(algorithm != ECDSA_NISTP224_WITH_SHA224 || algorithm != ECDSA_NISTP256_WITH_SHA256){
+        wave_error_printf("这里的协议类型都不等于我们要求的这里有问题,我们这里暂时不支持其他的加密算法");
+        res = -1;
+        goto fail;
+    }
+    if( signature_generation(&s_data->signature,algorithm,fs_type,&encoded_tbs,&privatekey)){
+        res = -1;
+        goto fail;        
+    }
+    
     if(signer_type == SIGNED_DATA_CERTIFICATE_DIGEST){
         s_data->signer.type = algorithm;
-        if( certificate_2_hash8(&cert,&hash8))
+        if( certificate_2_hash8(&cert,&hash8)){
+            res = -1;
             goto fail;
+        }
         memcpy(s_data->signer.u.digest.hashedid8, hash8.buf,8);
         //这里是1嘛？？协议没说，我按照自己的想法加的
         if(len_of_cert_chain != NULL)
@@ -679,6 +892,10 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     else if(signer_type == SIGNED_DATA_CERTIFICATE){
         s_data->signer.type = CERTIFICATE;
         certificate_cpy(&s_data->signer.u.certificate,&cert);
+        if(certificate_verification_point_compress(&s_data->signer.u.certificate,compressed)){
+            res = -1;
+            goto fail;
+        }
         //这里是1嘛？？协议没说，我按照自己的想法家的
         if(len_of_cert_chain != NULL)
                 *len_of_cert_chain = 1;
@@ -691,11 +908,16 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
                     construct_cert_chain.len);
             if(s_data->signer.u.certificates.buf == NULL){
                 wave_malloc_error();
+                res = -1;
                 goto fail;
             }
             s_data->signer.u.certificates.len = construct_cert_chain.len;
             for(i=0;i<construct_cert_chain.len;i++){
                 certificate_cpy(s_data->signer.u.certificates.buf+i,construct_cert_chain.certs+i);
+                if(certificate_verification_point_compress(s_data->signer.u.certificates.buf+i,compressed)){
+                    res = -1;
+                    goto fail;
+                }
             }
         }
         else if(cert_chain_len > 0){
@@ -709,15 +931,21 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
                    s_data->signer.u.certificates.len);
             if(s_data->signer.u.certificates.buf == NULL){
                 wave_malloc_error();
+                res = -1;
                 goto fail;
             } 
             for(i=0;i<s_data->signer.u.certificates.len;i++){
                 certificate_cpy(s_data->signer.u.certificates.buf+i,construct_cert_chain.certs+i);
+                if(certificate_verification_point_compress(s_data->signer.u.certificates.buf+i,compressed)){
+                    res = -1;
+                    goto fail;
+                }
             }            
         }
         else if(cert_chain_len <0){
             if(construct_cert_chain.len - 1 < -cert_chain_len){
                 wave_error_printf("要求删掉的链表长度长于生成的链表长度 %s %d\n",__FILE__,__LINE__);
+                res = -1;
                 goto fail;
             }
             s_data->signer.u.certificates.len = construct_cert_chain.len + cert_chain_len;
@@ -725,17 +953,23 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
                    s_data->signer.u.certificates.len);
             if(s_data->signer.u.certificates.buf == NULL){
                 wave_malloc_error();
+                res = -1;
                 goto fail;
             }
             certificate_cpy(s_data->signer.u.certificates.buf,construct_cert_chain.certs);
             //这里我不知道我的理解对不，是负数，就删除前面几个，但是第一个不删除;
             for(i=0;i<-cert_chain_len -1;i++){
                 certificate_cpy(s_data->signer.u.certificates.buf+i,construct_cert_chain.certs+i-cert_chain_len+1);
+                if(certificate_verification_point_compress(s_data->signer.u.certificates.buf+i,compressed)){
+                    res = -1;
+                    goto fail;
+                }
             }
            
         }
         else{
             wave_error_printf("证书连要求长度为0，这个我不知道怎么半，我直接返回错误");
+            res = -1;
             goto fail;
         }
         if(len_of_cert_chain != NULL)
@@ -743,88 +977,13 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     }
     else{
         wave_error_printf("这个signer_type出现了不正确的指");
+        res = -1;
         goto fail;
     }
      
-    if(algorithm != ECDSA_NISTP224_WITH_SHA224 || algorithm != ECDSA_NISTP256_WITH_SHA256){
-        wave_error_printf("这里的协议类型都不等于我们要求的这里有问题,我们这里暂时不支持其他的加密算法");
-        goto fail;
-    }
-    s_data->signature.u.ecdsa_signature.s.len = signed_tbs.len;
-    s_data->signature.u.ecdsa_signature.s.buf = (u8*)malloc(signed_tbs.len);
-    if(s_data->signature.u.ecdsa_signature.s.buf == NULL){
-        wave_malloc_error();
-        goto fail;
-    }
-    memcpy(s_data->signature.u.ecdsa_signature.s.buf,signed_tbs.buf,signed_tbs.len);
-
-//这个地方到底是什么情况type是什么指，还有什么时候压缩，压缩了是取1还是0啊。。这个地方我真的不确定哦
-//这里我们王signature里面添加的椭圆点，的依据是从这个证书里面的椭圆点取出来嘛。。。那么证书里面的椭圆点如果有压缩了，
-//我们signature要求不压缩，那我是不是要解压，，但是我暂时不懂怎么弄，所以我不能处理的情况我会返回错误。
-//还有这里compressed和fs_type到底怎么联合起来确定signature的type;
-    certificate_get_elliptic_curve_point(&cert,&point);
-    switch(fs_type){
-        case NO: 
-            s_data->signature.u.ecdsa_signature.r.type = X_COORDINATE_ONLY;
-            if(algorithm == ECDSA_NISTP224_WITH_SHA224){
-                s_data->signature.u.ecdsa_signature.r.x.buf = (u8*)malloc(28);
-                if(s_data->signature.u.ecdsa_signature.r.x.buf == NULL){
-                    wave_malloc_error();
-                    goto fail;
-                }
-                //这里是这样嘛，我只是把x复制过去了，y都不知道需要不，这里应该是把证书里面的公钥拿出来，这里y都不要
-                //对面能解嘛。
-                s_data->signature.u.ecdsa_signature.r.x.len = 28;
-                memcpy(s_data->signature.u.ecdsa_signature.r.x.buf,point.x.buf,28);
-            }
-            else if(algorithm == ECDSA_NISTP256_WITH_SHA256){
-                s_data->signature.u.ecdsa_signature.r.x.buf = (u8*)malloc(32);
-                if(s_data->signature.u.ecdsa_signature.r.x.buf == NULL){
-                    wave_malloc_error();
-                    goto fail;
-                }
-                s_data->signature.u.ecdsa_signature.r.x.len = 32;
-                memcpy(s_data->signature.u.ecdsa_signature.r.x.buf,point.x.buf,32);
-            }
-            break;
-        case YES_UNCOMPRESSED:
-            s_data->signature.u.ecdsa_signature.r.type = UNCOMPRESSED;
-            if( point.type != UNCOMPRESSED){
-                wave_error_printf("这里出现了不对等的情况，我处理不来了，，我当成错误出来了 %s %d",__FILE__,__LINE__);
-                goto fail;    
-            }
-            s_data->signature.u.ecdsa_signature.r.x.len = point.x.len;
-            s_data->signature.u.ecdsa_signature.r.u.y.len = point.u.y.len;
-            s_data->signature.u.ecdsa_signature.r.x.buf = (u8*)malloc(point.x.len);
-            s_data->signature.u.ecdsa_signature.r.u.y.buf = (u8*)malloc(point.u.y.len);
-            if(s_data->signature.u.ecdsa_signature.r.x.buf == NULL ||
-                    s_data->signature.u.ecdsa_signature.r.u.y.buf == NULL){
-                wave_malloc_error();
-                goto fail;
-            }
-            memcpy(s_data->signature.u.ecdsa_signature.r.x.buf,point.x.buf,point.x.len);
-            memcpy(s_data->signature.u.ecdsa_signature.r.u.y.buf,point.u.y.buf,point.u.y.len);
-            break;
-        case YES_COMPRESSED:
-            if(point.type != COMPRESSED_LSB_Y_0 && point.type !=COMPRESSED_LSB_Y_1){
-                wave_error_printf("这里出现了不对等的情况，我处理不来了，，我当成错误出来了 %s %d",__FILE__,__LINE__);
-                goto fail;
-            } 
-            s_data->signature.u.ecdsa_signature.r.type = point.type;
-            
-            s_data->signature.u.ecdsa_signature.r.x.len = point.x.len;
-            s_data->signature.u.ecdsa_signature.r.x.buf = (u8*)malloc(point.x.len);
-            if(s_data->signature.u.ecdsa_signature.r.x.buf == NULL){
-                wave_malloc_error();
-                goto fail;
-            }
-            memcpy(s_data->signature.u.ecdsa_signature.r.x.buf,point.x.buf,point.x.len);
-            break;
-         default:
-            wave_error_printf("出现了不可能出现的指");
-            goto fail;
-    }
+   
     if( sec_data_2_string(&sec_data,signed_data)){
+        res = -1;
         goto fail;
     }
     res = SUCCESS;
@@ -832,22 +991,12 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     
 fail:
     certificate_free(&cert);
-    //certificate_chain_free(&cert_chain);
-    cert_chain.certs = NULL;
-    cert_chain.len = 0;
     certificate_chain_free(&construct_cert_chain);
     geographic_region_array_free(&regions);
     cme_permissions_array_free(&permissions);
-    //tobesigned_data_free(&tbs_encode);
-    //tobesigned_data_free(&tbs_sign);
-    //signed_data_free(&s_data);
     sec_data_free(&sec_data);
     string_free(&encoded_tbs);
-    string_free(&hashed_tbs);
-    string_free(&signed_tbs);
     string_free(&privatekey);
-    string_free(&hash8);
-    elliptic_curve_point_free(&point);
     return res;
 }
 static inline int certificate_chain_add_cert(struct certificate_chain* certs,certificate* cert){
@@ -2271,7 +2420,7 @@ end:
     certificate_chain_free(&cert_chain);
     return res;
 }
-result sec_certficate_response_processing(struct sec_db* sdb,cmh cmh,string* data,
+result sec_certificate_response_processing(struct sec_db* sdb,cmh cmh,string* data,
                 
                 content_type *type,
                 certid10* request_hash,

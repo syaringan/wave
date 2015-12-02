@@ -410,6 +410,9 @@ static result cert_info_init(struct sec_db* sdb,struct cert_info* certinfo,struc
 end:
     return res;
 }
+/**
+ * 如果transfor为ＮＵＬＬ表示不做私钥转换
+ */
 result cme_store_cert(struct sec_db* sdb,  cmh cmh,
                           certificate* cert,
                           string* transfor){
@@ -420,7 +423,11 @@ result cme_store_cert(struct sec_db* sdb,  cmh cmh,
     struct certificate* mcert = NULL;
     struct cert_info* certinfo = NULL;
     struct cme_db *cdb;
+    string cert_string,hash256;
+
     cdb = &sdb->cme_db;
+    INIT(cert_string);
+    INIT(hash256);
    
     mcert = (struct certificate*)malloc(sizeof(struct certificate));
     if(mcert == NULL){
@@ -465,16 +472,48 @@ result cme_store_cert(struct sec_db* sdb,  cmh cmh,
         wave_error_printf("没有找到cmh %d",cmh);
         goto fail;
     }
-    /*********
-     *做私钥变换，然后赋值给new_key_cert_node;
-     *
-     */ 
+    if(transfor != NULL){
+        if(cert->version_and_type != 3){
+            lock_unlock(&cdb->lock);
+            wave_error_printf("不是隐士证书，你怎么要做转换 %s %d",__FILE__,__LINE__);
+            goto fail;
+        }
+
+        if(certificate_2_string(cert,&cert_string) ||
+                crypto_HASH_256(&cert_string,&hash256)){
+            lock_unlock(&cdb->lock);
+            goto fail;
+        }
+        if(cmh_keys_node->private_key.len == 32){
+            if(crypto_cert_reception_SHA256(&cmh_keys_node->private_key,&hash256,transfor,&new_key_cert_node->private_key)){
+                lock_unlock(cdb->lock);
+                goto fail;
+            }
+        }
+        else if(cmh_keys_node->private_key.len == 28){
+            if(crypto_cert_reception_SHA224(&cmh_keys_node->private_key,&hash256,transfor,&new_key_cert_node->private_key)){
+                lock_unlock(cdb->lock);
+                goto fail;
+            }
+        }
+        else{
+            wave_error_printf("钥匙长度怎么会是其他指 %s %d",__FILE__,__LINE__);
+            goto fail;
+        }
+    }
+    else{
+        string_cpy(&new_key_cert_node->private_key,&cmh_keys_node->private_key);
+    }
+
+
     cdb->cmhs.alloc_cmhs.cmh_key_cert = ckc_insert(root,new_key_cert_node);
     cdb->certs = cert_info_insert(cdb->certs,certinfo);
     lock_unlock(&cdb->lock);
     list_del(&cmh_keys_node->list);
     cmh_keypaired_free(cmh_keys_node);
     free(cmh_keys_node);
+    string_free(&cert_string);
+    string_free(&hash256);
     return SUCCESS;
 fail:
     if(mcert != NULL){
@@ -489,6 +528,8 @@ fail:
     if(new_key_cert_node != NULL){
         free(new_key_cert_node);
     }
+    string_free(&cert_string);
+    string_free(&hash256);
     return FAILURE;
 }
 

@@ -181,7 +181,7 @@ result sec_get_certificate_request(struct sec_db* sdb,signer_identifier_type typ
                 string* cert_request,
                 certid10* request_hash);
 
-result sec_certficate_response_processing(struct sec_db* sdb,
+result sec_certificate_response_processing(struct sec_db* sdb,
                 cmh cmh,
                 string* data,
                 

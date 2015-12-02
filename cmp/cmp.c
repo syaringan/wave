@@ -478,18 +478,10 @@ static void pending_certificate_request(struct cmp_db* cmdb){
 
     pthread_cond_signal(&pending_cond);
 }
-static void pending_recieve_data(struct cmp_db* cmdb){
-    pthread_mutex_lock(&cmdb->lock);
-    cmdb->pending |= RECIEVE_DATA;
-    pthread_mutex_unlcok(&cmdb->lock);
 
-    pthread_cond_signal(&pending_cond);
-}
+//这个接口没写到。h里面因为我觉得现在不提供接口给别人
 void cmp_do_certificate_applycation(){
     pending_certificate_request(cmdb);
-}
-void cmp_do_recieve_data(){
-    pending_recieve_data(cmdb);
 }
 
 u32 cmp_init(){
@@ -603,6 +595,7 @@ static void certificate_request_progress(struct cmp_db* cmdb,struct sec_db* sdb)
     INIT(data);
     INIT(resquest_hash);
 
+    //这个申请的证书 只是用来签证的，不应该具备加密功能把。所以我觉得不应该有加密钥匙
     if(cme_cmh_request(sdb,&cert_cmh) || cme_cmh_request(sdb,&key_pair_cmh))
         goto end;
     if(cme_generate_keypair(sdb,cert_cmh,ECDSA_NISTP256_WITH_SHA256,&cert_pk_x,&cert_pk_y)||
@@ -771,10 +764,6 @@ static void cert_responce_recieve_progress(struct sec_db* sdb,struct cmp_db* cmd
         goto fail;
     if(type != CERTIFICATE_RESPONSE)
         goto fail;
-    /**
-     * 这里设计到协议的transfor，这里我更本不知道是怎么做变换，所以我就假设它是不变的，
-     * 就是rec_value.
-     */
     if(cme_store_cert(sdb,cert_cmh,&certificate,&rec_value))
         goto fail;
     pthread_mutex_lock(&cmdb->lock);

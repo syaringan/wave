@@ -355,15 +355,9 @@ int cert_pk_extraction_SHA224(char* CA_public_key_x, int CA_public_key_x_len,
  * @new_U_public_key_y:重建后的新的申请者的公钥y点,长度为28字节,长度28字节
  * @new_U_private_key:重建后的新的申请者的私钥,长度为28字节,长度28字节
  */
-int cert_reception_SHA224(char* CA_public_key_x, int CA_public_key_x_len,
-                          char* CA_public_key_y, int CA_public_key_y_len,
-                          char* Pu_x, int Pu_x_len,
-                          char* Pu_y, int Pu_y_len,
-                          char* old_u_private_key, int old_u_private_key_len,
+int cert_reception_SHA224(char* old_u_private_key, int old_u_private_key_len,
                           char* e, int e_len,
                           char* r, int r_len,
-                          char* new_U_public_key_x, int* new_U_public_key_x_len,
-                          char* new_U_public_key_y, int* new_U_public_key_y_len,
                           char* new_U_private_key, int* new_U_private_key_len);
 
 /*
@@ -411,15 +405,9 @@ int cert_pk_extraction_SHA256(char* CA_public_key_x, int CA_public_key_x_len,
  * @new_U_public_key_y:重建后的新的申请者的公钥y点,长度为32字节
  * @new_U_private_key:重建后的新的申请者的私钥,长度为32字节
  */
-int cert_reception_SHA256(char* CA_public_key_x, int CA_public_key_x_len,
-                          char* CA_public_key_y, int CA_public_key_y_len,
-                          char* Pu_x, int Pu_x_len,
-                          char* Pu_y, int Pu_y_len,
-                          char* old_u_private_key, int old_u_private_key_len,
+int cert_reception_SHA256(char* old_u_private_key, int old_u_private_key_len,
                           char* e, int e_len,
                           char* r, int r_len,
-                          char* new_U_public_key_x, int* new_U_public_key_x_len,
-                          char* new_U_public_key_y, int* new_U_public_key_y_len,
                           char* new_U_private_key, int* new_U_private_key_len);
 }
 #endif

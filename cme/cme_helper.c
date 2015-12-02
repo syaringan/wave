@@ -147,7 +147,7 @@ int certificate_2_hash8(struct certificate *cert,string *hash8){
     if( certificate_2_string(cert,&c) ){
         goto fail;
     }
-    if( crypto_HASH256(&c,&hashed) ){
+    if( crypto_HASH_256(&c,&hashed) ){
         goto fail;
     }
     hash8->buf = (u8*)malloc(8);
@@ -178,7 +178,7 @@ int certificate_2_hashedid8(struct certificate *cert,hashedid8* hash8){
     if( certificate_2_string(cert,&c) ){
         goto fail;
     }
-    if( crypto_HASH256(&c,&hashed) ){
+    if( crypto_HASH_256(&c,&hashed) ){
         goto fail;
     }
     //什么是低字节，这个地方是低字节嘛
@@ -201,7 +201,7 @@ int certificate_2_certid10(struct certificate *cert,certid10* certid){
     if( certificate_2_string(cert,&c) ){
         goto fail;
     }
-    if( crypto_HASH256(&c,&hashed) ){
+    if( crypto_HASH_256(&c,&hashed) ){
         goto fail;
     }
     //什么是低字节，这个地方是低字节嘛
