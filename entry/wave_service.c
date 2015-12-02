@@ -1,6 +1,7 @@
 #include<stdio.h>
 #include "wave_service.h"
-#include"../cme/cme.h"
+#include"cme/cme.h"
+#include"sec/sec.h"
 
 #define ERROR_PRINTF(n) printf("n %s %d",__FILE__,__LINE__)
 
@@ -30,11 +31,11 @@ int do_client_request(struct sec_db* sdb,int fd)
 
     switch(tag){
         case CME_LSIS_REQUEST:
-            if(do_cme_lsis_request(sdb) < 0)
+            if(do_cme_lsis_request(sdb,fd) < 0)
                 return -1;
             break;
         case CME_CMH_REQUEST:
-            if(do_cme_cmh_request(sdb) < 0)
+            if(do_cme_cmh_request(sdb,fd) < 0)
                 return -1;
             break;
         case CME_GENERATE_KEYPARI:
@@ -65,13 +66,16 @@ int do_client_request(struct sec_db* sdb,int fd)
             if(do_sec_signed_data_verification(sdb,fd) < 0)
                 return -1;
             break;
+        default:
+            ERROR_PRINTF("tag错误");
+            return -1;
     }
 
     return 0;
 }
 
 
-static int do_cme_lsis_request(struct sec_db* sdb)
+static int do_cme_lsis_request(struct sec_db* sdb,int fd)
 {
     int len = sizeof(int) + sizeof(cme_lsis);
     char* buf = (char*)malloc(len);
@@ -99,9 +103,9 @@ static int do_cme_lsis_request(struct sec_db* sdb)
 }
 
 
-static int do_cme_cmh_request(struct sec_db* sdb)
+static int do_cme_cmh_request(struct sec_db* sdb,int fd)
 {
-    len = sizeof(int) + sizeof(cmh);
+    int len = sizeof(int) + sizeof(cmh);
     char* buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
@@ -151,7 +155,8 @@ static int do_cme_generate_keypair(struct sec_db* sdb,int fd)
 
     buf += 4;  //跳过长度
 
-    cmh cmh = *((cmh*)buf);
+    cmh cmh;
+    memcpy(&cmh,buf,sizeof(cmh));
     buf += sizeof(cmh);
 
     int algorithm = *((int*)buf);
@@ -219,7 +224,7 @@ static int do_cme_store_keypair(struct sec_db* sdb,int fd)
     }
     char* buf_beg = buf;
 
-    int slen = 0
+    int slen = 0;
     int len_r;
     while(slen != 4){
         len_r = read(fd,buf+slen,4-slen);  //读取数据长度
@@ -249,7 +254,8 @@ static int do_cme_store_keypair(struct sec_db* sdb,int fd)
         slen += len_r;
     }
 
-    cmh cmh = *((cmh*)buf);
+    cmh cmh;
+    memcpy(&cmh,buf,sizeof(cmh));
     buf += sizeof(cmh);
 
     int algorithm = *((int*)buf);
@@ -314,7 +320,7 @@ static int do_cme_store_keypair(struct sec_db* sdb,int fd)
 
 static int do_cme_store_cert(struct sec_db* sdb,int fd)
 {
-    len = 1024;
+    int len = 1024;
     char* buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
@@ -352,7 +358,8 @@ static int do_cme_store_cert(struct sec_db* sdb,int fd)
         slen += len_r;
     }
 
-    cmh cmh = *((cmh*)buf);
+    cmh cmh;
+    memcpy(&cmh,buf,sizeof(cmh));
     buf += sizeof(cmh);
 
     int cert_len = *((int*)buf);
@@ -435,7 +442,8 @@ static int do_cme_store_cert_key(struct sec_db* sdb,int fd)
         slen += len_r;
     }
 
-    cmh cmh = *((cmh*)buf);
+    cmh cmh;
+    memcpy(&cmh,buf,sizeof(cmh));
     buf += sizeof(cmh);
 
     int cert_len = *((int*)buf);
@@ -518,7 +526,8 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
         slen += len_r;
     }
 
-    cmh cmh = *((cmh*)buf);
+    cmh cmh;
+    memcpy(&cmh,buf,sizeof(cmh));
     buf += sizeof(cmh);
 
     content_type type = *((int*)buf);
@@ -551,7 +560,8 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
     memcpy(exter_data->buf,buf,exter_data->len);
     buf += exter_data->len;
 
-    psid psid = *((psid*)buf);
+    psid psid;
+    memcpy(&psid,buf,sizeof(psid));
     buf += sizeof(psid);
 
     string* ssp;
@@ -639,7 +649,7 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
     buf_beg = buf;
 
     *((int*)buf) = len - 4;
-    buf == 4;
+    buf += 4;
 
     *((int*)buf) = signed_data->len;
     buf += 4;
@@ -665,6 +675,7 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
 static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
 {
     int len = 1024;
+    int count = 0;
     char* buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
@@ -686,7 +697,7 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
 
     len = *((int*)buf);
     if(len > 1020){
-buf = (char*)realloc(buf,len + 4);
+        buf = (char*)realloc(buf,len + 4);
         buf_beg = buf;
     }
     slen = 0;
@@ -704,6 +715,7 @@ buf = (char*)realloc(buf,len + 4);
 
     content_type type = *((int*)buf);
     buf += 4;
+    count += 4;
 
     string* data;
     INIT(*data);
@@ -717,18 +729,29 @@ buf = (char*)realloc(buf,len + 4);
     }
     memcpy(data->buf,buf,data->len);
     buf += data->len;
+    count += (4 + data->len);
 
-    struct certificate_chain* certs;  //证书链，待处理??
+    struct certificate_chain* certs;
+    INIT(certs);
     certs->len = *((int*)buf);
     buf += 4;
-    if(buf_2_certificate(buf,certs->len,certs->certs) < 0){
-        ERROR_PRINTF("buf_2_certificate失败");
-        string_free(data);
-        free(buf_beg);
-        return -1;
-    }
-    buf += certs->len;
+    count += 4;
 
+    int i,j;
+    int cert_len;
+    for(i=0;i<certs->len;i++){
+        cert_len = buf_2_certificate(buf,len-count,certs->certs+i);
+        if(cert_len < 0){
+            ERROR_PRINTF("buf_2_certificate失败");
+            certificate_chain_free(certs);
+            string_free(data);
+            free(buf_beg);
+            return -1;
+        }
+        buf += cert_len;
+        count += cert_len;
+    }
+    
     bool compressed = *((int*)buf);
     buf += 4;
 
@@ -743,40 +766,65 @@ buf = (char*)realloc(buf,len + 4);
 
     int res = sec_encrypted_data(sdb,type,data,certs,compressed,time,
                                 encrypted_data,failed_certs);
-    certificate_free(certs->certs);
+    certificate_chain_free(certs);
     string_free(data);
     if(res != 0){
         ERROR_PRINTF("sec_encrypted_data失败");
         string_free(encrypted_data);
-        certificate_free(failed_certs->certs);
+        certificate_chain_free(failed_certs);
         return -1;
     }
 
-    len = sizeof(int)*3 + encrypted_data->len + failed_certs->len;
+    len = sizeof(int)*3 + encrypted_data->len + failed_certs->len*sizeof(certificate); //??
     buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
         string_free(encrypted_data);
-        certificate_free(failed_certs->certs);
+        certificate_chain_free(failed_certs);
         return -1;
     }
     buf_beg = buf;
+    count = 0;
 
-    *((int*)buf) = len - 4;
     buf += 4;
+    count += 4;
 
     *((int*)buf) = encrypted_data->len;
     buf += 4;
+    count += 4;
 
     memcpy(buf,encrypted_data->buf,encrypted_data->len);
     buf += encrypted_data->len;
+    count += encrypted_data->len;
 
     *((int*)buf) = failed_certs->len;
     buf += 4;
+    count += 4;
 
-    memcpy(buf,failed_certs->certs,failed_certs->len);
+    for(i=0;i<failed_certs->len;i++){
+        cert_len = certificate_2_buf(failed_certs->certs+i,buf,len-count);
+        if(cert_len > 0){
+            buf += cert_len;
+            count += cert_len;
+        }
+        else if(cert_len == -2){
+            len *= 2;
+            buf_beg = (char*)realloc(buf_beg,len);
+            buf = buf_beg + count;
+            i--;  //重新对该证书进行转换
+        }
+        else if(cert_len < 0){
+            ERROR_PRINTF("certificate_2_buf失败");
+            certificate_chain_free(failed_certs);
+            string_free(encrypted_data);
+            free(buf_beg);
+            return -1;
+        }
+    }
 
-    certificate_free(failed_certs->certs);
+
+    *((int*)buf_beg) = count - 4;
+    certificate_chain_free(failed_certs);
     string_free(encrypted_data);
 
     if(write(fd,buf_beg,len) != len){
@@ -846,7 +894,8 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
     memcpy(recieve_data->buf,buf,recieve_data->len);
     buf += recieve_data->len;
 
-    cmh cmh = *((cmh*)buf);
+    cmh cmh;
+    memcpy(&cmh,buf,sizeof(cmh));
 
     free(buf_beg);
 
@@ -871,7 +920,7 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
     INIT(*location);
     INIT(*send_cert);
 
-    int res = sec_secure_data_content_extration(sdb,recieve_data,cmh
+    int res = sec_secure_data_content_extration(sdb,recieve_data,cmh,
             &type,&inner_type,data,signed_data,&psid,ssp,&set_geneartion_time,
             generation_time,&set_expiry_time,&expiry_time,&set_generation_location,
             location,send_cert);
@@ -951,7 +1000,7 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
     memcpy(buf,signed_data->buf,signed_data->len);
     buf += signed_data->len;
 
-    *((psid*)buf) = psid;
+    memcpy(buf,&psid,sizeof(psid));
     buf += sizeof(psid);
 
     *((int*)buf) = ssp->len;
@@ -1045,7 +1094,8 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     cme_lsis lsis = *((cme_lsis*)buf);
     buf += sizeof(cme_lsis);
 
-    psid psid = *((psid*)buf);
+    psid psid;
+    memcpy(&psid,buf,sizeof(psid));
     buf += sizeof(psid);
 
     content_type type = *((int*)buf);
@@ -1055,7 +1105,7 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     INIT(*signed_data);
     signed_data->len = *((int*)buf);
     buf += 4;
-    signed_data->buf = (cahr*)malloc(signed_data->len);
+    signed_data->buf = (char*)malloc(signed_data->len);
     if(signed_data->buf == NULL){
         ERROR_PRINTF("内存分配失败");
         free(buf_beg);
@@ -1108,7 +1158,7 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     bool check_expiry_time = *((int*)buf);
     buf += 4;
 
-    time64 expiry_time = *((time*)buf);
+    time64 expiry_time = *((time64*)buf);
     buf += sizeof(time64);
 
     float exprity_threshold = *((float*)buf);
@@ -1140,12 +1190,12 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
 
     free(buf_beg);
 
-    time32_array* last_recieve_crl_times;
-    time32_array* next_expected_crl_times;
+    struct time32_array* last_recieve_crl_times;
+    struct time32_array* next_expected_crl_times;
     certificate* send_cert;
 
-    INIT(*last_crl_time);
-    INIT(*next_crl_time);
+    INIT(*last_recieve_crl_times);
+    INIT(*next_expected_crl_times);
     INIT(*send_cert);
 
     int res = sec_signed_data_verification(sdb,lsis,&psid,type,

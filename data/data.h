@@ -154,7 +154,7 @@ typedef struct tbsdata_extension{
  */
 typedef struct three_d_location{
     s32 latitude;
-    s32 longitude;
+    s32 longtitude;
     u8 elevation[2];
 }three_d_location;
 /**
@@ -219,7 +219,7 @@ typedef struct public_key{
 
 typedef struct two_d_location{
     s32 latitude;
-    s32 longitude;
+    s32 longtitude;
 }two_d_location;
 
 

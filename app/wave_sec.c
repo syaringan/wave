@@ -34,7 +34,7 @@ int cme_lsis_request(cme_lsis* lsis){
     }
 
 	int slen = 0;
-	int len = 32;
+	int len = 4 + sizeof(cme_lsis);
 	char* buf = (char*)malloc(len);
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
@@ -86,7 +86,7 @@ int cme_cmh_request(cmh* cmh){
     }
 
 	int slen = 0;
-	int len = 32;
+	int len = 4 + sizeof(cmh);
 	char* buf = (char*)malloc(len);
 	if(buf == NULL){
 		ERROR_PRINTF("内存分配失败");
@@ -357,7 +357,7 @@ int cme_store_cert(cmh cmh,certificate* cert,
 	buf += sizeof(cmh);
 	count += sizeof(cmh);
 
-	char* cert_len_p = buf; //空1字节保存cert的长度
+	char* cert_len_p = buf; //空4字节保存cert的长度
 	buf += 4;
 	count += 4;
 	
@@ -686,8 +686,8 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 	}
 
 	int len = 4 + sizeof(app_tag) + sizeof(int)*4 + sizeof(time64) + data_len 
-                + certs_len*sizeof(certificate);  //这个地方直接计算，会不会分配的内存不够？？
-    int count = 0;                                //在这个函数里，count计算实际的数据长度
+                + certs_len*sizeof(certificate);  //此函数中len表示分配内存大小，后面会检查内存大小是否够用
+    int count = 0;                                //count计算实际的数据长度
     app_tag tag = SEC_ENCRYPTED_DATA;
 	char* buf = (char*)malloc(len);
 	if(buf == NULL){
@@ -700,15 +700,12 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 	buf += sizeof(app_tag);
     count += sizeof(app_tag);
 
-//	*((int*)buf) = len - 4 - sizeof(app_tag);
-//	buf += 4;
-
     buf += 4;
     count += 4;
 
 	*((int*)buf) = type;
 	buf += 4;
-    count += 4
+    count += 4;
 
 	*((int*)buf) = data_len;
 	buf += 4;
@@ -721,30 +718,28 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 	*((int*)buf) = certs_len;
 	buf += 4;
     count += 4;
-///////////////////////////////////////////////////////证书链
-//	if(certificate_2_buf(certs,buf,certs_len) < 0){
-//		ERROR_PRINTF("certificate_2_buf失败");
-//		free(buf_beg);
-//		return -1;
-//	}
-
-//	buf += certs_len;
 
     int i;
     int cert_len;
     for(i=0;i<certs_len;i++){
         cert_len = certificate_2_buf(certs+i,buf,len-count);
-        if(cert_len < 0){
-            ERROR_PRINTF("certificate_2_buf失败");  //这里没有考虑内存不足的情况
+        if(cert_len > 0){
+            buf += cert_len;
+            count += cert_len;
+        }
+        else if(cert_len == -2){
+            len *= 2;
+            buf_beg = (char*)realloc(buf_beg,len);
+            buf = buf_beg + count;
+            i--;
+        }
+        else if(cert_len < 0){
+            ERROR_PRINTF("certificate_2_buf失败");
             free(buf_beg);
             return -1;
         }
-        buf += cert_len;
-        count += cert_len;
     }
 
-
-/////////////////////////////////////////////////////////////
 	*((int*)buf) = compressed;
 	buf += 4;
     count += 4;
@@ -773,6 +768,7 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
         return -1;
 	}
 	buf_beg = buf;
+    count = 0;  //重置
 
 	int len_r;
 	while(slen != 4){
@@ -815,10 +811,12 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 		*encrypted_len = slen;
 	}
 	buf += 4;
+    count += 4;
 
 	if(encrypted_data != NULL)
 		memcpy(encrypted_data,buf,*encrypted_len);
 	buf += slen;
+    count += slen;
 
 	slen = *((int*)buf);
 	if(failed_certs_len != NULL){
@@ -831,15 +829,22 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 		*failed_certs_len = slen;
 	}
 	buf += 4;
+    count += 4;
 
-	if(failed_certs != NULL && failed_certs_len != NULL){
-		if(buf_2_certificate(buf,failed_certs_len,failed_certs) < 0){
-			ERROR_PRINTF("buf_2_certificate失败");
-			free(buf_beg);
-			close(fd);
-            return -1;
-		}
-	}
+    int j;
+    if(failed_certs != NULL && failed_certs_len != NULL){
+        for(i=0;i<*failed_certs_len;i++){
+            cert_len = buf_2_certificate(buf,len-count,failed_certs + i);
+            if(cert_len < 0){
+                ERROR_PRINTF("buf_2_certificate失败");
+                free(buf_beg);
+                close(fd);
+                return -1;
+            }
+            buf += cert_len;
+            count += cert_len;
+        }
+    }
 
 	free(buf_beg);
 	close(fd);
@@ -1099,7 +1104,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 	if((detect_reply != 0 && detect_reply != 1) ||
 		(check_generation_time != 0 && check_generation_time != 1) ||
 		(check_expiry_time != 0 && check_expiry_time != 1) ||
-		(check_generation_location != 0 && check_generation_location != 1)
+		(check_generation_location != 0 && check_generation_location != 1) ||
 		signed_data == NULL || external_data == NULL || elevation == NULL)
 	{
 		ERROR_PRINTF("参数错误");
