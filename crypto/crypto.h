@@ -48,8 +48,7 @@ extern int ECDSA_224_compress_key_2_uncompress(char *compress_key, int compress_
                                         char old_flag,
 
                                         char *public_key_x_buf, int *public_key_x_len,
-                                        char *public_key_y_buf, int *public_key_y_len,
-                                        char *new_flag);
+                                        char *public_key_y_buf, int *public_key_y_len);
 
 /*
  *ECDSA_224的签名函数
@@ -133,8 +132,7 @@ extern int ECDSA_256_compress_key_2_uncompress(char *compress_key,int compress_k
                                         char old_flag,
 
                                         char *public_key_x_buf, int* public_key_x_len,
-                                        char *public_key_y_buf, int* public_key_y_len,
-                                        char *new_flag);
+                                        char *public_key_y_buf, int* public_key_y_len);
 
 extern int ECDSA_256_sign_message(char* private_key_buf, int prilen,
                            char* mess_buf, int mess_len,
@@ -198,8 +196,7 @@ extern int ECIES_compress_key_2_uncompress(char *compress_key,int compress_key_l
                                     char old_flag,
 
                                     char *public_key_x_buf, int* public_key_x_len,
-                                    char *public_key_y_buf, int* public_key_y_len,
-                                    char *new_flag);
+                                    char *public_key_y_buf, int* public_key_y_len);
 
 /*
  *椭圆加密算法ECIES的加密函数:
@@ -414,7 +411,7 @@ int crypto_ECDSA_224_uncompress_key_2_compress_key(string* pubkey_x,string* pubk
                                                 string* compress_key,enum ecc_public_keytype *type);
 
 int crypto_ECDSA_224_compress_key_2_uncompress(string *compress_key,enum ecc_public_keytype old_flag,
-                                                string* pubkey_x,string* pubkey_y,enum ecc_public_keytype *type);
+                                                string* pubkey_x,string* pubkey_y);
 
 int crypto_ECDSA_224_sign_message(string* prikey,string *mess, string* r,string* s);
 
@@ -432,7 +429,7 @@ int crypto_ECDSA_256_uncompress_key_2_compress_key(string* pubkey_x,string* pubk
                                                 string* compress_key,enum ecc_public_keytype *type);
 
 int crypto_ECDSA_256_compress_key_2_uncompress(string *compress_key,enum ecc_public_keytype old_flag,
-                                                string* pubkey_x,string* pubkey_y,enum ecc_public_keytype *type);
+                                                string* pubkey_x,string* pubkey_y);
 
 int crypto_ECDSA_256_sign_message(string* prikey,string *mess, string* r,string* s);
 
@@ -447,7 +444,7 @@ int crypto_ECIES_get_key(string* prikey,string* pubkey_x,string* pubkey_y);
 
 int crypto_ECIES_uncompress_key_2_compress_key(string* pubkey_x,string* pubkey_y, string* compress_key,enum ecc_public_keytype *type);
 
-int crypto_ECIES_compress_key_2_uncompress(string *compress_key,enum ecc_public_keytype old_flag,string* pubkey_x,string* pubkey_y,enum ecc_public_keytype *type);
+int crypto_ECIES_compress_key_2_uncompress(string *compress_key,enum ecc_public_keytype old_flag,string* pubkey_x,string* pubkey_y);
 
 int crypto_ECIES_encrypto_message(string* mess,string* pubkey_x,string* pubkey_y,
                             string* ephe_pubkey_x,string* ephe_pubkey_y,string* encrypted_mess,string* tag);
@@ -468,13 +465,11 @@ int crypto_HASH_224(string *mess,string* digest);
 int crypto_cert_pk_extraction_SHA224(string *ca_pub_x,string* ca_pub_y,string* recon_x,string* recon_y,string* digst,
 					string* pubkey_x,string* pubkey_y);
 
-int crypto_cert_reception_SHA224(string* ca_pub_x,string* ca_pub_y,string* recon_x,string* recon_y,string* old_prikey,
-					string* a,string* b,string* pubkey_x,string* pubkey_y,string* prikey);
+int crypto_cert_reception_SHA224(string* old_prikey,string* a,string* b,string* prikey);
 
 int crypto_cert_pk_extraction_SHA256(string *ca_pub_x,string* ca_pub_y,string* recon_x,string* recon_y,string* digst,
 					string* pubkey_x,string* pubkey_y);
 
-int crypto_cert_reception_SHA256(string* ca_pub_x,string* ca_pub_y,string* recon_x,string* recon_y,string* old_prikey,
-					string* a,string* b,string* pubkey_x,string* pubkey_y,string* prikey);
+int crypto_cert_reception_SHA256(string* old_prikey,string* a,string* b,string* prikey);
 
 #endif

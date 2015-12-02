@@ -51,8 +51,7 @@ int ECDSA_224_compress_key_2_uncompress(char *compress_key, int compress_key_len
                                         char old_flag,
 
                                         char *public_key_x_buf, int *public_key_x_len,
-                                        char *public_key_y_buf, int *public_key_y_len,
-                                        char *new_flag);
+                                        char *public_key_y_buf, int *public_key_y_len);
 
 /*
  *ECDSA_224的签名函数
@@ -136,8 +135,7 @@ int ECDSA_256_compress_key_2_uncompress(char *compress_key,int compress_key_len,
                                         char old_flag,
 
                                         char *public_key_x_buf, int* public_key_x_len,
-                                        char *public_key_y_buf, int* public_key_y_len,
-                                        char *new_flag);
+                                        char *public_key_y_buf, int* public_key_y_len);
 
 int ECDSA_256_sign_message(char* private_key_buf, int prilen,
                            char* mess_buf, int mess_len,
@@ -201,8 +199,7 @@ int ECIES_compress_key_2_uncompress(char *compress_key,int compress_key_len,
                                     char old_flag,
 
                                     char *public_key_x_buf, int* public_key_x_len,
-                                    char *public_key_y_buf, int* public_key_y_len,
-                                    char *new_flag);
+                                    char *public_key_y_buf, int* public_key_y_len);
 
 /*
  *椭圆加密算法ECIES的加密函数:

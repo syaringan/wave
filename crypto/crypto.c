@@ -63,10 +63,9 @@ fail:
     return -1;
 }
 int crypto_ECDSA_224_compress_key_2_uncompress(string *compress_key,enum ecc_public_keytype old_flag,
-                                                string* pubkey_x,string* pubkey_y,enum ecc_public_keytype *type){
+                                                string* pubkey_x,string* pubkey_y){
     check_args_string(pubkey_x);
     check_args_string(pubkey_y);
-    char mtype;
     
     pubkey_x->len = compress_key->len;
     pubkey_y->len = compress_key->len;
@@ -79,10 +78,9 @@ int crypto_ECDSA_224_compress_key_2_uncompress(string *compress_key,enum ecc_pub
         goto fail;
     }
     if(ECDSA_224_compress_key_2_uncompress(compress_key->buf,compress_key->len,(char)old_flag,
-                pubkey_x->buf,&pubkey_x->len,pubkey_y->buf,&pubkey_y->len,&mtype))
+                pubkey_x->buf,&pubkey_x->len,pubkey_y->buf,&pubkey_y->len))
         goto fail;
-    if(type != NULL)
-        *type = mtype;
+    return 0;
 fail:
     if(pubkey_x->buf != NULL)
         string_free(pubkey_x);
@@ -220,10 +218,9 @@ fail:
     return -1;
 }
 int crypto_ECDSA_256_compress_key_2_uncompress(string *compress_key,enum ecc_public_keytype old_flag,
-                                                string* pubkey_x,string* pubkey_y,enum ecc_public_keytype *type){
+                                                string* pubkey_x,string* pubkey_y){
     check_args_string(pubkey_x);
     check_args_string(pubkey_y);
-    char mtype;
     
     pubkey_x->len = compress_key->len;
     pubkey_y->len = compress_key->len;
@@ -236,10 +233,8 @@ int crypto_ECDSA_256_compress_key_2_uncompress(string *compress_key,enum ecc_pub
         goto fail;
     }
     if(ECDSA_256_compress_key_2_uncompress(compress_key->buf,compress_key->len,(char)old_flag,
-                pubkey_x->buf,&pubkey_x->len,pubkey_y->buf,&pubkey_y->len,&mtype))
+                pubkey_x->buf,&pubkey_x->len,pubkey_y->buf,&pubkey_y->len))
         goto fail;
-    if(type != NULL)
-        *type = mtype;
 	return 0;
 fail:
     if(pubkey_x->buf != NULL)
@@ -375,10 +370,9 @@ fail:
 }
 
 int crypto_ECIES_compress_key_2_uncompress(string *compress_key,enum ecc_public_keytype old_flag,
-                                                string* pubkey_x,string* pubkey_y,enum ecc_public_keytype *type){
+                                                string* pubkey_x,string* pubkey_y){
     check_args_string(pubkey_x);
     check_args_string(pubkey_y);
-    char mtype;
     
     pubkey_x->len = compress_key->len;
     pubkey_y->len = compress_key->len;
@@ -391,10 +385,8 @@ int crypto_ECIES_compress_key_2_uncompress(string *compress_key,enum ecc_public_
         goto fail;
     }
     if(ECIES_compress_key_2_uncompress(compress_key->buf,compress_key->len,(char)old_flag,
-                pubkey_x->buf,&pubkey_x->len,pubkey_y->buf,&pubkey_y->len,&mtype))
+                pubkey_x->buf,&pubkey_x->len,pubkey_y->buf,&pubkey_y->len))
         goto fail;
-    if(type != NULL)
-        *type = mtype;
 	return 0;
 fail:
     if(pubkey_x->buf != NULL)

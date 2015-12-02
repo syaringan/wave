@@ -384,6 +384,72 @@ static int hash_with_certificate(certificate* cert,string* message,string* hashe
 fail:
     return -1;
 }
+
+static int elliptic_curve_point_2_uncompressed(pk_algorithm algorithm,elliptic_curve_point* point,string *x,string *y){
+    if(point->type == X_COORDINATE_ONLY){
+        wave_error_printf("不应该有这个直 %s %d",__FILE__,__LINE__);
+        return -1; 
+    }
+    int res =0;
+    string compress;
+    
+    INIT(compress);
+
+    if(point->type == UNCOMPRESSED){
+        x.len = point->x.len;
+        y.len = point->u.y.len;
+        x.buf = (u8*)malloc(x.len);
+        y.buf = (u8*)malloc(y.len);
+        if(x.buf == NULL || y.buf == NULL){
+            res = -1;
+            goto end;
+        }
+        memcpy(x.buf,point->x.buf,x.len);
+        memcpy(y.buf,point->u.y.buf,y.len);
+        goto end;
+    }
+    compress.len = point->x.len;
+    compress.buf = (u8*)malloc(compress.len);
+    if(compress.buf == NULL){
+        wave_malloc_error();
+        res = -1;
+        goto end;
+    }
+    memcpy(compress.buf,point->x.buf,compress.len);
+
+    if(algorithm == ECDSA_NISTP256_WITH_SHA256){
+        if(crypto_ECDSA_256_compress_key_2_uncompress(&compress,point->type,x,y,type)){
+            res = -1;
+            goto end;        
+        }
+    }
+    else if(algorithm == ECDSA_NISTP224_WITH_SHA224){
+        if(crypto_ECDSA_224_compress_key_2_uncompress(&compress,point->type,x,y,type)){
+            res = -1;
+            goto end;        
+        }
+    }
+    else if(algorithm == ECIES_NISTP256){
+        if(crypto_ECIES_compress_key_2_uncompress(&compress,point->type,x,y,type)){
+            res = -1;
+            goto end;
+        }
+    }
+    else{
+        wave_error_printf("不会出现这个指 %s %d",__FILE__,__LINE__);
+        res = -1;
+        goto end
+    }
+    goto end;
+end:
+    if(res != 0){
+        string_free(x);
+        string_free(y);
+    }
+    string_free(compress);
+    return res;
+}
+static int elliptic_curve_point_2_compressed(pk_algorithm algorithm,elliptic_curve_point* point,string* compress,)
 static int certificate_verification_point_compress(certificate* cert,bool compressed){
     pk_algorithm algorithm;
     elliptic_curve_point *point;
@@ -1009,6 +1075,7 @@ static inline int certificate_chain_add_cert(struct certificate_chain* certs,cer
     certificate_cpy(certs->certs+certs->len-1,cert);
     return 0;
 }
+
 result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,struct certificate_chain* certs,
                 bool compressed,time64 overdue_crl_tolerance,
                 
@@ -1025,9 +1092,11 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     int i;
     string symm_key;
     string cert_string;
-    string ok;
+    string ok,nonce;
+    string x.y;
     sec_data sdata;
     recipient_info *rec_info; 
+    elliptic_curve_point *point;
     time32 next_crl_time;
     time_t now;
 
@@ -1035,20 +1104,27 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     INIT(symm_key);
     INIT(cert_string);
     INIT(ok);
+    INIT(nonce);
     INIT(sdata);
+    INIT(x);
+    INIT(y);
     
     failed_certs->len = 0;
     for(i=0;i<certs->len;i++){
         string_free(&cert_string);
         temp_cert = certs->certs+i;
-        if( certificate_2_string(temp_cert,&cert_string))
+        if( certificate_2_string(temp_cert,&cert_string)){
+            res = FAILURE;
             goto end;
+        }
         res = cme_certificate_info_request(sdb,ID_CERTIFICATE,&cert_string, 
                             NULL,NULL,NULL,NULL,&next_crl_time,NULL,NULL);
         if(res != FOUND){
             res = FAIL_ON_SOME_CERTIFICATES;
-            if(certificate_chain_add_cert(failed_certs,temp_cert))
+            if(certificate_chain_add_cert(failed_certs,temp_cert)){
+                res = -1;
                 goto end;
+            }
         }
         else{
             time(&now);
@@ -1056,39 +1132,44 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
                 wave_printf(MSG_WARNING,"crl没有获得，crl_next_time:%d  now:%d  over:%lld\n",
                         next_crl_time,now,overdue_crl_tolerance);
                 res = FAIL_ON_SOME_CERTIFICATES;
-                if(certificate_chain_add_cert(failed_certs,temp_cert))
+                if(certificate_chain_add_cert(failed_certs,temp_cert)){
+                    res = -1;
                     goto end;
+                }
             }
             else{
-                if(temp_cert->version_and_type != 2 ||
-                        temp_cert->unsigned_certificate.version_and_type.verification_key.algorithm !=
-                            ECIES_NISTP256){
-                    wave_error_printf("这个证书version_and_type != 2 或者algroithm != ECIES_NISTP256  %s %d"
-                            ,__FILE__,__LINE__);
+                if(temp_cert->unsigned_certificate.cf & ENCRYPTION_KEY == 0){
                     res = FAIL_ON_SOME_CERTIFICATES;
-                    if(certificate_chain_add_cert(failed_certs,temp_cert))
+                    if(certificate_chain_add_cert(failed_certs,temp_cert)){
+                        res = -1;
                         goto end;
+                    }
                 }
                 else{
-                    current_symm_alg = temp_cert->unsigned_certificate.version_and_type.verification_key.
-                                            u.ecies_nistp256.supported_symm_alg;
+                    current_symm_alg = temp_cert->unsigned_certificate.flags_content.encryption_key.u.ecies_nistp256.supported_symm_alg;
                     if(current_symm_alg != AES_128_CCM){
                         wave_error_printf("我们目前支持的加密算法只有AES_128_CCM %s %d",__FILE__,__LINE__);
                         res = FAIL_ON_SOME_CERTIFICATES;
-                        if(certificate_chain_add_cert(failed_certs,temp_cert))
+                        if(certificate_chain_add_cert(failed_certs,temp_cert)){
+                            res = -1;
                             goto end;
+                        }
                     }
                     else{
                         //这个地方我不知道我理解对没有，，请后来的人在核实一下，我是按照我的逻辑和想法猜测的
                         if( symm_alg != SYMM_ALGORITHM_NOT_SET && symm_alg != current_symm_alg){
                             res = FAIL_ON_SOME_CERTIFICATES;
-                            if( certificate_chain_add_cert(failed_certs,temp_cert))
+                            if( certificate_chain_add_cert(failed_certs,temp_cert)){
+                                res = -1;
                                 goto end;
+                            }
                         }
                         else{
                             symm_alg = current_symm_alg;
-                            if(certificate_chain_add_cert(&enc_certs,temp_cert))
+                            if(certificate_chain_add_cert(&enc_certs,temp_cert)){
+                                res = -1;
                                 goto end;
+                            }
                         }
                     }
                 }
@@ -1102,6 +1183,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     sdata.u.encrypted_data.recipients.buf = (recipient_info*)malloc(sizeof(recipient_info) * enc_certs.len);
     if(sdata.u.encrypted_data.recipients.buf == NULL){
         wave_malloc_error();
+        res = -1;
         goto end;
     }
     sdata.u.encrypted_data.recipients.len = enc_certs.len;
@@ -1109,10 +1191,18 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     /****
      *这里随即产生一个对等加密的key 然后写进ok里面
      */
+    if(crypto_AES_128_CCM_Get_Key_and_Nonce(&ok,&nonce)){
+        res = -1;
+        goto end;
+    }
+    memcpy(sdata.u.encrypted_data.ciphertext.nonce,nonce.buf,nonce.len);
 
     for(i=0;i<enc_certs.len;i++){
         rec_info = sdata.u.encrypted_data.recipients.buf+i;
-
+        point = &( (enc_certs.certs+i)->unsigned_certificate.flags_content.encryption_key.u.ecies_nistp256.public_key);
+        if(point->type != UNCOMPRESSED){
+        
+        }
     }
     //这里等待后面书写
 end:
@@ -1120,7 +1210,10 @@ end:
     certificate_chain_free(&enc_certs);
     string_free(&cert_string);
     string_free(&ok);
+    string_free(&nonce);
     sec_data_free(&sdata);
+    string_free(&x);
+    string_free(&y);
     return res;
 }
 
