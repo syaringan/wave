@@ -708,7 +708,45 @@ fail:
 		free(buf);
 	return -1;
 }
+int tobe_encrypted_2_string(tobe_encrypted* tbencrypted,string* data){
+    if(data == NULL || data->buf != NULL){
+		wave_error_printf("输入参数有误，请检查");
+		return -1;
+	}
+    
+    int res;
+	char *buf = NULL;
+	int len = 1024;
 
+	do{
+		if(buf != NULL)
+			free(buf);
+		buf = (char*)malloc(len);
+		if(buf == NULL){
+			wave_malloc_error();
+			goto fail;
+		}
+		res = tobe_encrypted_2_buf(tbencrypted,buf,len);
+		if(res == -1)
+			goto fail;
+		len *= 2;
+	}while(res == NOT_ENOUGHT);
+
+	data->buf = (u8*)malloc(res);
+	if(data->buf == NULL){
+		wave_malloc_error();
+		goto fail;
+	}
+	data->len = res;
+	memcpy(data->buf,buf,res);
+	free(buf);
+	return 0;
+
+fail:
+	if(buf != NULL)
+		free(buf);
+	return -1;
+}
 bool certid10_equal(certid10* a,certid10* b){
     int i;
     for(i=0;i<10;i++){

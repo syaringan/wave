@@ -449,7 +449,72 @@ end:
     string_free(compress);
     return res;
 }
-static int elliptic_curve_point_2_compressed(pk_algorithm algorithm,elliptic_curve_point* point,string* compress,)
+static int elliptic_curve_point_2_compressed(pk_algorithm algorithm,elliptic_curve_point* point,string* compress,enum ecc_public_keytype *type){
+    if(point->type == X_COORDINATE_ONLY){
+        wave_error_printf("不应该有这个直 %s %d",__FILE__,__LINE__);
+        return -1; 
+    }
+    int res = 0;
+    string x,y;
+
+    INIT(x);
+    INIT(y);
+    
+    if(point->type != UNCOMPRESSED){
+        x.len = point->x.len;
+        y.len = point->u.y.len;
+        if( (x.buf = (u8*)malloc(x.len)) == NULL || (y.buf = (u8*)malloc(y.len)) == NULL ){
+            wave_malloc_error();
+            res = -1;
+            goto end;
+        }
+        memcpy(x.buf,point->x.buf,x.len);
+        memcpy(y.buf,point->u.y.buf,y.len);
+
+
+        if(algorithm == ECDSA_NISTP224_WITH_SHA224){    
+            if( crypto_ECDSA_224_uncompress_key_2_compress_key(&x,&y,compress,type)){
+                res = -1;
+                goto end;
+            } 
+        }
+        else if(algorithm == ECDSA_NISTP256_WITH_SHA256){ 
+            if( crypto_ECDSA_256_uncompress_key_2_compress_key(&x,&y,compress,type)){
+                res = -1;
+                goto end;
+            } 
+        }
+        else if(algorithm == ECIES_NISTP256){
+            if( crypto_ECIES_uncompress_key_2_compress_key(&x,&y,compress,type)){
+                res = -1;
+                goto end;
+            }
+        }
+        else{
+            wave_error_printf("出现了不可能出现的直 %s %d",__FILE__,__LINE__);
+            res = -1;
+            goto end;
+        }
+    }
+    else{
+        if(type != NULL){
+            *type = point->type;
+        }
+        compress.len = point->x.len;
+        compress.buf = (u8*)malloc(compress.len);
+        if(compress.buf == NULL){
+            wave_malloc_error();
+            res = -1;
+            goto end;
+        }
+        memcpy(compress.buf,point->x.buf,compress.len);
+    }
+    goto end;
+end:
+    string_free(x);
+    string_free(y);
+    return res;
+}
 static int certificate_verification_point_compress(certificate* cert,bool compressed){
     pk_algorithm algorithm;
     elliptic_curve_point *point;
@@ -477,35 +542,13 @@ static int certificate_verification_point_compress(certificate* cert,bool compre
 
     if(comperssed == true){
         if(point->type == COMPRESSED_LSB_Y_0 || point->type == COMPRESSED_LSB_Y_1)
-            return 0;
-        if(point->type == X_COORDINATE_ONLY){
-            wave_error_printf("这个不可能的指  %s %d",__FILE__,__LINE__);
-            return -1;
-        }
-    
-        x.len = point->x.len;
-        y.len = point->u.y.len;
-        if( (x.buf = (u8*)malloc(x.len)) == NULL || (y.buf = (u8*)malloc(y.len)) == NULL ){
-            wave_malloc_error();
+            goto end;
+
+        if( elliptic_curve_point_2_compressed(algorithm,point,&compress,&point->type)){
             res = -1;
             goto end;
         }
-        memcpy(x.buf,point->x.buf,x.len);
-        memcpy(y.buf,point->u.y.buf,y.len);
-
-
-        if(algorithm == ECDSA_NISTP224_WITH_SHA224){    
-            if( crypto_ECDSA_224_uncompress_key_2_compress_key(&x,&y,&compress,&point->type)){
-                res = -1;
-                goto end;
-            } 
-        }
-        else{ 
-            if( crypto_ECDSA_256_uncompress_key_2_compress_key(&x,&y,&compress,&point->type)){
-                res = -1;
-            goto end;
-            } 
-        }
+    
         point->x.len = compress.len;
         point->x.buf = (u8*)realloc(point->x.buf,compress.len);
         if(point->x.buf == NULL){
@@ -525,31 +568,9 @@ static int certificate_verification_point_compress(certificate* cert,bool compre
     else{
         if(point->type == UNCOMPRESSED)
             goto end;
-        if(point->type == X_COORDINATE_ONLY){
-            wave_error_printf("这个不可能的指  %s %d",__FILE__,__LINE__);
+        if( elliptic_curve_point_2_uncompressed(algorithm,point,&x,&y)){
             res = -1;
             goto end;
-        }
-        compress.len = point->x.len;
-        compress.buf = (u8*)malloc(compress.len);
-        if(compress.buf == NULL){
-            res = -1;
-            wave_malloc_error();
-            goto end;
-        }
-        memcpy(compress.buf,point->x.buf,compress.len);
-        
-        if(algorithm = ECDSA_NISTP224_WITH_SHA224){
-            if(crypto_ECDSA_224_compress_key_2_uncompress(&compress,point->type, &x,&y,&point->type)){
-                res = -1;
-                goto end;
-            }
-        }
-        else{
-            if(crypto_ECDSA_256_compress_key_2_uncompress(&compress,point->type, &x,&y,&point->type)){
-                res = -1;
-                goto end;
-            }
         }
         
         point->x.len = x.len;
@@ -1093,8 +1114,11 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     string symm_key;
     string cert_string;
     string ok,nonce;
-    string x.y;
+    string x,y,ephe_x,ephe_y,compress_point;
+    string encrypted_mess,tag;
+    string plaintext,ciphertext;
     sec_data sdata;
+    tobe_encrypted *tbencrypted;
     recipient_info *rec_info; 
     elliptic_curve_point *point;
     time32 next_crl_time;
@@ -1108,6 +1132,13 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     INIT(sdata);
     INIT(x);
     INIT(y);
+    INIT(ephe_x);
+    INIT(ephe_y);
+    INIT(encrypted_mess);
+    INIT(tag);
+    INIT(compress_point);
+    INIT(plaintext);
+    INIT(ciphertext);
     
     failed_certs->len = 0;
     for(i=0;i<certs->len;i++){
@@ -1188,23 +1219,130 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     }
     sdata.u.encrypted_data.recipients.len = enc_certs.len;
 
-    /****
-     *这里随即产生一个对等加密的key 然后写进ok里面
-     */
     if(crypto_AES_128_CCM_Get_Key_and_Nonce(&ok,&nonce)){
         res = -1;
         goto end;
     }
-    memcpy(sdata.u.encrypted_data.ciphertext.nonce,nonce.buf,nonce.len);
 
     for(i=0;i<enc_certs.len;i++){
         rec_info = sdata.u.encrypted_data.recipients.buf+i;
+
+        if(certificate_2_hashedid8(enc_certs+i,&rec_info->cert_id)){
+            res = -1;
+            goto end;
+        }
+
         point = &( (enc_certs.certs+i)->unsigned_certificate.flags_content.encryption_key.u.ecies_nistp256.public_key);
-        if(point->type != UNCOMPRESSED){
+        if( elliptic_curve_point_2_uncompressed(ECIES_NISTP256,point,&x,&y)){
+                res = -1;
+                goto end;
+        }
+
+        if(crypto_ECIES_encrypto_message(&ok,&x,&y, &ephe_x,&ephe_y, &encrypted_mess,&tag)){
+            res = -1;
+            goto end;
+        }
         
+        if(compressed == true){
+            if(crypto_ECIES_uncompress_key_2_compress_key(&ephe_x,&ephe_y,&compress_point,&rec_info->u.enc_key.v.type)){
+                res = -1;
+                goto end;
+            }
+            rec_info->u.enc_key.v.x.len = compress_point.len;
+            rec_info->u.enc_key.v.x.buf = (u8*)malloc(compress_point.len);
+            if(rec_info->u.enc_key.v.x.buf == NULL){
+                res = -1;
+                goto end;
+            }
+            memcpy(rec_info->u.enc_key.v.x.buf,compress_point.buf,compress_point.len);
+        }
+        else{
+            rec_info->u.enc_key.v.x.len = ephe_x.len;
+            rec_info->u.enc_key.v.u.y.len = ephe_y.len;
+
+            rec_info->u.enc_key.v.x.buf = (u8*)malloc(ephe_x.len);
+            rec_info->u.enc_key.v.u.y.buf = (u8*)malloc(ephe_y.len);
+
+            if(rec_info->u.enc_key.v.x.buf == NULL ||
+                    rec_info->u.enc_key.v.u.y.buf == NULL){
+                wave_malloc_error();
+                res = -1;
+                goto end;
+            }
+            memcpy(rec_info->u.enc_key.v.x.buf,ephe_x.buf,ephe_x.len);
+            memcpy(rec_info->u.enc_key.v.u.y.buf,ephe_y.buf,ephe_y.len);
+        }
+        rec_info->u.enc_key.c.len = encrypted_mess.len;
+        rec_info->u.enc_key.c.buf = (u8*)malloc(rec_info->u.enc_key.c.len);
+        if(rec_info->u.enc_key.c.buf == NULL){
+            res = -1;
+            wave_malloc_error();
+            goto end;
+        }
+        memcpy(rec_info->u.enc_key.buf,encrypted_mess.buf,encrypted_mess.len);
+        memcpy(rec_info->u.enc_key.t,tag.buf,tag.len);
+        
+        string_free(&x);
+        string_free(&y);
+        string_free(&ephe_x);
+        string_free(&ephe_y);
+        string_free(&encrypted_mess);
+        string_free(&tag);
+        string_free(&compress_point);
+    }
+    tbencrypted = &sdata->u.encrypted_data;
+    if(type == UNSECURED){
+        tbencrypted->type = UNSECURED;
+        tbencrypted->u.plain_text.len = data->len;
+        tbencrypted->u.plain_text.buf = (u8*)malloc(data->len);
+        if(tbencrypted->u.plain_text.buf == NULL){
+            res = -1;
+            goto end;
+        }
+        memcpy(tbencrypted->u.plain_text.buf,data->buf,data->len);
+    }
+    else if(type == SIGNED || type == SIGNED_PARTIAL_PAYLOAD || type == SIGNED_EXTERNAL_PAYLOAD){
+        tbencrypted->type = type;
+        if(  string_2_signed_data(data,&tbencrypted->u.signed_data)){
+            wave_error_printf("string_2_signed_data 失败 %s %d",__FILE__,__LINE__);
+            res = -1;
+            goto end;
         }
     }
-    //这里等待后面书写
+    else{
+        wave_error_printf("不知起其他的type  %s %d",__FILE__,__LINE__);
+        res = -1;
+        goto end;
+    }
+    
+    if(tobe_encrypted_2_string(tbencrypted,&plaintext)){
+        wave_error_printf("tobe encrypted 编码失败  %s %d",__FILE__,__LINE__);
+        res = -1;
+        goto end;
+    }
+    if(crypto_AES_128_CCM_encrypto_message(&plaintext,&ok,&nonce,&ciphertext)){
+        res = -1;
+        wave_error_printf("对成加密失败  %s %d",__FILE__,__LINE__);
+        goto end;
+    }
+    memcpy(sdata->u.encrypted_data.u.ciphertext.nonce,nonce.buf,nonce.len);
+    sdata->u.encrypted_data.u.ciphertext.ccm_ciphertext.len = ciphertext.len;
+    sdata->u.encrypted_data.u.ciphertext.ccm_ciphertext.buf = (u8*)malloc(ciphertext.len);
+    if(sdata->u.encrypted_data.u.ciphertext.ccm_ciphertext.buf == NULL){
+        wave_malloc_error();
+        res = -1;
+        goto end;
+    }
+    memcpy(sdata->u.encrypted_data.u.ciphertext.ccm_ciphertext.buf,ciphertext.buf,ciphertext.len);
+
+    if(encrypted_data != NULL){
+        if(sec_data_2_string(&sdata,encrypted_data)){
+            wave_error_printf("sec_data 编码失败了  %s %d",__FILE__,__LINE__);
+            res = -1;
+            goto end;
+        }  
+    }
+    goto end;
 end:
     string_free(&symm_key);
     certificate_chain_free(&enc_certs);
@@ -1214,6 +1352,13 @@ end:
     sec_data_free(&sdata);
     string_free(&x);
     string_free(&y);
+    string_free(&ephe_x);
+    string_free(&ephe_y);
+    string_free(&encrypted_mess);
+    string_free(&tag);
+    string_free(&compress_point);
+    string_free(&plaintext);
+    string_free(&ciphertext);
     return res;
 }
 

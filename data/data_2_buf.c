@@ -2809,7 +2809,7 @@ u32 signed_data_2_buf(const signed_data *signed_data,u8* buf,u32 len,content_typ
  *   data_2  43
  */
 
-static u32 tobe_encrypted_2_buf(const tobe_encrypted *tobe_encrypted,u8* buf,u32 len){
+u32 tobe_encrypted_2_buf(const tobe_encrypted *tobe_encrypted,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;

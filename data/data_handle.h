@@ -83,6 +83,8 @@ int string_2_tobe_encrypted_certificate_response(string* data,tobe_encrypted_cer
 
 int certificate_request_2_string(certificate_request* cert_req,string* data);
 
+int tobe_encrypted_2_string(tobe_encrypted* tbencrypted,string* data);
+
 bool certid10_equal(certid10* a,certid10* b);
 int  certid10_cmp(certid10 *a,certid10* b);
 void certid10_cpy(certid10* dst,certid10* src);
