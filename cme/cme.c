@@ -154,31 +154,19 @@ result cme_generate_keypair(struct sec_db* sdb,  cmh cmh,
     //按照二哥提供的算法，我们生成一对密钥和公要
     switch(algorithm){
         case ECDSA_NISTP224_WITH_SHA224:
-            if( crypto_ECDSA224_get_privatekey(&mprk)){
-                res = FAILURE;
-                goto end;
-            }
-            if( crypto_ECDSA224_get_publickey(&mprk,pub_key_x,pub_key_y)){
+            if(crypto_ECDSA_224_get_key(&mprk,pub_key_x,pub_key_y)){
                 res = FAILURE;
                 goto end;
             }
             break;
         case ECDSA_NISTP256_WITH_SHA256:
-            if( crypto_ECDSA256_get_privatekey(&mprk)){
-                res = FAILURE;
-                goto end;
-            }
-            if( crypto_ECDSA256_get_publickey(&mprk,pub_key_x,pub_key_y)){
+            if(crypto_ECDSA_256_get_key(&mprk,pub_key_x,pub_key_y)){
                 res = FAILURE;
                 goto end;
             }
             break;
         case ECIES_NISTP256:
-            if( crypto_ECIES256_get_privatekey(&mprk)){
-                res = FAILURE;
-                goto end;
-            }
-            if( crypto_ECIES256_get_publickey(&mprk,pub_key_x,pub_key_y)){
+            if( crypto_ECIES_get_key(&mprk,pub_key_x,pub_key_y)){
                 res = FAILURE;
                 goto end;
             }
