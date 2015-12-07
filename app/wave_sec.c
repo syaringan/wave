@@ -837,6 +837,7 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
             cert_len = buf_2_certificate(buf,len-count,failed_certs + i);
             if(cert_len < 0){
                 ERROR_PRINTF("buf_2_certificate失败");
+                *failed_certs_len = i + 1;  //实际已填充的证书个数
                 free(buf_beg);
                 close(fd);
                 return -1;

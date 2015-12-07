@@ -743,6 +743,7 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
         cert_len = buf_2_certificate(buf,len-count,certs->certs+i);
         if(cert_len < 0){
             ERROR_PRINTF("buf_2_certificate失败");
+            certs->len = i + 1;          //实际已填充的证书个数
             certificate_chain_free(certs);
             string_free(data);
             free(buf_beg);
