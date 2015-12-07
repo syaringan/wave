@@ -1,6 +1,2 @@
-*
-!*.c
-!*.h
-!.gitignore
-!./cryptopp/
-!.Makefile
+*.o
+*.a
