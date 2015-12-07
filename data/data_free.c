@@ -76,7 +76,7 @@ static void signature_free(signature* signature, pk_algorithm algorithm  ){
  * YGH 6
  */
 
-static void public_key_free(public_key* public_key){
+void public_key_free(public_key* public_key){
 	switch(public_key->algorithm){
 		case ECDSA_NISTP224_WITH_SHA224:
 		case ECDSA_NISTP256_WITH_SHA256:
@@ -95,7 +95,7 @@ static void public_key_free(public_key* public_key){
 /**
  * YGH 7
  */
-static void geographic_region_free(geographic_region* geographic_region){
+void geographic_region_free(geographic_region* geographic_region){
 	switch(geographic_region->region_type){
 		case FROM_ISSUER:
 			break;

@@ -22,16 +22,32 @@ void time32_array_free(struct time32_array *ptr){
 void cme_permissions_free(struct cme_permissions* permissions){
     switch(permissions->type){
         case PSID:
-            array_free(&permissions->u.psid_array);
+            if(permissions->u.psid_array.buf == NULL)
+                return ;
+            free(permissions->u.psid_array.buf);
+            permissions->u.psid_array.buf = NULL;
+            permissions->u.psid_array.len = 0;
             break;
         case PSID_PRIORITY:
-            array_free(&permissions->u.psid_priority_array);
+            if(permissions->u.psid_priority_array.buf == NULL)
+                return;
+            free(permissions->u.psid_priority_array.buf);
+            permissions->u.psid_priority_array.len = 0;
+            permissions->u.psid_priority_array.buf = NULL;
             break;
         case PSID_SSP:
-            array_free(&permissions->u.psid_ssp_array);
+            if(permissions->u.psid_ssp_array.buf == NULL)
+                return ;
+            free( permissions->u.psid_ssp_array.buf);
+            permissions->u.psid_ssp_array.buf == NULL;
+            permissions->u.psid_ssp_array.len = 0;
             break;
         case PSID_PRIORITY_SSP:
-            array_free(&permissions->u.psid_priority_ssp_array);
+            if( permissions->u.psid_priority_ssp_array.buf == NULL)
+                return ;
+            free( permissions->u.psid_priority_ssp_array.buf);
+            permissions->u.psid_priority_ssp_array.len = 0;
+            permissions->u.psid_priority_ssp_array.buf = NULL;
             break;
     }
 }
@@ -486,13 +502,13 @@ result cme_store_cert(struct sec_db* sdb,  cmh cmh,
         }
         if(cmh_keys_node->private_key.len == 32){
             if(crypto_cert_reception_SHA256(&cmh_keys_node->private_key,&hash256,transfor,&new_key_cert_node->private_key)){
-                lock_unlock(cdb->lock);
+                lock_unlock(&cdb->lock);
                 goto fail;
             }
         }
         else if(cmh_keys_node->private_key.len == 28){
             if(crypto_cert_reception_SHA224(&cmh_keys_node->private_key,&hash256,transfor,&new_key_cert_node->private_key)){
-                lock_unlock(cdb->lock);
+                lock_unlock(&cdb->lock);
                 goto fail;
             }
         }
@@ -568,351 +584,6 @@ fail:
         free(certinfo);
     }
     return FAILURE;
-}
-
-int get_region(geographic_region *src, geographic_region *dst, enum holder_type type){
-    if(!src || !dst){
-        wave_error_printf("输入空指针");
-        return -1;
-    }
-    int reg_len = 0;
-    if(src->region_type == FROM_ISSUER){
-        if(type == ROOT_CA){
-            wave_error_printf("root ca cant from issuer!");
-            return -1;
-        }
-        dst->region_type = FROM_ISSUER;
-    }
-    else if(src->region_type == CIRCLE){
-        dst->region_type = CIRCLE;
-        dst->u.circular_region = src->u.circular_region;
-    }
-    else if(src->region_type == RECTANGLE){
-        dst->region_type = RECTANGLE;
-        reg_len = src->u.rectangular_region.len;
-        dst->u.rectangular_region.len = reg_len;
-        dst->u.rectangular_region.buf = malloc(sizeof(rectangular_region)*reg_len);
-        if(!dst->u.rectangular_region.buf){
-            wave_error_printf("内存分配失败");
-            return -1;
-        }
-        memcpy(dst->u.rectangular_region.buf, src->u.rectangular_region.buf,
-                sizeof(rectangular_region)*reg_len);
-    }
-    else if(src->region_type == POLYGON){
-        dst->region_type = POLYGON;
-        reg_len = src->u.polygonal_region.len;
-        dst->u.polygonal_region.len = reg_len;
-        dst->u.polygonal_region.buf = malloc(sizeof(two_d_location)*reg_len);
-        if(!dst->u.polygonal_region.buf){
-            wave_error_printf("内存分配失败");
-            return -1;
-        }
-        memcpy(dst->u.polygonal_region.buf, src->u.polygonal_region.buf,
-                sizeof(two_d_location)*reg_len);
-    }
-    else if(src->region_type == NONE){
-        dst->region_type = NONE;
-    }
-    else{
-        wave_error_printf("错误的region_type");
-        return -1;
-    }
-    return 0;
-}
-
-int get_permission_from_certificate(certificate *cert,
-
-                                    struct cme_permissions *permission,
-                                    geographic_region *scope){
-    int ret = 0;
-    int i = 0;
-    int per_len = 0;
-    int reg_len = 0;
-    holder_type_flags types;
-
-    switch(cert->unsigned_certificate.holder_type){
-        case SDE_ANONYMOUS:
-            if(permission != NULL){            
-                if(cert->unsigned_certificate.scope.u.anonymous_scope.permissions.type == FROM_ISSUER){
-                    permission->type = INHERITED_NOT_FOUND;
-                }
-                else{
-                    permission->type = PSID_SSP;
-                    per_len = cert->unsigned_certificate.scope.u.anonymous_scope.permissions.u.permissions_list.len;
-                    permission->u.psid_ssp_array.len = per_len;
-                    permission->u.psid_ssp_array.buf = malloc(sizeof(psid_ssp)*per_len);
-                    if(!permission->u.psid_array.buf){
-                        wave_error_printf("内存分配失败");
-                        return -1;
-                    }
-                    for(i = 0; i < per_len; i++){
-                        permission->u.psid_ssp_array.buf[i].psid = 
-                            (cert->unsigned_certificate.scope.u.anonymous_scope.permissions.u.permissions_list.buf+i)->psid;
-                    
-                        permission->u.psid_ssp_array.buf[i].service_specific_permissions.len = 
-                            (cert->unsigned_certificate.scope.u.anonymous_scope.permissions.u.permissions_list.buf+i)->service_specific_permissions.len;
-
-                        permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf = 
-                            malloc(sizeof(u8)*permission->u.psid_ssp_array.buf[i].service_specific_permissions.len);
-
-                        if(!permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf){
-                            wave_error_printf("malloc error!");
-                            return -1;
-                        }
-
-                        memcpy(permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf, 
-                                    (cert->unsigned_certificate.scope.u.anonymous_scope.permissions.u.permissions_list.buf+i)->service_specific_permissions.buf,
-                                    permission->u.psid_ssp_array.buf[i].service_specific_permissions.len);
-                    }
-                }
-            }
-            if(scope != NULL){
-                if(get_region(&cert->unsigned_certificate.scope.u.anonymous_scope.region, scope, SDE_ANONYMOUS)){
-                    wave_error_printf("get region error!");
-                    return -1;
-                }
-            }
-            break;
-        case SDE_IDENTIFIED_NOT_LOCALIZED:
-            if(permission != NULL){
-                if(cert->unsigned_certificate.scope.u.id_non_loc_scope.permissions.type == FROM_ISSUER){
-                    permission->type = INHERITED_NOT_FOUND;
-                }
-                else{
-                    permission->type = PSID_SSP;
-                    per_len = cert->unsigned_certificate.scope.u.id_non_loc_scope.permissions.u.permissions_list.len;
-                    permission->u.psid_ssp_array.len = per_len;
-                    permission->u.psid_ssp_array.buf = malloc(sizeof(psid_ssp)*per_len);
-                    if(!permission->u.psid_array.buf){
-                        wave_error_printf("内存分配失败");
-                        return -1;
-                    }
-                    for(i = 0; i < per_len; i++){
-                        permission->u.psid_ssp_array.buf[i].psid = 
-                            (cert->unsigned_certificate.scope.u.id_non_loc_scope.permissions.u.permissions_list.buf+i)->psid;
-
-                        permission->u.psid_ssp_array.buf[i].service_specific_permissions.len = 
-                            (cert->unsigned_certificate.scope.u.id_non_loc_scope.permissions.u.permissions_list.buf+i)->service_specific_permissions.len;
-
-                        permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf = 
-                            malloc(sizeof(u8)*permission->u.psid_ssp_array.buf[i].service_specific_permissions.len);
-
-                        if(!permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf){
-                            wave_error_printf("malloc error!");
-                            return -1;
-                        }
-
-                        memcpy(permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf, 
-                            (cert->unsigned_certificate.scope.u.id_non_loc_scope.permissions.u.permissions_list.buf+i)->service_specific_permissions.buf,
-                            permission->u.psid_ssp_array.buf[i].service_specific_permissions.len);
-                    }
-                }
-            }
-            if(scope != NULL){
-                scope->region_type = FROM_ISSUER;
-            }
-            break;
-        case SDE_IDENTIFIED_LOCALIZED:
-            if(permission != NULL){            
-                if(cert->unsigned_certificate.scope.u.id_scope.permissions.type == FROM_ISSUER){
-                    permission->type = INHERITED_NOT_FOUND;
-                }
-                else{
-                    permission->type = PSID_SSP;
-                    per_len = cert->unsigned_certificate.scope.u.id_scope.permissions.u.permissions_list.len;
-                    permission->u.psid_ssp_array.len = per_len;
-                    permission->u.psid_ssp_array.buf = malloc(sizeof(psid_ssp)*per_len);
-                    if(!permission->u.psid_array.buf){
-                        wave_error_printf("内存分配失败");
-                        return -1;
-                    }
-                    for(i = 0; i < per_len; i++){
-                        permission->u.psid_ssp_array.buf[i].psid = 
-                            cert->unsigned_certificate.scope.u.id_scope.permissions.u.permissions_list.buf[i].psid;
-                    
-                        permission->u.psid_ssp_array.buf[i].service_specific_permissions.len = 
-                    cert->unsigned_certificate.scope.u.id_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.len;
-
-                        permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf = 
-                            malloc(sizeof(u8)*permission->u.psid_ssp_array.buf[i].service_specific_permissions.len);
-
-                        if(!permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf){
-                            wave_error_printf("malloc error!");
-                            return -1;
-                        }
-
-                        memcpy(permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf, 
-                    cert->unsigned_certificate.scope.u.id_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.buf,
-                    permission->u.psid_ssp_array.buf[i].service_specific_permissions.len);
-                    }
-                }
-            }
-            if(scope != NULL){
-                if(get_region(&cert->unsigned_certificate.scope.u.id_scope.region, scope, SDE_ANONYMOUS)){
-                    wave_error_printf("get region error!");
-                    return -1;
-                }
-            }
-            break;
-        case SDE_CA:
-        case SDE_ENROLMENT:
-            if(permission != NULL){
-                if(cert->unsigned_certificate.scope.u.sde_ca_scope.permissions.type == FROM_ISSUER){
-                    permission->type = INHERITED_NOT_FOUND;
-                }
-                else{
-                    permission->type = PSID;
-                    per_len = cert->unsigned_certificate.scope.u.sde_ca_scope.permissions.u.permissions_list.len;
-                    permission->u.psid_array.len = per_len;
-                    permission->u.psid_array.buf = malloc(sizeof(psid)*per_len);
-                    if(!permission->u.psid_array.buf){
-                        wave_error_printf("内存分配失败");
-                        return -1;
-                    }
-                    memcpy(permission->u.psid_array.buf, 
-                            cert->unsigned_certificate.scope.u.sde_ca_scope.permissions.u.permissions_list.buf, 
-                            per_len*sizeof(psid));
-                }
-            }
-            if(scope != NULL){
-                if(get_region(&cert->unsigned_certificate.scope.u.sde_ca_scope.region, scope, SDE_CA)){
-                    wave_error_printf("get region error!");
-                    return -1;
-                }
-            }
-            break;
-        case WSA:
-            if(permission != NULL){
-                if(cert->unsigned_certificate.scope.u.wsa_scope.permissions.type == FROM_ISSUER){
-                    permission->type = INHERITED_NOT_FOUND;
-                }
-                else{
-                    permission->type = PSID_PRIORITY_SSP;
-                    per_len = cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.len;
-                    permission->u.psid_priority_ssp_array.len = per_len;
-                    permission->u.psid_priority_ssp_array.buf = malloc(sizeof(psid_priority_ssp)*per_len);
-                    if(!permission->u.psid_priority_ssp_array.buf){
-                        wave_error_printf("内存分配失败");
-                        return -1;
-                    }
-                    for(i = 0; i < per_len; i++){
-                        permission->u.psid_priority_ssp_array.buf[i].psid = 
-                            cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].psid;
-
-                        permission->u.psid_priority_ssp_array.buf[i].max_priority = 
-                            cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].max_priority;
-                    
-                        permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len = 
-                            cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.len;
-
-                        permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.buf = 
-                            malloc(sizeof(u8)*permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len);
-
-                        if(!permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.buf){
-                            wave_error_printf("malloc error!");
-                            return -1;
-                        }
-
-                        memcpy(permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.buf, 
-                            cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.buf,
-                            permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len);
-                    }
-                }
-            }
-            if(scope != NULL){
-                if(get_region(&cert->unsigned_certificate.scope.u.wsa_scope.region, scope, WSA)){
-                    wave_error_printf("get region error!");
-                    return -1;
-                }
-            }
-            break;
-        case WSA_CA:
-        case WSA_ENROLMENT:
-            if(permission != NULL){
-                if(cert->unsigned_certificate.scope.u.wsa_ca_scope.permissions.type == FROM_ISSUER){
-                    permission->type = INHERITED_NOT_FOUND;
-                }
-                else{
-                    permission->type = PSID_PRIORITY;
-                    per_len = cert->unsigned_certificate.scope.u.wsa_ca_scope.permissions.u.permissions_list.len;
-                    permission->u.psid_priority_array.len = per_len;
-                    permission->u.psid_priority_array.buf = malloc(sizeof(psid_priority)*per_len);
-                    if(!permission->u.psid_priority_array.buf){
-                        wave_error_printf("内存分配失败");
-                        return -1;
-                    }
-                    memcpy(permission->u.psid_priority_array.buf, 
-                            cert->unsigned_certificate.scope.u.wsa_ca_scope.permissions.u.permissions_list.buf, 
-                            per_len*sizeof(psid_priority));
-                }
-            }
-            if(scope != NULL){
-                if(get_region(&cert->unsigned_certificate.scope.u.wsa_ca_scope.region, scope, WSA)){
-                    wave_error_printf("get region error!");
-                    return -1;
-                }
-            }
-            break;
-        case CRL_SIGNER:
-            wave_error_printf("type is crl signer, no permissions");
-            return -1;
-        case ROOT_CA:
-            if(permission != NULL){
-                types = cert->unsigned_certificate.scope.u.root_ca_scope.permitted_holder_types;
-                if(types&FLAGS_SDE_ANONYMOUS || types&FLAGS_SDE_IDENTIFIED_NOT_LOCALIZED || types&FLAGS_SDE_IDENTIFIED_LOCALIZED 
-                        || types&FLAGS_SDE_ENROLMENT || types&FLAGS_SDE_CA){
-                    if(cert->unsigned_certificate.scope.u.root_ca_scope.flags_content.secure_data_permissions.type == 
-                            ARRAY_TYPE_FROM_ISSUER){
-                        wave_error_printf("root_ca_scope不能是from issuer");
-                        return -1;
-                    }
-                    permission->type = PSID;
-                    per_len = cert->unsigned_certificate.scope.u.root_ca_scope.flags_content.secure_data_permissions.u.permissions_list.len;
-                    permission->u.psid_array.len = per_len;
-                    permission->u.psid_array.buf = malloc(sizeof(psid)*per_len);
-                    if(!permission->u.psid_array.buf){
-                        wave_error_printf("内存分配失败");
-                        return -1;
-                    }
-                    memcpy(permission->u.psid_array.buf, 
-                        cert->unsigned_certificate.scope.u.root_ca_scope.flags_content.secure_data_permissions.u.permissions_list.buf, 
-                        per_len*sizeof(psid));
-                }
-                else if(types&FLAGS_WSA || types&FLAGS_WSA_ENROLMENT || types&FLAGS_WSA_CA){
-                    if(cert->unsigned_certificate.scope.u.root_ca_scope.flags_content.wsa_permissions.type == 
-                            ARRAY_TYPE_FROM_ISSUER){
-                        wave_error_printf("root_ca_scope不能是from issuer");
-                        return -1;
-                    }
-                    permission->type = PSID_PRIORITY;
-                    per_len = cert->unsigned_certificate.scope.u.root_ca_scope.flags_content.wsa_permissions.u.permissions_list.len;
-                    permission->u.psid_priority_array.len = per_len;
-                    permission->u.psid_array.buf = malloc(sizeof(psid_priority)*per_len);
-                    if(!permission->u.psid_array.buf){
-                        wave_error_printf("内存分配失败");
-                        return -1;
-                    }
-                    memcpy(permission->u.psid_priority_array.buf, 
-                            cert->unsigned_certificate.scope.u.root_ca_scope.flags_content.wsa_permissions.u.permissions_list.buf, 
-                            per_len*sizeof(psid));
-                }
-                else{
-                    wave_error_printf("错误的holderTypeFlags");
-                    return -1;
-                }
-            }
-            if(scope != NULL){
-                if(get_region(&cert->unsigned_certificate.scope.u.root_ca_scope.region, scope, ROOT_CA)){
-                    wave_error_printf("get region error!");
-                    return -1;
-                }
-            }
-            break;
-        default:
-            return -1;
-    }
-    return 0;
 }
 
 result cme_certificate_info_request(struct sec_db* sdb, 

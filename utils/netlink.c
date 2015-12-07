@@ -6,7 +6,7 @@
  ************************************************************************/
 
 #include "netlink.h"
-
+#include "debug.h"
 int create_netlink(struct msghdr *msg, struct nlmsghdr *nlh)
 {
     int fd;

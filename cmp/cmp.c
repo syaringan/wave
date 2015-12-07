@@ -63,6 +63,13 @@ enum pending_flags{
 pthread_cond_t pending_cond = PTHREAD_COND_INITIALIZER;
 struct cmp_db* cmdb = NULL;
 
+static void lsis_array_free(struct pssme_lsis_array* ptr){
+    if(ptr == NULL || ptr->lsis == NULL)
+        return;
+    free(ptr->lsis);
+    ptr->lsis == NULL;
+    ptr->len = 0;
+}
 static int cert_2_file(struct cmp_db* cmdb,FILE* fd){
     char *buf=NULL;
     int cert_len;
@@ -424,7 +431,7 @@ static void crl_req_time_insert(struct cmp_db* cmdb,struct crl_req_time* new){
 static void pending_crl_request(struct cmp_db* cmdb){
     pthread_mutex_lock(&cmdb->lock);
     cmdb->pending |= CRL_REQUEST;
-    pthread_mutex_unlcok(&cmdb->lock);
+    pthread_mutex_unlock(&cmdb->lock);
 
     pthread_cond_signal(&pending_cond);
 }
@@ -648,7 +655,6 @@ end:
     string_free(&data);
     public_key_free(&cert_pk);
     public_key_free(&keypair_pk);
-    certid10_free(&resquest_hash);
     return ;
     
 }
@@ -700,7 +706,7 @@ static void crl_recieve_progress(struct sec_db* sdb,struct cmp_db* cmdb,string* 
     head = &cmdb->crl_time;
     list_for_each_entry(ptr,&head->list,list){
         if(ptr->crl_series == unsigned_crl->crl_series && 
-                hashedid8_compare(&ptr->issuer,&unsigned_crl->ca_id) == 0)
+                hashedid8_cmp(&ptr->issuer,&unsigned_crl->ca_id) == 0)
             break;
     }
     if(&ptr->list == &head->list){

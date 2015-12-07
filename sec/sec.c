@@ -396,16 +396,16 @@ static int elliptic_curve_point_2_uncompressed(pk_algorithm algorithm,elliptic_c
     INIT(compress);
 
     if(point->type == UNCOMPRESSED){
-        x.len = point->x.len;
-        y.len = point->u.y.len;
-        x.buf = (u8*)malloc(x.len);
-        y.buf = (u8*)malloc(y.len);
-        if(x.buf == NULL || y.buf == NULL){
+        x->len = point->x.len;
+        y->len = point->u.y.len;
+        x->buf = (u8*)malloc(x->len);
+        y->buf = (u8*)malloc(y->len);
+        if(x->buf == NULL || y->buf == NULL){
             res = -1;
             goto end;
         }
-        memcpy(x.buf,point->x.buf,x.len);
-        memcpy(y.buf,point->u.y.buf,y.len);
+        memcpy(x->buf,point->x.buf,x->len);
+        memcpy(y->buf,point->u.y.buf,y->len);
         goto end;
     }
     compress.len = point->x.len;
@@ -418,19 +418,19 @@ static int elliptic_curve_point_2_uncompressed(pk_algorithm algorithm,elliptic_c
     memcpy(compress.buf,point->x.buf,compress.len);
 
     if(algorithm == ECDSA_NISTP256_WITH_SHA256){
-        if(crypto_ECDSA_256_compress_key_2_uncompress(&compress,point->type,x,y,type)){
+        if(crypto_ECDSA_256_compress_key_2_uncompress(&compress,point->type,x,y)){
             res = -1;
             goto end;        
         }
     }
     else if(algorithm == ECDSA_NISTP224_WITH_SHA224){
-        if(crypto_ECDSA_224_compress_key_2_uncompress(&compress,point->type,x,y,type)){
+        if(crypto_ECDSA_224_compress_key_2_uncompress(&compress,point->type,x,y)){
             res = -1;
             goto end;        
         }
     }
     else if(algorithm == ECIES_NISTP256){
-        if(crypto_ECIES_compress_key_2_uncompress(&compress,point->type,x,y,type)){
+        if(crypto_ECIES_compress_key_2_uncompress(&compress,point->type,x,y)){
             res = -1;
             goto end;
         }
@@ -438,7 +438,7 @@ static int elliptic_curve_point_2_uncompressed(pk_algorithm algorithm,elliptic_c
     else{
         wave_error_printf("不会出现这个指 %s %d",__FILE__,__LINE__);
         res = -1;
-        goto end
+        goto end;
     }
     goto end;
 end:
@@ -446,7 +446,7 @@ end:
         string_free(x);
         string_free(y);
     }
-    string_free(compress);
+    string_free(&compress);
     return res;
 }
 static int elliptic_curve_point_2_compressed(pk_algorithm algorithm,elliptic_curve_point* point,string* compress,enum ecc_public_keytype *type){
@@ -500,19 +500,19 @@ static int elliptic_curve_point_2_compressed(pk_algorithm algorithm,elliptic_cur
         if(type != NULL){
             *type = point->type;
         }
-        compress.len = point->x.len;
-        compress.buf = (u8*)malloc(compress.len);
-        if(compress.buf == NULL){
+        compress->len = point->x.len;
+        compress->buf = (u8*)malloc(compress->len);
+        if(compress->buf == NULL){
             wave_malloc_error();
             res = -1;
             goto end;
         }
-        memcpy(compress.buf,point->x.buf,compress.len);
+        memcpy(compress->buf,point->x.buf,compress->len);
     }
     goto end;
 end:
-    string_free(x);
-    string_free(y);
+    string_free(&x);
+    string_free(&y);
     return res;
 }
 static int certificate_verification_point_compress(certificate* cert,bool compressed){
@@ -522,7 +522,7 @@ static int certificate_verification_point_compress(certificate* cert,bool compre
     string x,y;
     int res = 0;
 
-    INIT(comperss);
+    INIT(compress);
     INIT(x);
     INIT(y);
 
@@ -540,7 +540,7 @@ static int certificate_verification_point_compress(certificate* cert,bool compre
         point = &cert->unsigned_certificate.version_and_type.verification_key.u.public_key;
     }
 
-    if(comperssed == true){
+    if(compressed == true){
         if(point->type == COMPRESSED_LSB_Y_0 || point->type == COMPRESSED_LSB_Y_1)
             goto end;
 
@@ -583,7 +583,7 @@ static int certificate_verification_point_compress(certificate* cert,bool compre
             goto end;
         }
 
-        memcpy(point->x.buf,x,buf,x.len);
+        memcpy(point->x.buf,x.buf,x.len);
         memcpy(point->u.y.buf,y.buf,y.len);
     }
     goto end;
@@ -607,7 +607,7 @@ static int signature_generation(signature *sig,enum pk_algorithm algorithm,enum 
     if(algorithm != ECDSA_NISTP224_WITH_SHA224 && algorithm != ECDSA_NISTP256_WITH_SHA256){
         wave_error_printf("我们不支持其他的签名方式  %s %d",__FILE__,__LINE__);
         res = -1;
-        goto fail;
+        goto end;
     }
     if(algorithm == ECDSA_NISTP224_WITH_SHA224){
         if(fs_type == NO){
@@ -758,7 +758,7 @@ end:
     string_free(&r_x);
     string_free(&r_y);
     string_free(&s);
-    string_free(&comp)
+    string_free(&comp);
     return res;
 }
 //cert_chani_len == 257的时候代表MAX
@@ -766,7 +766,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
                     string* ssp,bool set_generation_time, time64_with_standard_deviation* generation_time,
                     bool set_generation_location,three_d_location* location,bool set_expiry_time,time64 expiry_time,
                     enum signed_data_signer_type signer_type,s32 cert_chain_len,u32 cert_chain_max_len,enum sign_with_fast_verification fs_type,
-                    bool comperssed,
+                    bool compressed,
                     
                     string* signed_data,u32* len_of_cert_chain){
     if(signed_data != NULL && signed_data->buf != NULL ){
@@ -919,7 +919,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         default:
             wave_error_printf("这个指的话，是没有psid的。。怎么版，我只有返回错误,要不我这里暂时不支持这种");
             res = FAILURE;
-            goto fail;
+            goto end;
     }
     if(set_generation_time){
         tbs_encode->tf |= USE_GENERATION_TIME;
@@ -941,7 +941,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     if( tobesigned_data_2_string(&tbs_encode,&encoded_tbs) ){
         wave_error_printf("编码失败");
         res = -1;
-        goto fail;
+        goto end;
     }
     
     switch(cert.version_and_type){
@@ -953,25 +953,26 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
             break;
         default:
             wave_error_printf("出现了不可能出现的指 %s %d ",__FILE__,__LINE__);
-            goto fail;
+            res = FAILURE;
+            goto end;
     }
     if(algorithm != ECDSA_NISTP224_WITH_SHA224 || algorithm != ECDSA_NISTP256_WITH_SHA256){
         wave_error_printf("这里的协议类型都不等于我们要求的这里有问题,我们这里暂时不支持其他的加密算法");
         res = -1;
-        goto fail;
+        goto end;
     }
     if( signature_generation(&s_data->signature,algorithm,fs_type,&encoded_tbs,&privatekey)){
         res = -1;
-        goto fail;        
+        goto end;        
     }
     
     if(signer_type == SIGNED_DATA_CERTIFICATE_DIGEST){
         s_data->signer.type = algorithm;
-        if( certificate_2_hash8(&cert,&hash8)){
+        if( certificate_2_hashedid8(&cert,&s_data->signer.u.digest)){
             res = -1;
-            goto fail;
+            goto end;
         }
-        memcpy(s_data->signer.u.digest.hashedid8, hash8.buf,8);
+        
         //这里是1嘛？？协议没说，我按照自己的想法加的
         if(len_of_cert_chain != NULL)
                 *len_of_cert_chain = 1;
@@ -981,7 +982,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         certificate_cpy(&s_data->signer.u.certificate,&cert);
         if(certificate_verification_point_compress(&s_data->signer.u.certificate,compressed)){
             res = -1;
-            goto fail;
+            goto end;
         }
         //这里是1嘛？？协议没说，我按照自己的想法家的
         if(len_of_cert_chain != NULL)
@@ -996,14 +997,14 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
             if(s_data->signer.u.certificates.buf == NULL){
                 wave_malloc_error();
                 res = -1;
-                goto fail;
+                goto end;
             }
             s_data->signer.u.certificates.len = construct_cert_chain.len;
             for(i=0;i<construct_cert_chain.len;i++){
                 certificate_cpy(s_data->signer.u.certificates.buf+i,construct_cert_chain.certs+i);
                 if(certificate_verification_point_compress(s_data->signer.u.certificates.buf+i,compressed)){
                     res = -1;
-                    goto fail;
+                    goto end;
                 }
             }
         }
@@ -1019,13 +1020,13 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
             if(s_data->signer.u.certificates.buf == NULL){
                 wave_malloc_error();
                 res = -1;
-                goto fail;
+                goto end;
             } 
             for(i=0;i<s_data->signer.u.certificates.len;i++){
                 certificate_cpy(s_data->signer.u.certificates.buf+i,construct_cert_chain.certs+i);
                 if(certificate_verification_point_compress(s_data->signer.u.certificates.buf+i,compressed)){
                     res = -1;
-                    goto fail;
+                    goto end;
                 }
             }            
         }
@@ -1033,7 +1034,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
             if(construct_cert_chain.len - 1 < -cert_chain_len){
                 wave_error_printf("要求删掉的链表长度长于生成的链表长度 %s %d\n",__FILE__,__LINE__);
                 res = -1;
-                goto fail;
+                goto end;
             }
             s_data->signer.u.certificates.len = construct_cert_chain.len + cert_chain_len;
             s_data->signer.u.certificates.buf = (certificate*)malloc(sizeof(certificate) *
@@ -1041,7 +1042,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
             if(s_data->signer.u.certificates.buf == NULL){
                 wave_malloc_error();
                 res = -1;
-                goto fail;
+                goto end;
             }
             certificate_cpy(s_data->signer.u.certificates.buf,construct_cert_chain.certs);
             //这里我不知道我的理解对不，是负数，就删除前面几个，但是第一个不删除;
@@ -1049,7 +1050,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
                 certificate_cpy(s_data->signer.u.certificates.buf+i,construct_cert_chain.certs+i-cert_chain_len+1);
                 if(certificate_verification_point_compress(s_data->signer.u.certificates.buf+i,compressed)){
                     res = -1;
-                    goto fail;
+                    goto end;
                 }
             }
            
@@ -1057,7 +1058,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         else{
             wave_error_printf("证书连要求长度为0，这个我不知道怎么半，我直接返回错误");
             res = -1;
-            goto fail;
+            goto end;
         }
         if(len_of_cert_chain != NULL)
                 *len_of_cert_chain = s_data->signer.u.certificates.len;
@@ -1065,18 +1066,18 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     else{
         wave_error_printf("这个signer_type出现了不正确的指");
         res = -1;
-        goto fail;
+        goto end;
     }
      
    
     if( sec_data_2_string(&sec_data,signed_data)){
         res = -1;
-        goto fail;
+        goto end;
     }
     res = SUCCESS;
-    goto fail;
+    goto end;
     
-fail:
+end:
     certificate_free(&cert);
     certificate_chain_free(&construct_cert_chain);
     geographic_region_array_free(&regions);
@@ -1118,7 +1119,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     string encrypted_mess,tag;
     string plaintext,ciphertext;
     sec_data sdata;
-    tobe_encrypted *tbencrypted;
+    tobe_encrypted tbencrypted;
     recipient_info *rec_info; 
     elliptic_curve_point *point;
     time32 next_crl_time;
@@ -1139,6 +1140,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     INIT(compress_point);
     INIT(plaintext);
     INIT(ciphertext);
+    INIT(tbencrypted);
     
     failed_certs->len = 0;
     for(i=0;i<certs->len;i++){
@@ -1227,7 +1229,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     for(i=0;i<enc_certs.len;i++){
         rec_info = sdata.u.encrypted_data.recipients.buf+i;
 
-        if(certificate_2_hashedid8(enc_certs+i,&rec_info->cert_id)){
+        if(certificate_2_hashedid8(enc_certs.certs+i,&rec_info->cert_id)){
             res = -1;
             goto end;
         }
@@ -1279,7 +1281,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
             wave_malloc_error();
             goto end;
         }
-        memcpy(rec_info->u.enc_key.buf,encrypted_mess.buf,encrypted_mess.len);
+        memcpy(rec_info->u.enc_key.c.buf,encrypted_mess.buf,encrypted_mess.len);
         memcpy(rec_info->u.enc_key.t,tag.buf,tag.len);
         
         string_free(&x);
@@ -1290,20 +1292,19 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
         string_free(&tag);
         string_free(&compress_point);
     }
-    tbencrypted = &sdata->u.encrypted_data;
     if(type == UNSECURED){
-        tbencrypted->type = UNSECURED;
-        tbencrypted->u.plain_text.len = data->len;
-        tbencrypted->u.plain_text.buf = (u8*)malloc(data->len);
-        if(tbencrypted->u.plain_text.buf == NULL){
+        tbencrypted.type = UNSECURED;
+        tbencrypted.u.plain_text.len = data->len;
+        tbencrypted.u.plain_text.buf = (u8*)malloc(data->len);
+        if(tbencrypted.u.plain_text.buf == NULL){
             res = -1;
             goto end;
         }
-        memcpy(tbencrypted->u.plain_text.buf,data->buf,data->len);
+        memcpy(tbencrypted.u.plain_text.buf,data->buf,data->len);
     }
     else if(type == SIGNED || type == SIGNED_PARTIAL_PAYLOAD || type == SIGNED_EXTERNAL_PAYLOAD){
-        tbencrypted->type = type;
-        if(  string_2_signed_data(data,&tbencrypted->u.signed_data)){
+        tbencrypted.type = type;
+        if(  string_2_signed_data(data,&tbencrypted.u.signed_data)){
             wave_error_printf("string_2_signed_data 失败 %s %d",__FILE__,__LINE__);
             res = -1;
             goto end;
@@ -1315,7 +1316,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
         goto end;
     }
     
-    if(tobe_encrypted_2_string(tbencrypted,&plaintext)){
+    if(tobe_encrypted_2_string(&tbencrypted,&plaintext)){
         wave_error_printf("tobe encrypted 编码失败  %s %d",__FILE__,__LINE__);
         res = -1;
         goto end;
@@ -1325,15 +1326,15 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
         wave_error_printf("对成加密失败  %s %d",__FILE__,__LINE__);
         goto end;
     }
-    memcpy(sdata->u.encrypted_data.u.ciphertext.nonce,nonce.buf,nonce.len);
-    sdata->u.encrypted_data.u.ciphertext.ccm_ciphertext.len = ciphertext.len;
-    sdata->u.encrypted_data.u.ciphertext.ccm_ciphertext.buf = (u8*)malloc(ciphertext.len);
-    if(sdata->u.encrypted_data.u.ciphertext.ccm_ciphertext.buf == NULL){
+    memcpy(sdata.u.encrypted_data.u.ciphertext.nonce,nonce.buf,nonce.len);
+    sdata.u.encrypted_data.u.ciphertext.ccm_ciphertext.len = ciphertext.len;
+    sdata.u.encrypted_data.u.ciphertext.ccm_ciphertext.buf = (u8*)malloc(ciphertext.len);
+    if(sdata.u.encrypted_data.u.ciphertext.ccm_ciphertext.buf == NULL){
         wave_malloc_error();
         res = -1;
         goto end;
     }
-    memcpy(sdata->u.encrypted_data.u.ciphertext.ccm_ciphertext.buf,ciphertext.buf,ciphertext.len);
+    memcpy(sdata.u.encrypted_data.u.ciphertext.ccm_ciphertext.buf,ciphertext.buf,ciphertext.len);
 
     if(encrypted_data != NULL){
         if(sec_data_2_string(&sdata,encrypted_data)){
@@ -1359,6 +1360,7 @@ end:
     string_free(&compress_point);
     string_free(&plaintext);
     string_free(&ciphertext);
+    tobe_encrypted_free(&tbencrypted);
     return res;
 }
 
@@ -1712,6 +1714,7 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
         res = SENDER_LOCATION_UNAVAILABLE;
         goto next;
     }
+    goto next;
 next:
     if(res != SUCCESS){
         goto end;
@@ -2268,7 +2271,7 @@ result sec_get_certificate_request(struct sec_db* sdb,signer_identifier_type typ
     holder_type_flags ca_holder_types,csr_cert_holder_types;
     geographic_region ca_scope,csr_cert_scope;
     certificate csr_cert;
-    string temp_string,pubkey_x,pubkey_y,prikey,hashed_string,signature_string;
+    string temp_string,pubkey_x,pubkey_y,prikey,hashed_string,signature_string,uncompressed_x,uncompressed_y;
     certificate_request cert_request;
     tobesigned_certificate_request* tbs;
     pk_algorithm algorithm = 100;
@@ -2290,6 +2293,8 @@ result sec_get_certificate_request(struct sec_db* sdb,signer_identifier_type typ
     INIT(prikey);
     INIT(hashed_string);
     INIT(signature_string);
+    INIT(uncompressed_x);
+    INIT(uncompressed_y);
     INIT(cert_request);
     INIT(cert_chain);
     
@@ -2395,35 +2400,34 @@ result sec_get_certificate_request(struct sec_db* sdb,signer_identifier_type typ
             res = INCONSISITENT_KEYS_IN_REQUEST;
             goto end;
         }
-        switch(algorithm){
-            case ECDSA_NISTP256_WITH_SHA256:
-                for(i=0;i<pubkey_x.len;i++){
-                    if( *(veri_pub_key->u.public_key.x.buf +i) != *(pubkey_x.buf+i)){
-                        break;
-                    }
-                }
-                if( i == pubkey_x.len){
-                    res = INCONSISITENT_KEYS_IN_REQUEST;
-                    goto end;
-                }
-                //y怎么比较 怎么压缩，怎么解压
-                break;
-            case ECDSA_NISTP224_WITH_SHA224:
-                for(i=0;i<pubkey_x.len;i++){
-                    if( *(veri_pub_key->u.public_key.x.buf +i) != *(pubkey_x.buf+i))
-                        break;
-                }
-                if( i == pubkey_x.len){
-                    res = INCONSISITENT_KEYS_IN_REQUEST;
-                    goto end;
-                }
-                //y怎么比较 怎么压缩，怎么解压
-                break;
-            default:
-               wave_error_printf("出现了不可能的指 %s %d",__FILE__,__LINE__);
-               res = FAILURE;
-               goto end; 
+        if(veri_pub_key->algorithm != ECDSA_NISTP256_WITH_SHA256 && veri_pub_key->algorithm != ECDSA_NISTP224_WITH_SHA224){
+            wave_error_printf("这里怎么可能是加密的算法，这个是认证钥匙，应该是签名的");
+            res = FAILURE;
+            goto end;
         }
+        if(elliptic_curve_point_2_uncompressed(veri_pub_key->algorithm,&veri_pub_key->u.public_key,&uncompressed_x,&uncompressed_y)){
+            res = FAILURE;
+            goto end;
+        }
+        for(i=0;i<pubkey_x.len;i++){
+            if( *(uncompressed_x.buf +i) != *(pubkey_x.buf+i)){
+                        break;
+            }
+        }
+        if( i != pubkey_x.len){
+            res = INCONSISITENT_KEYS_IN_REQUEST;
+            goto end;
+        }
+
+        for(i=0;i<pubkey_y.len;i++){
+            if( *(uncompressed_y.buf +i) != *(pubkey_y.buf+i)){
+                        break;
+            }
+        }
+        if( i != pubkey_y.len){
+            res = INCONSISITENT_KEYS_IN_REQUEST;
+            goto end;
+        } 
     }
     switch(permissions->type){
         case PSID:
@@ -2566,62 +2570,16 @@ result sec_get_certificate_request(struct sec_db* sdb,signer_identifier_type typ
         res = FAILURE;
         goto end;
     }
-    switch(algorithm){
-        case ECDSA_NISTP256_WITH_SHA256:
-            crypto_HASH256(&temp_string,&hashed_string);
-            crypto_ECDSA256_sign_message(&hashed_string,&prikey,&signature_string);
-            break;
-        case ECDSA_NISTP224_WITH_SHA224:
-            crypto_HASH224(&temp_string,&hashed_string);
-            crypto_ECDSA224_sign_message(&hashed_string,&prikey,&signature_string);
-        default:
-            wave_error_printf("出现了不可能的指 %s %d",__FILE__,__LINE__);
-            res = FAILURE;
-            goto end;
+    if( signature_generation(&cert_request.signature,veri_pub_key->algorithm,NO,&temp_string,&prikey)){
+        res = FAILURE;
+        goto end;
     }
     
     cert_request.signer.type = type;
     if(type == CERTIFICATE){
         certificate_cpy(&cert_request.signer.u.certificate,&csr_cert);
     }
-    if( cert_request.signature.u.ecdsa_signature.s.buf = (u8*)malloc(signature_string.len) ){
-        wave_malloc_error();
-        res = FAILURE;
-        goto end;
-    }
-    memcpy(cert_request.signature.u.ecdsa_signature.s.buf,signature_string.buf,signature_string.len);
-    cert_request.signature.u.ecdsa_signature.s.len = signature_string.len;
-
-    if(type == CERTIFICATE){
-        if( certificate_get_elliptic_curve_point(&csr_cert,&point)){
-            res = FAILURE;
-            goto end;
-        }
-    }
-    else if(type == SELF){
-        point.type = UNCOMPRESSED;
-        point.x.len = pubkey_x.len;
-        point.u.y.len = pubkey_y.len;
-        if( point.x.buf = (u8*)malloc(point.x.len)  ){
-            wave_malloc_error();
-            res = FAILURE;
-            goto end;
-        }
-        if( point.u.y.buf = (u8*)malloc(point.u.y.len)){
-            wave_malloc_error();
-            res = FAILURE;
-            goto end;
-        }
-        memcpy(point.x.buf,pubkey_x.buf,pubkey_x.len);
-        memcpy(point.u.y.buf,pubkey_y.buf,pubkey_y.len);
-    }
-    else{
-        wave_error_printf("怎么半  应该不会有其他指的吧  %s %d",__FILE__,__LINE__);
-        res = FAILURE;
-        goto end;
-    }
-    elliptic_curve_point_cpy(&cert_request.signature.u.ecdsa_signature.r,&point);
-    
+     
     string_free(&temp_string);
     string_free(&hashed_string);
     certificate_request_2_string(&cert_request,&temp_string);
@@ -2653,6 +2611,8 @@ end:
     string_free(&prikey);
     string_free(&signature_string);
     string_free(&hashed_string);
+    string_free(&uncompressed_x);
+    string_free(&uncompressed_y);
     elliptic_curve_point_free(&point);
     certificate_request_free(&cert_request);
     certificate_chain_free(&cert_chain);

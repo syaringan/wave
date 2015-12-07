@@ -5,6 +5,7 @@
 #include"utils/netlink.h"
 #include "sec/sec.h"
 #include "cmp/cmp.h"
+#include "cme/cme.h"
 #include "pssme/pssme.h"
 
 
@@ -301,7 +302,7 @@ static int app_start(struct sec_db* sdb){
         if( (fd = serv_accept(serve_fd,NULL)) < 0){
             return -1;
         }
-        if( init_pthread_attr_t(&attr))
+        if( pthread_attr_init(&attr))
             return -1;
         if( pthread_create(&tid,&attr,app_do_request,(void*)&fd))
             return -1;
