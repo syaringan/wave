@@ -13,6 +13,9 @@
 #include "smartptr.h"
 #include "hmac.h"
 
+#include <memory.h>
+#include <stdlib.h>
+
 #include <limits.h>
 
 NAMESPACE_BEGIN(CryptoPP)
@@ -417,6 +420,12 @@ public:
 		{return plaintextLength + MAC::DEFAULT_KEYLENGTH;}
 	size_t GetSymmetricCiphertextLength(size_t plaintextLength) const
 		{return plaintextLength + MAC::DIGESTSIZE;}
+
+        //Aaron code:
+        //    size_t GetSymmetricCiphertextLength(size_t plaintextLength) const
+        //            {return plaintextLength + 20;}
+        //Aaron code end
+
 	size_t GetMaxSymmetricPlaintextLength(size_t ciphertextLength) const
 		{return (unsigned int)SaturatingSubtract(ciphertextLength, (unsigned int)MAC::DIGESTSIZE);}
 	void SymmetricEncrypt(RandomNumberGenerator &rng, const byte *key, const byte *plaintext, size_t plaintextLength, byte *ciphertext, const NameValuePairs &parameters) const
@@ -447,6 +456,14 @@ public:
 			mac.Update(L, 8);
 		}
 		mac.Final(ciphertext + plaintextLength);
+
+		//Aaron code:
+		   int i = 0;
+		   for(i=0; i<12; i++)
+		   {
+			   (ciphertext + plaintextLength + 20 )[i] = 0;
+		   }
+               //Aaron code end
 	}
 	DecodingResult SymmetricDecrypt(const byte *key, const byte *ciphertext, size_t ciphertextLength, byte *plaintext, const NameValuePairs &parameters) const
 	{
@@ -475,8 +492,27 @@ public:
 			PutWord(false, BIG_ENDIAN_ORDER, L+4, word32(encodingParameters.size()));
 			mac.Update(L, 8);
 		}
-		if (!mac.Verify(ciphertext + plaintextLength))
-			return DecodingResult();
+		//if (!mac.Verify(ciphertext + plaintextLength))
+		//	return DecodingResult();
+
+		//Aaron code:
+		   byte *p = (byte *)malloc(32 * sizeof(byte));
+		   memset(p, 0, 32);
+		   mac.Final(p);
+		   int tmp = 0;
+		   int i = 0;
+		   for(i=0; i<20; i++)
+		   {
+			   if( ((ciphertext + ciphertextLength - 32 )[i]) == p[i] )
+				   tmp++;
+		   }
+		   free(p);
+		   if(tmp!=20)
+                   {
+                           mac.Verify(ciphertext + plaintextLength);
+			   return DecodingResult();
+                   }
+                //Aaron code end
 
 		xorbuf(plaintext, ciphertext, cipherKey, plaintextLength);
 		return DecodingResult(plaintextLength);

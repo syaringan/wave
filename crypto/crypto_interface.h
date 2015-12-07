@@ -259,8 +259,8 @@ int AES_128_CCM_Get_Key_and_Nonce(char* sym_key, int *sym_key_len, char* nonce, 
  * @ciphertext:输出的密文          @length_of_plaintext:输出密文长度,理应比输出原文长度要长16字节(因为会产生16字节的tag)
  */
 int AES_128_CCM_encrypto_message(char *plaintext, int length_of_plaintext,
-                                 unsigned char *sym_key, int sym_key_len,
-                                 unsigned char *nonce, int nonce_len,
+                                 char *sym_key, int sym_key_len,
+                                 char *nonce, int nonce_len,
                                  char *ciphertext, int *length_of_ciphertext);
 
 /*
@@ -271,8 +271,8 @@ int AES_128_CCM_encrypto_message(char *plaintext, int length_of_plaintext,
  * @plaintext:输出的解密后的原文
  */
 int AES_128_CCM_decrypto_message(char *ciphertext, int length_of_ciphertext,
-                                 const unsigned char *sym_key, int sym_key_len,
-                                 const unsigned char *nonce, int nonce_len,
+                                 const char *sym_key, int sym_key_len,
+                                 const char *nonce, int nonce_len,
                                  char *plaintext, int *length_of_plaintext);
 
 
@@ -304,7 +304,7 @@ int sha_256(char* message, int message_len, char* digest, int* digest_len);
  * @digest:输出的对该消息求到的摘要
  * @digest_len:摘要的长度,在sha_256中,摘要长度一定是28字节
  */
-int Sha_224(char* message, int message_len, char* digest, int* digest_len);
+int sha_224(char* message, int message_len, char* digest, int* digest_len);
 
 
 /*
