@@ -2,11 +2,7 @@
 #define CME_H
 #include"utils/common.h"
 #include"sec/sec_db.h"
-enum identifier_type{
-    ID_CERTIFICATE = 0,//这个有两重意义，在construct——chain中为certificate_array
-    ID_HASHEDID8 = 1,
-    ID_CERTID10 = 2,
-};
+
 enum permissions_type{
     PSID = 0,
     PSID_PRIORITY = 1,

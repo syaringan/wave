@@ -1,6 +1,7 @@
 #include "cme_helper.h"
 #include "data/data_handle.h"
 #include "utils/debug.h"
+#include "cme_db.h"
 #include <math.h>
 #define INIT(n) memset(&n,sizeof(n),0)
 int certificate_get_start_time(certificate* cert,time32 *start_time){
@@ -37,16 +38,16 @@ int certificate_get_start_time(certificate* cert,time32 *start_time){
 int certificate_get_expired_time(struct sec_db* sdb,certificate* cert,time32 *expired_time){
     struct cme_db* cdb;
     struct cert_info *cinfo;
-    certid10 certid;
+    struct cert_info_cmp cinfo_cmp;
 
     cdb = &sdb->cme_db;
-    INIT(certid);
 
-    if(certificate_2_certid10(cert,&certid)){
+    cinfo_cmp.type = ID_CERTID10;
+    if(certificate_2_certid10(cert,&cinfo_cmp.u.certid10)){
         return -1;
     }
     lock_wrlock(&cdb->lock);
-    cinfo = cert_info_find(cdb->certs,&certid);
+    cinfo = cert_info_find(cdb->certs,&cinfo_cmp);
     if(cinfo == NULL){
         wave_error_printf("没有找到cinfo %s %d",__FILE__,__LINE__);
         lock_unlock(&cdb->lock);
@@ -244,6 +245,75 @@ int certificate_get_elliptic_curve_point(certificate* cert,elliptic_curve_point*
            return -1;
     }
     return 0;
+
+}
+/**
+ * 这个函数是返回数据库的指针，外部不能修改这个里面的内容，只能提取内容
+ */
+int get_cert_info_by_certid(struct sec_db *sdb,enum identifier_type type,string *identifier,struct cert_info **cert_info){
+    struct cme_db *cdb;
+    struct cert_info* mcinfo = NULL;
+    struct cert_info_cmp cinfo_cmp;
+    certificate cert;
+    int res = 0,i;
+
+    memset(&cert,0,sizeof(cert));
+    cdb = &sdb->cme_db;
+    if(cert_info == NULL){
+        return 0;
+    }
+    if(type == ID_CERTIFICATE){
+        cinfo_cmp.type = ID_CERTID10;
+        if(string_2_certificate(identifier,&cert)){
+            res = -1;
+            goto end;
+        }
+        if( certificate_2_certid10(&cert,&cinfo_cmp.u.certid10)){
+            res = -1;
+            goto end;
+        }
+    }
+    else if(type == ID_CERTID10){
+        cinfo_cmp.type = ID_CERTID10;
+        if(identifier->len != 10){
+            wave_error_printf("certid10 长度不为10字节 %s %d",__FILE__,__LINE__);
+            res = -1;
+            goto end;
+        }
+        for(i=0;i<10;i++){
+            cinfo_cmp.u.certid10.certid10[i] = identifier->buf[i];
+        }        
+    }
+    else if(type == ID_HASHEDID8){
+        cinfo_cmp.type = ID_HASHEDID8;
+        if(identifier->len != 8){
+            wave_error_printf("hashedid8 长度不为8字节 %s %d",__FILE__,__LINE__);
+            res = -1;
+            goto end;
+        }
+        for(i=0;i<8;i++){
+            cinfo_cmp.u.hashedid8.hashedid8[i] = identifier->buf[i];
+        }
+    }
+    else{
+        wave_error_printf("出现了不肯能的指  %s %d",__FILE__,__LINE__);
+        res = -1;
+        goto end;
+    }
+    lock_rdlock(&cdb->lock);
+    mcinfo = cert_info_find(cdb->certs,&cinfo_cmp);
+    if(mcinfo == NULL){
+        wave_error_printf("没有找到 %s %d",__FILE__,__LINE__);
+        res = -1;
+        lock_unlock(&cdb->lock);
+        goto end;
+    }
+    *cert_info = mcinfo;
+    lock_unlock(&cdb->lock);
+    goto end;
+end:
+    certificate_free(&cert);
+    return res;
 
 }
 int get_permission_from_certificate(certificate *cert,
@@ -896,10 +966,10 @@ bool geographic_region_in_geographic_region(geographic_region *region_a,geograph
         case RECTANGLE:       
             switch(region_b->region_type){
                 case CIRCLE:
-                    return rectangulas_in_circular(region_a->u.rectangular_region.buf,region_a->u.rectangular_region.len,
+                    return rectangulars_in_circular(region_a->u.rectangular_region.buf,region_a->u.rectangular_region.len,
                                                     &region_b->u.circular_region);
                 case RECTANGLE:
-                    return rectangulas_in_rectangulars(region_a->u.rectangular_region.buf,region_a->u.rectangular_region.len,
+                    return rectangulars_in_rectangulars(region_a->u.rectangular_region.buf,region_a->u.rectangular_region.len,
                                                         region_b->u.rectangular_region.buf,region_b->u.rectangular_region.len);
                 case POLYGON:
                     return rectangulars_in_polygnal(region_a->u.rectangular_region.buf,region_a->u.rectangular_region.len,

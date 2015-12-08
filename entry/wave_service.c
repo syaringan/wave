@@ -595,7 +595,7 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
     INIT(*location);
     location->latitude = *((int*)buf);
     buf += 4;
-    location->longtitude = *((int*)buf);
+    location->longitude = *((int*)buf);
     buf += 4;
     memcpy(location->elevation,buf,2);
     buf += 2;
@@ -1030,7 +1030,7 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
     *((int*)buf) = location->latitude;
     buf += 4;
 
-    *((int*)buf) = location->longtitude;
+    *((int*)buf) = location->longitude;
 
     memcpy(buf,location->elevation,2);
     buf += 2;
@@ -1172,7 +1172,7 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     INIT(*location);
     location->latitude = *((int*)buf);
     buf += 4;
-    location->longtitude = *((int*)buf);
+    location->longitude = *((int*)buf);
     buf += 4;
 
     u32 validity_distance = *((int*)buf);
@@ -1182,7 +1182,7 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     INIT(*generation_location);
     generation_location->latitude = *((int*)buf);
     buf += 4;
-    generation_location->longtitude = *((int*)buf);
+    generation_location->longitude = *((int*)buf);
     buf += 4;
     memcpy(generation_location->elevation,buf,2);
     buf += 2;

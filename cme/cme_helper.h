@@ -23,9 +23,8 @@ int certificate_get_elliptic_curve_point(certificate* cert,elliptic_curve_point*
 
 int get_cert_info_by_certid(struct sec_db *sdb, enum identifier_type type, string *identifier,
                              
-                            struct cert_info *cert_info);
+                            struct cert_info **cert_info);
 
-time64 get_next_crl_time_info(struct sec_db *sdb, crl_series crl_series, struct hashedid8 *id);
 
 int get_permission_from_certificate(certificate *cert,
 

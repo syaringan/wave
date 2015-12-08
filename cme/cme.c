@@ -385,10 +385,13 @@ static result get_crl_time_by_certificate(struct sec_db* sdb,certificate* cert,t
 static void del_certificate_by_certid10(struct sec_db* sdb,certid10* certid){
     struct cme_db *cdb;
     struct cert_info *cinfo;
+    struct cert_info_cmp cinfo_cmp;
 
     cdb = &sdb->cme_db;
+    cinfo_cmp.type = ID_CERTID10;
+    certid10_cpy(&cinfo_cmp.u.certid10,certid);
     lock_wrlock(&cdb->lock);
-    cinfo = cert_info_find(cdb->certs,&certid);
+    cinfo = cert_info_find(cdb->certs,&cinfo_cmp);
     if(cinfo == NULL){
         lock_unlock(&cdb->lock);
         return;
@@ -598,14 +601,13 @@ result cme_certificate_info_request(struct sec_db* sdb,
     result ret = FAILURE;
     bool trusted;
     struct certificate cert_decoded;
-    struct cert_info cert_info;
+    struct cert_info *cert_info;
     time32 m_next_crl_time;
     time32 m_last_crl_time;
     string signer_id;
 
     INIT(signer_id);
     INIT(cert_decoded);
-    INIT(cert_info);
 
     if(get_cert_info_by_certid(sdb, type, identifier, &cert_info)){
         ret = CERTIFICATE_NOT_FOUND;
@@ -616,33 +618,35 @@ result cme_certificate_info_request(struct sec_db* sdb,
                     ret = FAILURE;
                     goto fail;
                 }
-                *next_crl_time = get_next_crl_time_info(sdb, cert_decoded.unsigned_certificate.crl_series, 
-                        &cert_decoded.unsigned_certificate.u.no_root_ca.signer_id);
+                if( get_crl_time_by_certificate(sdb,&cert_decoded,NULL,next_crl_time)){
+                    ret = FAILURE;
+                    goto fail;
+                }
             }
         }
         goto fail;
     }
 
-    if(!cert_info.revoked){
+    if(!cert_info->revoked){
         ret = CERTIFICATE_REVOKED;
         goto fail;
     }
 
-    if(get_crl_time_by_certificate(sdb, cert_info.cert, &m_last_crl_time, &m_next_crl_time)){
+    if(get_crl_time_by_certificate(sdb, cert_info->cert, &m_last_crl_time, &m_next_crl_time)){
         wave_error_printf("获取crl失败");
         ret = FAILURE;
         goto fail;
     }
-    if(m_next_crl_time < time(NULL) || cert_info.expriry / US_TO_S < time(NULL)){
+    if(m_next_crl_time < time(NULL) || cert_info->expriry / US_TO_S < time(NULL)){
         ret = CERTIFICATE_NOT_TRUSTED;
         goto fail;
     }
     ret = FOUND;
     if(verified != NULL){
-        *verified = cert_info.verified;
+        *verified = cert_info->verified;
     }
     if(certificate != NULL){
-        if(certificate_2_string(cert_info.cert, certificate)){
+        if(certificate_2_string(cert_info->cert, certificate)){
             wave_error_printf("证书编码失败");
             ret = FAILURE;
             goto fail;
@@ -655,13 +659,13 @@ result cme_certificate_info_request(struct sec_db* sdb,
         *next_crl_time = m_next_crl_time;
     }
 
-    if(get_permission_from_certificate(cert_info.cert, permissions, scope)){
+    if(get_permission_from_certificate(cert_info->cert, permissions, scope)){
         wave_error_printf("提取证书权限失败");
         ret = FAILURE;
         goto fail;
     }
     if(trust_anchor != NULL){
-        *trust_anchor = cert_info.trust_anchor;
+        *trust_anchor = cert_info->trust_anchor;
     }
     if(permissions != NULL){
         switch(permissions->type){
@@ -744,7 +748,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
         goto fail;
     }
 
-    if(hashided8_2_string(&cert_info.cert->unsigned_certificate.u.no_root_ca.signer_id, &signer_id)){
+    if(hashedid8_2_string(&cert_info->cert->unsigned_certificate.u.no_root_ca.signer_id, &signer_id)){
         wave_error_printf("hash to string fail!");
         goto fail;
     }
@@ -773,7 +777,6 @@ result cme_certificate_info_request(struct sec_db* sdb,
 
 fail:
     certificate_free(&cert_decoded);
-    cert_info_free(&cert_info);
     string_free(&signer_id);
     p = NULL;
     s = NULL;
@@ -976,10 +979,13 @@ result cme_add_certificate_revocation(struct sec_db* sdb,certid10* identifier,ha
     struct crl_head* crl_series_temp;
     struct crl_ca_id* crl_ca_temp;
     struct revoked_certs *rev_cert,*rev_cert_temp;
+    struct cert_info_cmp cinfo_cmp;
     int cmp;
     cdb = &sdb->cme_db;
+    cinfo_cmp.type = ID_CERTID10;
+    certid10_cpy(&cinfo_cmp.u.certid10,identifier);
     lock_wrlock(&cdb->lock);
-    cinfo = cert_info_find(cdb->certs,&identifier);
+    cinfo = cert_info_find(cdb->certs,&cinfo_cmp);
     if(cinfo != NULL){
         if(cinfo->cert->unsigned_certificate.crl_series != series){
             wave_printf(MSG_WARNING,"certid10 相等 但是serires不相等 %s %d",__FILE__,__LINE__);

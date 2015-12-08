@@ -229,7 +229,7 @@ int pdb_2_file(struct pssme_db* pdb,char* name)
 	if( cert_db_2_file(pcdb, fd) == -1 )
 	{
 		printf("in pdb_2_file : cert_db_2_file Error!\n");
-        flose(fd);
+        fclose(fd);
 	    return -1;
 	}
 
@@ -440,7 +440,7 @@ int file_2_plc(struct pssme_local_cert *plc, FILE *fd)
             free(plc_node);
             return -1;
         }
-        if(file_2_pasme_lsis_array(&plc_node->lsis_array,fd)){
+        if(file_2_pssme_lsis_array(&plc_node->lsis_array,fd)){
             free(plc_node);
             return -1;
         }
@@ -487,7 +487,7 @@ int file_2_pdb(struct pssme_db *pdb, char *name)
 	if( file_2_cert_db(pcdb, fd) == -1 )
 	{
 		printf("in file_2_pdb : file_2_pcdb Error!\n");
-        flcose(fd);
+        fclose(fd);
 		return -1;
 	}
 

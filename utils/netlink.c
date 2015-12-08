@@ -7,6 +7,8 @@
 
 #include "netlink.h"
 #include "debug.h"
+#include <sys/types.h>
+#include <unistd.h>
 int create_netlink(struct msghdr *msg, struct nlmsghdr *nlh)
 {
     int fd;
@@ -49,7 +51,7 @@ int dot2_init_netlink(struct nlmsghdr *nlh, struct msghdr *msg){
 
     req.type = DOT2_PID;
     req.operat = SET_MIB;
-    req.pid = get_pid();
+    req.pid = getpid();
 
     int fd = create_netlink(msg, nlh);
     if(fd < 0){

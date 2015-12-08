@@ -588,8 +588,8 @@ fail:
     return -1;
 }
 
-int crypto_cert_reception_SHA224(string* ca_pub_x,string* ca_pub_y,string* recon_x,string* recon_y,string* old_prikey,
-			string* a,string *b,string* pubkey_x,string* pubkey_y,string* prikey){
+int crypto_cert_reception_SHA224(string* old_prikey,
+			                    string* a,string *b,string* prikey){
     check_args_string(prikey);
 
     prikey->len = 28;

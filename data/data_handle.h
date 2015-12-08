@@ -35,6 +35,7 @@ void certificate_free(certificate* cert);
 void certificate_request_free(certificate_request* cert_request);
 void encrypted_data_free(encrypted_data* data);
 void tobe_encrypted_certificate_response_free(tobe_encrypted_certificate_response* data);
+void tobe_encrypted_free(tobe_encrypted* ptr);
 /******************这后面请在data_helper.c里面实现******************/
 int sec_data_2_string(sec_data* sec_data,string* data);
 int string_2_sec_data(string* data,sec_data* sec_data);
@@ -84,7 +85,9 @@ int string_2_tobe_encrypted_certificate_response(string* data,tobe_encrypted_cer
 int certificate_request_2_string(certificate_request* cert_req,string* data);
 
 int tobe_encrypted_2_string(tobe_encrypted* tbencrypted,string* data);
+int string_2_tobe_encrypted(string *data,tobe_encrypted* tbencrypted);
 
+int tobesigned_data_2_string(tobesigned_data* tbsigneddata,string* data);
 bool certid10_equal(certid10* a,certid10* b);
 int  certid10_cmp(certid10 *a,certid10* b);
 void certid10_cpy(certid10* dst,certid10* src);

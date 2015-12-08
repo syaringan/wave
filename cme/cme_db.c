@@ -74,11 +74,24 @@ static int cert_info_compare(struct rb_head* a,struct rb_head* b){
     return certid10_cmp(&certinfoa->certid10,&certinfob->certid10);
 }
 static int cert_info_equal(struct rb_head* a,void* value){
-    struct certid10* certid;
+    struct cert_info_cmp* ptr;
     struct cert_info *certinfoa;
-    certid = (struct certid10*)value;
+    int i;
+    ptr = (struct cert_info_cmp*)value;
     certinfoa = rb_entry(a,struct cert_info,rb);
-    return certid10_cmp(&certinfoa->certid10,certid);
+    if(ptr->type == ID_HASHEDID8){
+        for(i=0;i<8;i++){
+           if( certinfoa->certid10.certid10[i+2] < ptr->u.hashedid8.hashedid8[i]) 
+               return -1;
+           if( certinfoa->certid10.certid10[i+2] > ptr->u.hashedid8.hashedid8[i])
+               return 1;
+        }
+        return 0;
+    }
+    if(ptr->type == ID_CERTID10){
+        return certid10_cmp(&certinfoa->certid10,&ptr->u.certid10);
+    }
+    return -1;
 }
 void cert_info_init_rb(struct cert_info* certinfo){
     rb_init(&certinfo->rb,cert_info_compare,cert_info_equal);
@@ -649,6 +662,7 @@ static int file_2_cmh_key_cert(struct cme_db *cdb,struct cmh_key_cert* key_cert,
     certificate *cert = NULL;
     certid10 certid;
     struct cert_info* cinfo;
+    struct cert_info_cmp cinfo_cmp;
     int len,cert_len;
     
     if(fread(&key_cert->cmh,sizeof(key_cert->cmh),1,fp) != 1||
@@ -682,8 +696,9 @@ static int file_2_cmh_key_cert(struct cme_db *cdb,struct cmh_key_cert* key_cert,
         res = -1;
         goto end;    
     }
-    
-    cinfo = cert_info_find(cdb->certs,&certid);
+    cinfo_cmp.type = ID_CERTID10;
+    certid10_cpy(&cinfo_cmp.u.certid10,&certid);
+    cinfo = cert_info_find(cdb->certs,&cinfo_cmp.type);
     if(cinfo == NULL){
         wave_error_printf("怎么可能没有  有问题哦 %s %d",__FILE__,__LINE__);
         res = -1;

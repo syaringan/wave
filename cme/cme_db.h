@@ -97,6 +97,19 @@ struct cme_db{
     struct cmh_db cmhs;
     lock lock;
 };
+
+enum identifier_type{
+    ID_CERTIFICATE = 0,//这个有两重意义，在construct——chain中为certificate_array
+    ID_HASHEDID8 = 1,
+    ID_CERTID10 = 2,
+};
+struct cert_info_cmp{
+    enum identifier_type type;
+    union{
+        struct certid10 certid10;
+        struct hashedid8 hashedid8;
+    }u;
+};
 void inline cme_alloced_lsis_free(struct cme_alloced_lsis* alloced_lsis);
 void inline cmh_keypaired_free(struct cmh_keypaired* cmh_keys);
 void inline cmh_key_cert_free(struct  cmh_key_cert* key_cert);
@@ -110,6 +123,7 @@ void cert_info_init_rb(struct cert_info* certinfo);
 struct cert_info* cert_info_insert(struct cert_info* root,struct cert_info* node);
 struct cert_info* cert_info_find(struct cert_info* root,void* value);
 struct cert_info* cert_info_delete(struct cert_info* root,struct cert_info* node);
+void cert_info_cpy(struct cert_info *dst,struct cert_info *src );
 void ckc_init(struct cmh_key_cert* ckc);
 struct cmh_key_cert* ckc_insert(struct cmh_key_cert* root,struct cmh_key_cert* node);
 struct cmh_key_cert* ckc_find(struct cmh_key_cert* root,void* value);

@@ -664,7 +664,7 @@ void signed_data_free(signed_data* signed_data, content_type type){
 /**
  *YGH 34
  */
-static void tobe_encrypted_free(tobe_encrypted* tobe_encrypted){
+void tobe_encrypted_free(tobe_encrypted* tobe_encrypted){
 	switch(tobe_encrypted->type){
 		case UNSECURED:
 			if(NULL != tobe_encrypted->u.plain_text.buf)

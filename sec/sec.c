@@ -2583,7 +2583,7 @@ result sec_get_certificate_request(struct sec_db* sdb,signer_identifier_type typ
     string_free(&temp_string);
     string_free(&hashed_string);
     certificate_request_2_string(&cert_request,&temp_string);
-    crypto_HASH256(&temp_string,&hashed_string);
+    crypto_HASH_256(&temp_string,&hashed_string);
 
     if(request_hash != NULL){    
         memcpy(request_hash->certid10,hashed_string.buf + hashed_string.len - 10,10);
@@ -2818,7 +2818,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
                 switch(cert.unsigned_certificate.version_and_type.verification_key.algorithm){
                     case ECDSA_NISTP224_WITH_SHA224:
                         algorithm = ECDSA_NISTP224_WITH_SHA224;
-                       if( crypto_HASH224(&encoded_tbs,&hashed_tbs) ){
+                       if( crypto_HASH_224(&encoded_tbs,&hashed_tbs) ){
                            ret = FAILURE;
                             goto fail;
                        }  
@@ -3406,4 +3406,25 @@ result sec_check_chain_psid_priority_consistency(struct sec_db* sdb,
         }
     }
     return ret;
+}
+
+result sec_decrypt_data(struct sec_db* sdb,string* encrypted_data,cmh cmh,   
+                            content_type* type,string* data){
+    result res = SUCCESS;
+    struct encrypted_data encrypteddata;
+    struct recipient_info* recinfo;
+    int i;
+    INIT(encrypteddata);
+
+    if(string_2_encrypted_data(encrypted_data,&encrypteddata)){
+        res = -1;
+        goto end;
+    }
+    for(i=0;i<encrypteddata.recipients.len;i++){
+        recinfo = encrypteddata.recipients.buf+i;
+
+    }
+end:
+    encrypted_data_free(&encrypted_data);
+    return res;
 }
