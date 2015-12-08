@@ -38,6 +38,7 @@ void ssp_array_free(struct ssp_array* ptr);
 
 void result_array_free(struct result_array* ptr);
 
+void dot2_service_info_array_free(struct dot2_service_info_array *ptr);
 /*
  * 签名数据
  *
