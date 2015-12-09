@@ -2883,7 +2883,6 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
 fail:                                  
     certificate_chain_free(&chain);                                  
     string_free(&permission_indices);                                  
-    two_d_location_free(&td_location);                                  
     sec_data_free(&sec_data);                                  
     string_free(&privatekey);
     string_free(&encoded_tbs);
@@ -3128,21 +3127,21 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
     if(tobesigned_wsa_2_string(&sec_data.u.signed_wsa.unsigned_wsa, &encoded_tbs)){
         wave_error_printf("编码失败");
         ret = FAILURE;
-        goto fail;
+        goto end;
     }
 
-    certificate *cert = &chain.cert[0];
+    struct certificate *cert = &chain.certs[0];
     switch(cert->version_and_type){
         case 2:
-            algorithm = cert->version_and_type.verification_key.algorithm;
-            break;:
+            algorithm = cert->unsigned_certificate.version_and_type.verification_key.algorithm;
+            break;
         case 3:
             algorithm = cert->unsigned_certificate.u.no_root_ca.signature_alg;
             break;
         default:
             wave_error_printf("出现了不可能出现的指 %s %d ",__FILE__,__LINE__);
             ret = FAILURE;
-            goto fail;
+            goto end;
     }
     if(algorithm == ECDSA_NISTP224_WITH_SHA224){
         if(crypto_HASH_224(&encoded_tbs, &digest)){
@@ -3164,14 +3163,15 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
     ret = sec_verify_chain_signature(sdb, &chain, &verified, &digest, &sec_data.u.signed_wsa.signature);
     if(ret != SUCCESS)
         goto end;
-    certificate_cpy(certificate, &chain.cert[0]);
+    certificate_cpy(certificate, &chain.certs[0]);
     ret = SUCCESS;
 
 end:
     for(i = 0; i < len; i++){
         if(results->result[i] != UNSECURED)
             results->result[i] = ret;
-    }    struct certificate_chain chain;
+    }
+
     certificate_chain_free(&chain);
     certificate_chain_free(&tmp_chain);
     cme_permissions_array_free(&cme_permissions);
@@ -3335,6 +3335,18 @@ result sec_check_chain_psids_consistency(struct sec_db* sdb,
     }
     return ret;
 }
+result sec_check_chain_geographic_consistency(struct sec_db* sdb,
+                        struct geographic_region_array* regions){
+    result ret = SUCCESS;
+    int i = 0;
+    for(i = 0; i < regions->len-1; i++){
+        if(geographic_region_in_geographic_region(regions->regions[i], regions->regions[i+1])){
+            ret = INCONSISTENT_GEOGRAPHIC_SCOPE;
+            return ret;
+        }
+    }
+    return ret;
+}
 
 result sec_check_chain_psid_priority_consistency(struct sec_db* sdb,
                         struct cme_permissions_array* permission_array){
@@ -3414,18 +3426,11 @@ result sec_verify_chain_signature(struct sec_db* sdb,
         string* digest,
         signature* signature){
     result ret = SUCCESS;
-    struct verified_array verified;
-    string c_digest;
-    signature c_signature;
-
-    INIT(verified);
-    INIT(c_digest);
-    INIT(c_signature);
 
     int len = cert_chain->len;
     int i = 0;
     for(i = 0; i < len; i++){
-        if(verified_array[i] == false && cert_chain->certs[i].version_and_type == 2){
+        if(verified_array->verified[i] == false && cert_chain->certs[i].version_and_type == 2){
             //调用crypto++的函数来验证
         }
     }
@@ -3437,12 +3442,12 @@ result sec_verify_chain_signature(struct sec_db* sdb,
         //验证报文的签名
     }
 
-    if(cert_chain->certs[0].version_and_type == 3){
+    else if(cert_chain->certs[0].version_and_type == 3){
         //隐证书
     }
 
     for(i = 0; i < len; i++){
-        if(verified[i] == false)
+        if(verified_array->verified[i] == false)
             cme_add_certificate(sdb, &cert_chain->certs[i], true);
     }
     return ret;

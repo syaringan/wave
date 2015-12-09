@@ -90,7 +90,8 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
     list_for_each_entry(p, &clist.list, list){
         if(find_cert_by_cmh(sdb, &p->cmh, &c))
             continue;
-        if(get_cert_expired_info_by_cmh(sdb, &p->cmh))
+        //判断是否过期
+        if(is_expired_by_cmh(sdb, &p->cmh))
             continue;
         //是否需要每次循环都填充为0
         if(certificate_2_string(&c,&cert_encoded)){
