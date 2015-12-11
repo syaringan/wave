@@ -1564,7 +1564,7 @@ static u32 cert_specific_data_2_buf(const cert_specific_data *cert_specific_data
  *   data_2  28
  */
 
-static u32 tobesigned_certificate_2_buf(const tobesigned_certificate *tobesigned_certificate,
+u32 tobesigned_certificate_2_buf(const tobesigned_certificate *tobesigned_certificate,
 		u8* buf,u32 len,u8 version_and_type){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -2146,7 +2146,7 @@ u32 crl_2_buf(const crl *crl,u8* buf,u32 len){
  *   data_2  36
  */
 
-static u32 tobe_encrypted_certificate_response_acknowledgment_2_buf(const tobe_encrypted_certificate_response_acknowledgment*
+u32 tobe_encrypted_certificate_response_acknowledgment_2_buf(const tobe_encrypted_certificate_response_acknowledgment*
 		tobe_encrypted_certificate_response_acknowledgment,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
@@ -2518,7 +2518,7 @@ u32 certificate_request_2_buf(const certificate_request *certificate_request,u8*
  *   data_2  41
  */
 
-static u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len,content_type type){
+u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len,content_type type){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;
@@ -3121,7 +3121,7 @@ u32 encrypted_data_2_buf(const encrypted_data *encrypted_data,u8* buf,u32 len){
  *   data_2  48
  */
 
-static u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32 len){
+u32 tobesigned_wsa_2_buf(const tobesigned_wsa *tobesigned_wsa,u8* buf,u32 len){
 	u8* mbuf = buf;
 	u32 size = len;
 	u32 res = 0;

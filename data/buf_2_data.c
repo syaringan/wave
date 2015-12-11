@@ -2906,7 +2906,7 @@ u32 buf_2_signed_data(  u8* buf,   u32 len, signed_data* signed_data, content_ty
 }
 
 //buf_2 43
-static u32 buf_2_tobe_encrypted(  u8* buf,   u32 len, tobe_encrypted* tobe_encrypted) {
+u32 buf_2_tobe_encrypted(  u8* buf,   u32 len, tobe_encrypted* tobe_encrypted) {
 	u8* mbuf = buf;
 	u32 size = len;
 	u16 bitnum;

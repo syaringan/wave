@@ -40,7 +40,7 @@ static void tbsdata_extension_free(tbsdata_extension* tbsdata_extension)	{
  * @algorithm 外部传入参数(这个数据在free中也不起作用，删除)
  * @field外部传入参数，在释放函数中好像没用，先保留，这个数据不需要，删除就好
  */
-static void elliptic_curve_point_free(elliptic_curve_point* elliptic_curve_point){
+void elliptic_curve_point_free(elliptic_curve_point* elliptic_curve_point){
 	if(NULL != elliptic_curve_point->x.buf) 
 		ARRAY_FREE(&elliptic_curve_point->x);
 	if(elliptic_curve_point->type == UNCOMPRESSED)
@@ -482,7 +482,7 @@ void crl_free(crl* crl){
 /**
  *YGH 28
  */
-static void tobe_encrypted_certificate_request_error_free(tobe_encrypted_certificate_request_error*
+void tobe_encrypted_certificate_request_error_free(tobe_encrypted_certificate_request_error*
 				tobe_encrypted_certificate_request_error){
 
 	switch(tobe_encrypted_certificate_request_error->signer.u.certificate.version_and_type){

@@ -36,4 +36,5 @@ int get_region(geographic_region *src, geographic_region *dst, enum holder_type 
 
 bool geographic_region_in_geographic_region(geographic_region *a,geographic_region* b);
 bool three_d_location_in_region(three_d_location* loc,geographic_region* region);
+bool two_d_location_in_region(two_d_location* loc,geographic_region* region);
 #endif

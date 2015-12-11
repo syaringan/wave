@@ -1031,3 +1031,9 @@ bool three_d_location_in_region(three_d_location* loc,geographic_region* region)
     }
     return false;
 }
+bool two_d_location_in_region(two_d_location* loc,geographic_region* region){
+    three_d_location three;
+    three.latitude = loc->latitude;
+    three.longitude = loc->longitude;
+    return three_d_location_in_region(&three,region);
+}

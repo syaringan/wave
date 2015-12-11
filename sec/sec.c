@@ -5,20 +5,20 @@
     > Created Time: 2015年10月15日 星期四 17时12分57秒
  ************************************************************************/
 
-#include "./sec.h"
-#include "../pssme/pssme.h"
-#include "../data/data.h"
-#include "../cme/cme.h"
+#include "sec.h"
+#include "pssme/pssme.h"
+#include "data/data.h"
+#include "cme/cme.h"
 #include <time.h>
 #include <math.h>
 #include "../crypto/crypto.h"
 #define INIT(m) memset(&m,0,sizeof(m))
 #define LOG_STD_DEV_BASE 1.134666
 
-extern u32 certificate_request_permissions_max_length;//配置变量，配置证书申请最大的长度
+#define  certificate_request_permissions_max_length 255//配置变量，配置证书申请最大的长度
 extern struct region_type_array certificate_request_support_region_types;//配置变量，表示支持的类型
-extern u32 certificate_request_rectangle_max_length;
-extern u32 certificate_request_polygonal_max_length;
+#define certificate_request_rectangle_max_length 100
+#define certificate_request_polygonal_max_length 100
 
 static inline unsigned char ext_length(char *eid){
     return *((unsigned char *)eid + 1);
@@ -1812,7 +1812,7 @@ next:
          }        
     }
     if(gen_loc.latitude != 0 && gen_loc.longitude != 0 && geo_scopes.regions != NULL){
-        if(!two_d_location_in_geographic_region(&gen_loc,geo_scopes.regions)){
+        if(!two_d_location_in_region(&gen_loc,geo_scopes.regions)){
             res = SIGNATURE_GENERATED_OUTSIDE_CERTIFICATE_VALIDITY_REGION;
             goto end;
         }
@@ -2150,7 +2150,7 @@ result sec_crl_verification(struct sec_db* sdb,string* crl,time32 overdue_crl_to
         }
     }
 
-    if(unsigned_crl_2_string(&mycrl.unsigned_crl,&temp_string)){
+    if(tobesigned_crl_2_string(&mycrl.unsigned_crl,&temp_string)){
         res = FAILURE;
         goto end;
     }
@@ -2187,7 +2187,7 @@ result sec_crl_verification(struct sec_db* sdb,string* crl,time32 overdue_crl_to
 end:
     certificate_chain_free(&certs_chain);
     certificate_chain_free(&temp_certs_chain);
-    cme_permissionsi_array_free(&permissions_array);
+    cme_permissions_array_free(&permissions_array);
     geographic_region_array_free(&geo_scopes);
     verified_array_free(&verifieds);
     string_free(&digest);
@@ -3420,37 +3420,290 @@ result sec_check_chain_psid_priority_consistency(struct sec_db* sdb,
     }
     return ret;
 }
+bool static verify_signature_no_fast(pk_algorithm algorithm,string* pubkey_x,string* pubkey_y,string* r,string *s,string *mess){
+    if(algorithm != ECDSA_NISTP224_WITH_SHA224 && algorithm != ECDSA_NISTP256_WITH_SHA256){
+        wave_error_printf("参数有问题 %s %d",__FILE__,__LINE__);
+        return false;
+    }
+
+    bool res = true;
+
+    if(algorithm == ECDSA_NISTP224_WITH_SHA224){
+        res = crypto_ECDSA_224_verify_message(pubkey_x,pubkey_y,r,s,mess);
+        goto end;
+    }
+    else{
+        res = crypto_ECDSA_256_verify_message(pubkey_x,pubkey_y,r,s,mess);
+        goto end;
+    }
+end:
+    return res;
+}
+bool static verify_signature_fast(pk_algorithm algorithm,string* pubkey_x,
+                    string* pubkey_y,string* r_x,string* r_y,string* s,string* mess){
+    if(algorithm != ECDSA_NISTP224_WITH_SHA224 && algorithm != ECDSA_NISTP256_WITH_SHA256){
+        wave_error_printf("参数有问题 %s %d",__FILE__,__LINE__);
+        return false;
+    }
+    bool res = true;
+
+    if(algorithm == ECDSA_NISTP224_WITH_SHA224){
+        res = crypto_ECDSA_224_FAST_verify_message(pubkey_x,pubkey_y,mess,r_x,r_y,s);
+        goto end;
+    }
+    else{
+        res = crypto_ECDSA_256_FAST_verify_message(pubkey_x,pubkey_y,mess,r_x,r_y,s);
+        goto end;
+    }
+end:
+    return res;
+}
+bool static verify_signature(pk_algorithm algorithm,signature* sig,string *pubkey_x,string* pubkey_y,string *mess){
+    if(algorithm != ECDSA_NISTP224_WITH_SHA224 && algorithm != ECDSA_NISTP256_WITH_SHA256){
+        wave_error_printf("参数有问题 %s %d",__FILE__,__LINE__);
+        return false;
+    }
+    string r,s,r_x,r_y;
+    elliptic_curve_point* point;
+    bool res = true;
+
+    INIT(r);
+    INIT(s);
+    INIT(r_x);
+    INIT(r_y);
+
+    s.len = sig->u.ecdsa_signature.s.len;
+    s.buf = (u8*)malloc(s.len);
+    if(s.buf == NULL){
+        wave_malloc_error();
+        res = false;
+        goto end;
+    }
+    memcpy(s.buf,sig->u.ecdsa_signature.s.buf,s.len);
+
+    point = &sig->u.ecdsa_signature.r;
+    if(point->type == X_COORDINATE_ONLY){
+        r.len = point->x.len;
+        r.buf = (u8*)malloc(r.len);
+        if(r.buf == NULL){
+            wave_malloc_error();
+            res = false;
+            goto end;
+        }
+        memcpy(r.buf,point->x.buf,r.len);
+        res = verify_signature_no_fast(algorithm,pubkey_x,pubkey_y,&r,&s,mess);
+        goto end;
+    }
+    else if(point->type == UNCOMPRESSED){
+        r_x.len = point->x.len;
+        r_y.len = point->u.y.len;
+        r_x.buf = (u8*)malloc(r_x.len);
+        r_y.buf = (u8*)malloc(r_y.len);
+        if(r_x.buf == NULL || r_y.buf == NULL){
+            wave_malloc_error();
+            res = false;
+            goto end;
+        }
+        memcpy(r_x.buf,point->x.buf,r_x.len);
+        memcpy(r_y.buf,point->u.y.buf,r_y.len);
+
+        res = verify_signature_fast(algorithm,pubkey_x,pubkey_y,&r_x,&r_y,&s,mess);
+        goto end;
+    }
+    else{
+       if( elliptic_curve_point_2_uncompressed(algorithm,point,&r_x,&r_y)){
+            wave_error_printf("解压失败  %s %d",__FILE__,__LINE__);
+            res = false;
+            goto end;
+       }
+       res = verify_signature_fast(algorithm,pubkey_x,pubkey_y,&r_x,&r_y,&s,mess);
+       goto end;
+    }
+end:
+    string_free(&r);
+    string_free(&r_x);
+    string_free(&r_y);
+    string_free(&s);
+    return res;
+}
+int static implicit_certificate_get_pubkey(struct sec_db* sdb,certificate* cert,string* pubkey_x,string* pubkey_y){
+    int res = 0;
+    certificate ca_cert;
+    string ca_x,ca_y;
+    string pu_x,pu_y;
+    string e;
+
+    INIT(ca_cert);
+    INIT(ca_x);
+    INIT(ca_y);
+    INIT(pu_x);
+    INIT(pu_y);
+    INIT(e);
+    
+    if(cert->version_and_type != 3){
+        wave_error_printf("传经来的不是隐士证书  %s %d",__FILE__,__LINE__);
+        res = -1;
+        goto end;
+    }
+    if( find_cert_prikey_by_cmh(sdb,1,&ca_cert,NULL)){
+        wave_error_printf("没有ca证书 %s %d",__FILE__,__LINE__);
+        res = -1;
+        goto end;
+    }
+    if(ca_cert.version_and_type == 3){
+        wave_error_printf("ca 证书竟然是隐士的  %s %d",__FILE__,__LINE__);
+        res = -1;
+        goto end;
+    }
+    if(elliptic_curve_point_2_uncompressed(ca_cert.unsigned_certificate.version_and_type.verification_key.algorithm,
+                        &ca_cert.unsigned_certificate.version_and_type.verification_key.u.public_key,&ca_x,&ca_y)){
+        res = -1;
+        goto end;
+    }
+        
+    if(elliptic_curve_point_2_uncompressed(cert->unsigned_certificate.u.no_root_ca.signature_alg,
+                        &cert->u.reconstruction_value,&pu_x,&pu_y)){
+        res = -1;
+        goto end;
+    }
+    e.len = 8;
+    e.buf = (u8*)malloc(e.len);
+    if(e.buf == NULL){
+        wave_malloc_error();
+        res = -1;
+        goto end;
+    }
+    memcpy(e.buf,cert->unsigned_certificate.u.no_root_ca.signer_id.hashedid8,e.len);
+
+    if(cert->unsigned_certificate.u.no_root_ca.signature_alg != ECDSA_NISTP256_WITH_SHA256){
+        wave_error_printf("隐士证书，我们支持256 %s %d",__FILE__,__LINE__);
+        res = -1;
+        goto end;
+    }
+    if(crypto_cert_pk_extraction_SHA256(&ca_x,&ca_y,&pu_x,&pu_y,&e,pubkey_x,pubkey_y)){
+        res = -1;
+        goto end;
+    }
+    goto end;
+end:
+    string_free(&ca_x);
+    string_free(&ca_y);
+    string_free(&pu_x);
+    string_free(&pu_y);
+    string_free(&e);
+    certificate_free(&ca_cert);
+    return res;
+}
+//这里的证书链，是后面一个签发前面一个？？？
 result sec_verify_chain_signature(struct sec_db* sdb,
         struct certificate_chain* cert_chain,
         struct verified_array* verified_array,
         string* digest,
         signature* signature){
-    result ret = SUCCESS;
+    result res = SUCCESS;
+    string temp,pubkey_x,pubkey_y,hashed;
+    pk_algorithm algorithm;
+    certificate *cert;
 
-    int len = cert_chain->len;
+    INIT(temp);
+    INIT(pubkey_x);
+    INIT(pubkey_y);
+    INIT(hashed);
+
+    int len = cert_chain->len;  
     int i = 0;
     for(i = 0; i < len; i++){
         if(verified_array->verified[i] == false && cert_chain->certs[i].version_and_type == 2){
             //调用crypto++的函数来验证
+            if(i == cert_chain->len - 1){
+                wave_printf("这里应该怎么弄？？，我直接认为头都不被信任 返回错误 %s %d",__FILE__,__LINE__);
+                res = CERTIFICATE_VERIFICATION_FAILED;
+                goto end;
+            }
+            cert = cert_chain->certs + i+1;
+            string_free(&pubkey_x);
+            string_free(&pubkey_y);
+            string_free(&hashed);
+            if(elliptic_curve_point_2_uncompressed(cert->unsigned_certificate.version_and_type.verification_key.algorithm,
+                        &cert->unsigned_certificate.version_and_type.verification_key.u.public_key,&pubkey_x,&pubkey_y)){
+                res = FAILURE;
+                goto end;
+            }
+            algorithm = cert->unsigned_certificate.version_and_type.verification_key.algorithm;
+
+            cert = cert_chain->certs + i;
+            string_free(&temp);
+            if( tobesigned_certificate_2_string(&cert->unsigned_certificate,&temp)){
+                res = FAILURE;
+                goto end;
+            }
+            if(algorithm == ECDSA_NISTP224_WITH_SHA224){
+                if(crypto_HASH_224(&temp,&hashed)){
+                    res = -1;
+                    goto end;
+                }
+            }
+            else if(algorithm == ECDSA_NISTP256_WITH_SHA256){
+                if(crypto_HASH_256(&temp,&hashed)){
+                    res = -1;
+                    goto end;
+                }
+            }
+            else {
+                wave_error_printf("出现了不可能的指 %s %d",__FILE__,__LINE__);
+                res = -1;
+                goto end;
+            }
+        
+            if( verify_signature(cert->unsigned_certificate.u.no_root_ca.signature_alg,&cert->u.signature,&pubkey_x,&pubkey_y,
+                        &hashed) == false){
+                res = CERTIFICATE_VERIFICATION_FAILED;
+                goto end;
+            }            
         }
     }
 
-    if(digest == NULL || signature == NULL)
-        return SUCCESS;
+    if(digest == NULL || signature == NULL){
+        res = SUCCESS;
+        goto end;
+    }
 
+    string_free(&pubkey_x);
+    string_free(&pubkey_y);
     if(cert_chain->certs[0].version_and_type == 2){
         //验证报文的签名
+        cert = cert_chain->certs;    
+        if(elliptic_curve_point_2_uncompressed(cert->unsigned_certificate.version_and_type.verification_key.algorithm,
+                        &cert->unsigned_certificate.version_and_type.verification_key.u.public_key,&pubkey_x,&pubkey_y)){
+            res = FAILURE;
+            goto end;
+        }  
     }
 
     else if(cert_chain->certs[0].version_and_type == 3){
-        //隐证书
+       if(implicit_certificate_get_pubkey(sdb,cert_chain->certs,&pubkey_x,&pubkey_y)){
+            res = FAILURE;
+            goto end;
+       } 
+    }
+
+    if( verify_signature(cert->unsigned_certificate.u.no_root_ca.signature_alg,signature,&pubkey_x,&pubkey_y,
+                        digest) == false){
+            res = VERIFICATION_FAILURE;
+            goto end;
     }
 
     for(i = 0; i < len; i++){
         if(verified_array->verified[i] == false)
             cme_add_certificate(sdb, &cert_chain->certs[i], true);
     }
-    return ret;
+    goto end;
+end:
+    string_free(&temp);
+    string_free(&pubkey_x);
+    string_free(&pubkey_y);
+    string_free(&hashed);
+    return res;
 }
 result sec_decrypt_data(struct sec_db* sdb,string* encrypted_data,cmh cmh,   
                             content_type* type,string* data){
