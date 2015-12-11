@@ -20,6 +20,10 @@ extern struct region_type_array certificate_request_support_region_types;//配�
 extern u32 certificate_request_rectangle_max_length;
 extern u32 certificate_request_polygonal_max_length;
 
+static inline unsigned char ext_length(char *eid){
+    return *((unsigned char *)eid + 1);
+}
+
 void ssp_array_free(struct ssp_array* ptr){
     if(ptr == NULL)
         return ;
@@ -34,6 +38,14 @@ void result_array_free(struct result_array* ptr){
     free(ptr->result);
     ptr->len = 0;
     ptr->result = NULL;
+}
+
+void dot2_service_info_array_free(struct dot2_service_info_array *ptr){
+    if(ptr == NULL)
+        return;
+    free(ptr->service_infos);
+    ptr->len = 0;
+    ptr->service_infos = NULL;
 }
 
 static int 
@@ -140,7 +152,6 @@ locate_serv_ch_info_wra(char *wsa, unsigned int current_shift, unsigned int leng
                 current_shift += (calcu_psid_length(psid_pos) + 3);
 
 				if(serv_info_index)
-					printk("\n");
                 break;
             case EID_CHANINFO:
                 channel_info_index ++;
@@ -150,7 +161,6 @@ locate_serv_ch_info_wra(char *wsa, unsigned int current_shift, unsigned int leng
                 ch_info[channel_info_index].channel = eid_pos;
                 current_shift += 6;
 				if(channel_info_index)
-					printk("\n");
                 break;
             case EID_WRA:         
                 if(wra_index == 255)
@@ -158,7 +168,6 @@ locate_serv_ch_info_wra(char *wsa, unsigned int current_shift, unsigned int leng
                 routing_adv->wra = (char *)eid_pos;
                 current_shift += 52;
 				if(wra_index)
-					printk("\n");
                 break;
             case EID_PSC:
                 if(serv_info_index != 255)        
@@ -2796,7 +2805,13 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
     }
     memcpy(sec_data.u.signed_wsa.unsigned_wsa.data.buf, data->buf, data->len*sizeof(u8));
 
-    //对generation_time和generation_location编码填充，暂时没有
+    sec_data.u.signed_wsa.unsigned_wsa.generation_time.time = time(NULL);
+    sec_data.u.signed_wsa.unsigned_wsa.generation_time.long_std_dev = 0xff;
+
+    sec_data.u.signed_wsa.unsigned_wsa.generation_location.latitude = td_location.latitude;
+    sec_data.u.signed_wsa.unsigned_wsa.generation_location.longitude = td_location.longitude;
+    sec_data.u.signed_wsa.unsigned_wsa.generation_location.elevation[0] = 0;
+    sec_data.u.signed_wsa.unsigned_wsa.generation_location.elevation[1] = 0;
 
     sec_data.u.signed_wsa.unsigned_wsa.expire_time = life_time;
     sec_data.u.signed_wsa.unsigned_wsa.tf = sec_data.u.signed_wsa.unsigned_wsa.tf & EXPIRES;
@@ -2812,97 +2827,27 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         ret = FAILURE;
         goto fail;
     }
+    
     switch(cert.version_and_type){
         case 2:
-            if(cert.unsigned_certificate.holder_type  == ROOT_CA){
-                switch(cert.unsigned_certificate.version_and_type.verification_key.algorithm){
-                    case ECDSA_NISTP224_WITH_SHA224:
-                        algorithm = ECDSA_NISTP224_WITH_SHA224;
-                       if( crypto_HASH_224(&encoded_tbs,&hashed_tbs) ){
-                           ret = FAILURE;
-                            goto fail;
-                       }  
-                       if(crypto_ECDSA224_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
-                           ret = FAILURE;
-                           goto fail;
-                       break;
-                    case ECDSA_NISTP256_WITH_SHA256:
-                       algorithm = ECDSA_NISTP256_WITH_SHA256;
-                       if( crypto_HASH256(&encoded_tbs,&hashed_tbs))
-                           ret = FAILURE;
-                           goto fail;
-                       if(crypto_ECDSA256_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
-                           ret = FAILURE;
-                           goto fail;
-                       break;
-                    case ECIES_NISTP256:
-                       wave_error_printf("这个是加密算法，怎么出现在了这个签名中");
-                       ret = FAILURE;
-                       goto fail;
-                       break;
-                }
-            }
-            else{
-                switch(cert.unsigned_certificate.u.no_root_ca.signature_alg){
-                    case ECDSA_NISTP224_WITH_SHA224:
-                       algorithm = ECDSA_NISTP224_WITH_SHA224;
-                       if( crypto_HASH224(&encoded_tbs,&hashed_tbs) ){
-                           ret = FAILURE;
-                            goto fail;
-                       } 
-                       if(crypto_ECDSA224_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
-                           ret = FAILURE;
-                           goto fail; 
-                       break;
-                    case ECDSA_NISTP256_WITH_SHA256:
-                       algorithm = ECDSA_NISTP256_WITH_SHA256;
-                       if( crypto_HASH256(&encoded_tbs,&hashed_tbs))
-                           ret = FAILURE;
-                           goto fail;
-                       if(crypto_ECDSA256_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
-                           ret = FAILURE;
-                           goto fail;
-                       break;
-                    case ECIES_NISTP256:
-                       wave_error_printf("这个是加密算法，怎么出现在了这个签名中");
-                       ret = FAILURE;
-                       goto fail;
-                       break;
-                }
-            }
+            algorithm = cert.unsigned_certificate.version_and_type.verification_key.algorithm;
             break;
         case 3:
-             switch(cert.unsigned_certificate.u.no_root_ca.signature_alg){
-                    case ECDSA_NISTP224_WITH_SHA224:
-                       algorithm = ECDSA_NISTP224_WITH_SHA224;
-                       if( crypto_HASH224(&encoded_tbs,&hashed_tbs) ){
-                           ret = FAILURE;
-                            goto fail;
-                       }  
-                       if(crypto_ECDSA224_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
-                           ret = FAILURE;
-                            goto fail;
-                       break;
-                    case ECDSA_NISTP256_WITH_SHA256:
-                       algorithm = ECDSA_NISTP256_WITH_SHA256;
-                       if( crypto_HASH256(&encoded_tbs,&hashed_tbs))
-                           ret = FAILURE;
-                           goto fail;
-                       if(crypto_ECDSA256_sign_message(&hashed_tbs,&privatekey,&signed_tbs))
-                           ret = FAILURE;
-                            goto fail;
-                       break;
-                    case ECIES_NISTP256:
-                       wave_error_printf("这个是加密算法，怎么出现在了这个签名中");
-                       ret = FAILURE;
-                       goto fail;
-                       break;
-            } 
+            algorithm = cert.unsigned_certificate.u.no_root_ca.signature_alg;
             break;
         default:
             wave_error_printf("出现了不可能出现的指 %s %d ",__FILE__,__LINE__);
             ret = FAILURE;
             goto fail;
+    }
+    if(algorithm != ECDSA_NISTP224_WITH_SHA224 || algorithm != ECDSA_NISTP256_WITH_SHA256){
+        wave_error_printf("这里的协议类型都不等于我们要求的这里有问题,我们这里暂时不支持其他的加密算法");
+        ret = -1;
+        goto fail;
+    }
+    if( signature_generation(&sec_data.u.signed_wsa.signature,algorithm,NO,&encoded_tbs,&privatekey)){
+        ret = -1;
+        goto fail;        
     }
     //create and encode a signedwsa
     sec_data.u.signed_wsa.signer.type = CERTIFICATE_CHAIN;
@@ -2938,7 +2883,6 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
 fail:                                  
     certificate_chain_free(&chain);                                  
     string_free(&permission_indices);                                  
-    two_d_location_free(&td_location);                                  
     sec_data_free(&sec_data);                                  
     string_free(&privatekey);
     string_free(&encoded_tbs);
@@ -2967,9 +2911,10 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
     struct verified_array verified;
     struct dot2_service_info_array ser_info_array;
     sec_data sec_data;
-    string permission_indices;
+    string permission_indices, encoded_tbs, digest;
     time64 g_time = 0;
     time64 e_time = 0;
+    pk_algorithm algorithm;
     int len = 0;
     int i = 0;
     int j = 0;
@@ -2982,6 +2927,8 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
     INIT(verified);
     INIT(sec_data);
     INIT(permission_indices);
+    INIT(encoded_tbs);
+    INIT(digest);
     INIT(ser_info_array);
 
     if(string_2_sec_data(wsa, &sec_data)){
@@ -3099,9 +3046,12 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
         ret = EXPIRY_DATE_TOO_LATE;
 
     //判断generation latitude和generation latitude是否在geoScopes[0]范围内
+    if(three_d_location_in_region(&location, &regions.regions[0]))
+        ret = WSA_GENERATED_OUTSIDE_CERTIFICATED_VALIDITY_REGION;
 
     if(chain.certs[0].unsigned_certificate.holder_type != WSA)
         ret = UNSUPPORTED_SIGNER_TYPE;
+
     if(ret != SUCCESS)
         goto end;
 
@@ -3174,12 +3124,63 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
     }
 
     //verify the certificate chain and signature
+    if(tobesigned_wsa_2_string(&sec_data.u.signed_wsa.unsigned_wsa, &encoded_tbs)){
+        wave_error_printf("编码失败");
+        ret = FAILURE;
+        goto end;
+    }
+
+    struct certificate *cert = &chain.certs[0];
+    switch(cert->version_and_type){
+        case 2:
+            algorithm = cert->unsigned_certificate.version_and_type.verification_key.algorithm;
+            break;
+        case 3:
+            algorithm = cert->unsigned_certificate.u.no_root_ca.signature_alg;
+            break;
+        default:
+            wave_error_printf("出现了不可能出现的指 %s %d ",__FILE__,__LINE__);
+            ret = FAILURE;
+            goto end;
+    }
+    if(algorithm == ECDSA_NISTP224_WITH_SHA224){
+        if(crypto_HASH_224(&encoded_tbs, &digest)){
+            wave_error_printf("hash 224失败");
+            goto end;
+        }
+    }
+    else if(algorithm == ECDSA_NISTP256_WITH_SHA256){
+        if(crypto_HASH_256(&encoded_tbs, &digest)){
+            wave_error_printf("hash 256失败");
+            goto end;
+        }
+    }
+    else{
+        wave_error_printf("不是签名方法，错误");
+        goto end;
+    }
+
+    ret = sec_verify_chain_signature(sdb, &chain, &verified, &digest, &sec_data.u.signed_wsa.signature);
+    if(ret != SUCCESS)
+        goto end;
+    certificate_cpy(certificate, &chain.certs[0]);
+    ret = SUCCESS;
 
 end:
     for(i = 0; i < len; i++){
         if(results->result[i] != UNSECURED)
             results->result[i] = ret;
     }
+
+    certificate_chain_free(&chain);
+    certificate_chain_free(&tmp_chain);
+    cme_permissions_array_free(&cme_permissions);
+    geographic_region_array_free(&regions);
+    verified_array_free(&verified);
+    dot2_service_info_array_free(&ser_info_array);
+    sec_data_free(&sec_data);
+    string_free(&permission_indices);
+    string_free(&encoded_tbs);
     return ret;
 }
 
@@ -3334,6 +3335,18 @@ result sec_check_chain_psids_consistency(struct sec_db* sdb,
     }
     return ret;
 }
+result sec_check_chain_geographic_consistency(struct sec_db* sdb,
+                        struct geographic_region_array* regions){
+    result ret = SUCCESS;
+    int i = 0;
+    for(i = 0; i < regions->len-1; i++){
+        if(geographic_region_in_geographic_region(regions->regions[i], regions->regions[i+1])){
+            ret = INCONSISTENT_GEOGRAPHIC_SCOPE;
+            return ret;
+        }
+    }
+    return ret;
+}
 
 result sec_check_chain_psid_priority_consistency(struct sec_db* sdb,
                         struct cme_permissions_array* permission_array){
@@ -3407,7 +3420,38 @@ result sec_check_chain_psid_priority_consistency(struct sec_db* sdb,
     }
     return ret;
 }
+result sec_verify_chain_signature(struct sec_db* sdb,
+        struct certificate_chain* cert_chain,
+        struct verified_array* verified_array,
+        string* digest,
+        signature* signature){
+    result ret = SUCCESS;
 
+    int len = cert_chain->len;
+    int i = 0;
+    for(i = 0; i < len; i++){
+        if(verified_array->verified[i] == false && cert_chain->certs[i].version_and_type == 2){
+            //调用crypto++的函数来验证
+        }
+    }
+
+    if(digest == NULL || signature == NULL)
+        return SUCCESS;
+
+    if(cert_chain->certs[0].version_and_type == 2){
+        //验证报文的签名
+    }
+
+    else if(cert_chain->certs[0].version_and_type == 3){
+        //隐证书
+    }
+
+    for(i = 0; i < len; i++){
+        if(verified_array->verified[i] == false)
+            cme_add_certificate(sdb, &cert_chain->certs[i], true);
+    }
+    return ret;
+}
 result sec_decrypt_data(struct sec_db* sdb,string* encrypted_data,cmh cmh,   
                             content_type* type,string* data){
     result res = SUCCESS;

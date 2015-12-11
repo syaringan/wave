@@ -33,6 +33,8 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
     certificate c;
     geographic_region geo_permissions;
     string cert_encoded;
+    three_d_location three_d;
+    two_d_location two_d;
     int i = 0, j = 0, k = 0;
 
     INIT(current_cert_permissions);
@@ -40,6 +42,8 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
     INIT(geo_permissions);
     INIT(cert_encoded);
     INIT_LIST_HEAD(&clist.list);
+    INIT(three_d);
+    INIT(two_d);
 
     struct pssme_local_cert *p;//遍历用的临时变量
     //访问pssme_db，找到符合lsis要求的cmh
@@ -86,7 +90,8 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
     list_for_each_entry(p, &clist.list, list){
         if(find_cert_by_cmh(sdb, &p->cmh, &c))
             continue;
-        if(get_cert_expired_info_by_cmh(sdb, &p->cmh))
+        //判断是否过期
+        if(is_expired_by_cmh(sdb, &p->cmh))
             continue;
         //是否需要每次循环都填充为0
         if(certificate_2_string(&c,&cert_encoded)){
@@ -97,7 +102,18 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
        
         ret = cme_certificate_info_request(sdb, ID_CERTIFICATE, &cert_encoded, NULL, &current_cert_permissions, 
                 &geo_permissions, NULL, NULL, NULL, NULL);
-        if(!geo_permissions_contains_location(geo_permissions))
+
+        if(get_current_location(&two_d)){
+            wave_error_printf("获取当前地理位置失败");
+            goto fail;
+        }
+
+        three_d.latitude = two_d.latitude;
+        three_d.longitude = two_d.longitude;
+        three_d.elevation[0] = 0;
+        three_d.elevation[1] = 0;
+
+        if(three_d_location_in_region(&three_d, &geo_permissions))
             continue;
         if(permission_ind != NULL){
             permission_ind->len = se_array->len;
