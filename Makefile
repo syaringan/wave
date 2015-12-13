@@ -6,11 +6,12 @@ wave_sec:
 	#echo $(SUBDIRS)
 	for a in $(SUBDIRS);\
 		do $(MAKE) -C $$a;done;
-	$(CC) main.c  -o $@  $(libs) -lpthread -lstdc++ -lm 
+	$(CC) main.c  -o $@  -I./ $(libs) -lpthread -lstdc++ -lm 
 
 clean:
 	for a in $(SUBDIRS);\
-		do $(MAKE) -C $$a clean;done
+		do $(MAKE) -C $$a clean;done;
+	rm wave_sec;
 install:
 	for a in $(SUBDORS);\
 		do $(MAKE) -C $$a install;done

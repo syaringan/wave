@@ -1207,6 +1207,48 @@ result cme_get_crlinfo(struct sec_db* sdb,crl_series series,hashedid8* ca_id,u32
     return FAILURE;
 
 }
+result cme_reply_detection(struct sec_db* sdb,cme_lsis lsis,string* data){
+   struct cme_db *cdb;
+   struct list_head *head;
+   struct cme_alloced_lsis *ptr;
+   result res = SUCCESS;
+
+   cdb = &sdb->cme_db;
+   lock_wrlock(&cdb->lock);
+   head = &cdb->lsises.alloced_lsis.list;
+   list_for_each_entry(ptr,head,list){
+        if(ptr->lsis == lsis){
+            if( string_cmp(&ptr->data,data) == 0){
+                res = REPLAY;
+                lock_unlock(&cdb->lock);
+                goto end;
+            }
+            else{
+                string_free(&ptr->data);
+                string_cpy(&ptr->data,data);
+                res = NOT_REPLAY;
+                lock_unlock(&cdb->lock);
+                goto end;
+            }
+        }   
+        else if(ptr->lsis > lsis){
+            wave_error_printf("这里尽然没有这个lsis %s %d",__FILE__,__LINE__);
+            res = FAILURE;
+            lock_unlock(&cdb->lock);
+            goto end;
+        }
+   }
+   if(&ptr->list == head){
+        wave_error_printf("这里尽然没有这个lsis %s %d",__FILE__,__LINE__);
+        res = FAILURE;
+        lock_unlock(&cdb->lock);
+        goto end;
+   }
+   res = FAILURE;
+   goto end;
+end:
+   return res;
+}
 result cme_construct_certificate_chain(struct sec_db* sdb,
                 enum identifier_type type,
                 string* identifier,

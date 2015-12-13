@@ -3,6 +3,7 @@
 #include "sec/sec.h"
 #include "utils/debug.h"
 #include<stdlib.h>
+#include<time.h>
 #define INIT(m) memset(&m,0,sizeof(m))
 #define max_chain_length 8
 void serviceinfo_array_free(serviceinfo_array* point){
@@ -20,7 +21,44 @@ void pssme_lsis_array_free(struct pssme_lsis_array* lsises){
     lsises->len = 0;
     lsises->lsis = NULL;
 }
+static bool is_expired_by_cmh(struct sec_db* sdb,cmh cmh){
+    bool res = false;
+    struct cme_db *cdb;
+    certificate cert;
+    struct cert_info *cinfo;
+    string s;
 
+    INIT(s);
+    INIT(cert);
+
+    cdb = &sdb->cme_db;
+    if(find_cert_by_cmh(sdb,cmh,&cert)){
+        wave_error_printf("证书查找失败 %s %d",__FILE__,__LINE__);
+        res = true;
+        goto end;
+    }
+    if(certificate_2_string(&cert,&s)){
+        res = true;
+        goto end;
+    }
+    if( get_cert_info_by_certid(sdb,ID_CERTIFICATE,&s,&cinfo)){
+        wave_error_printf("cert info 没有找到  %s %d",__FILE__,__LINE__);
+        res = true;
+        goto end;
+    }
+
+    if( cinfo->expriry/US_TO_S > time(NULL)){
+        res = false;
+        goto end;
+    }
+    res = true;
+    goto end;
+end:
+    certificate_free(&cert);
+    string_free(&s);
+    return res;
+
+}
 //未测
 result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_array,two_d_location* two_dl,
         
@@ -91,7 +129,7 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
         if(find_cert_by_cmh(sdb, &p->cmh, &c))
             continue;
         //判断是否过期
-        if(is_expired_by_cmh(sdb, &p->cmh))
+        if(is_expired_by_cmh(sdb, p->cmh))
             continue;
         //是否需要每次循环都填充为0
         if(certificate_2_string(&c,&cert_encoded)){

@@ -250,24 +250,8 @@ result sec_certificate_response_verification(struct sec_db* sdb,
                 tobe_encrypted_certificate_response* cert_resp);
 
 /***************这后面的函数都是certificate的一些帮助接口，方便获取证书的相关信息******/
-result inline get_current_location(two_d_location *td_location){
-    if(td_location == NULL)
-        return -1;
-    td_location->latitude = 0;
-    td_location->longitude = 0;
-}
-u32 distance_with_two_d_location(two_d_location* a,two_d_location* b){
-    double r = 6371000;
-    double x1,y1,x2,y2;
-    u32 res;
-    x1 = a->longitude/1000/180*M_PI;
-    y1 = a->latitude/1000/180*M_PI;
-    x2 = b->longitude/1000/180*M_PI;
-    y2 = b->latitude/1000/180*M_PI;
-    
-    res = (u32)(r* acos( cos(y2) * cos(y1) *cos(x2-x1) + sin(y2) *sin(y1)));
-    return res;
-}
+result get_current_location(two_d_location *td_location);
+u32 distance_with_two_d_location(two_d_location* a,two_d_location* b);
 
 //提取wsa中的serviceinfo
 struct service_info{

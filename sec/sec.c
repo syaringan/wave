@@ -1605,7 +1605,7 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
                             struct time32_array *next_expected_crl_times,
                             certificate* send_cert){
 
-    result res = SUCCESS;
+    result res = SUCCESS,res_temp;
 
     struct certificate_chain  certs_chain,temp_certs_chain;
     struct cme_permissions_array permissions;
@@ -1942,7 +1942,12 @@ next:
          goto end;
     }
     if( detect_reply){
-        if( REPLAY ==  cme_reply_detection(sdb,lsis,&string) ){
+        res_temp = cme_reply_detection(sdb,lsis,&string);
+        if(res_temp == FAILURE){
+            res = FAILURE;
+            goto end;
+        }
+        if( REPLAY ==  res_temp ){
             res = REPLAY;
         }
     }
@@ -3710,18 +3715,333 @@ result sec_decrypt_data(struct sec_db* sdb,string* encrypted_data,cmh cmh,
     result res = SUCCESS;
     struct encrypted_data encrypteddata;
     struct recipient_info* recinfo;
+    struct certificate cert;
+    struct hashedid8 hashed;
+    struct tobe_encrypted tobe_en;
+    string encrypted_key,ephe_x,ephe_y,tag,prikey,decrypted_key,ciphertext,nonce,plaintext;
     int i;
+
     INIT(encrypteddata);
+    INIT(tobe_en);
+    INIT(cert);
+    INIT(encrypted_key);
+    INIT(ephe_x);
+    INIT(ephe_y);
+    INIT(tag);
+    INIT(prikey);
+    INIT(decrypted_key);
+    INIT(ciphertext);
+    INIT(nonce);
+    INIT(plaintext);
 
     if(string_2_encrypted_data(encrypted_data,&encrypteddata)){
         res = -1;
         goto end;
     }
+    if( find_cert_prikey_by_cmh(sdb,cmh,&cert,&prikey)){
+        wave_error_printf("查找失败 这里按照协议我应该查找\
+cmh存储的是证书和cmh存储的一对钥匙 但是我只做了前者的茶学%s %d",__FILE__,__LINE__);
+        res = -1;
+        goto end;
+    }
+    if(certificate_2_hashedid8(&cert,&hashed)){
+        res = -1;
+        goto end;
+    }
     for(i=0;i<encrypteddata.recipients.len;i++){
         recinfo = encrypteddata.recipients.buf+i;
-
+        if(hashedid8_cmp(&recinfo->cert_id,&hashed) == 0){
+            if(cert.unsigned_certificate.cf & ENCRYPTION_KEY){
+                if(encrypteddata.symm_algorithm != cert.unsigned_certificate.flags_content.encryption_key.u.ecies_nistp256.supported_symm_alg){
+                    continue;
+                }
+                break;
+            }
+        }
     }
+    if(i == encrypteddata.recipients.len){
+        res = NO_DECRYPTION_CERTIFICATE_FOUND;
+        goto end;
+    }
+    if(cert.unsigned_certificate.flags_content.encryption_key.algorithm != ECIES_NISTP256){
+        wave_error_printf("不是我们支持的ECIES——256 %s %d",__FILE__,__LINE__);
+        res = -1;
+        goto end;
+    }
+    encrypted_key.len = recinfo->u.enc_key.c.len;
+    tag.len = 20;
+    if( elliptic_curve_point_2_uncompressed(ECIES_NISTP256,&recinfo->u.enc_key.v,&ephe_x,&ephe_y)){
+        res = -1;
+        goto end;
+    }
+    encrypted_key.buf = (u8*)malloc(encrypted_key.len);
+    tag.buf = (u8*)malloc(tag.len);
+    if(encrypted_key.buf == NULL || tag.buf == NULL){
+        res = -1;
+        wave_malloc_error();
+        goto end;
+    }
+    memcpy(encrypted_key.buf,recinfo->u.enc_key.c.buf,encrypted_key.len);
+    memcpy(tag.buf,recinfo->u.enc_key.t,tag.len);
+
+    if( crypto_ECIES_decrypto_message(&encrypted_key,&ephe_x,&ephe_y,&tag,&prikey,&decrypted_key)){
+        res = -1;
+        goto end;
+    }
+    if(encrypteddata.symm_algorithm != AES_128_CCM){
+        res = -1;
+        wave_error_printf("出现了不支持的协议 %s %d",__FILE__,__LINE__);
+        goto end;
+    }
+    ciphertext.len = encrypteddata.u.ciphertext.ccm_ciphertext.len;
+    nonce.len = 12;
+    ciphertext.buf = (u8*)malloc(ciphertext.len);
+    nonce.buf = (u8*)malloc(nonce.len);
+    if(ciphertext.buf == NULL || nonce.buf == NULL){
+        wave_malloc_error();
+        res = -1;
+        goto end;
+    }
+    memcpy(nonce.buf,encrypteddata.u.ciphertext.nonce,nonce.len);
+    memcpy(ciphertext.buf,encrypteddata.u.ciphertext.ccm_ciphertext.buf,ciphertext.len);
+
+
+    if( crypto_AES_128_CCM_decrypto_message(&ciphertext,&decrypted_key,&nonce,&plaintext)){
+        res = -1;
+        goto end;
+    }
+    if(string_2_tobe_encrypted(&plaintext,&tobe_en)){
+        res = -1;
+        goto end;
+    }
+    if(type != NULL){
+        *type = tobe_en.type;
+    }
+    if(data != NULL){
+        string_cpy(data,&plaintext);
+    }
+    goto end;
+
 end:
     encrypted_data_free(&encrypted_data);
+    tobe_encrypted_free(&tobe_en);
+    certificate_free(&cert);
+    string_free(&encrypted_key);
+    string_free(&ephe_x);
+    string_free(&ephe_y);
+    string_free(&tag);
+    string_free(&prikey);
+    string_free(&decrypted_key);
+    string_free(&ciphertext);
+    string_free(&nonce);
+    string_free(&plaintext);
+    return res;
+}
+result sec_certificate_request_error_verification(struct sec_db* sdb,tobe_encrypted_certificate_request_error* cert_req_error){
+    result res = SUCCESS;
+    struct certificate_chain chain,temp_certs_chain;
+    struct cme_permissions_array permissions;
+    struct geographic_region_array geoscopes;
+    struct time32_array last_crl,next_crl;
+    struct verified_array verified;
+    enum identifier_type type;
+    string identifier,digest;
+    time_t t;
+    int i; 
+
+    INIT(chain);
+    INIT(temp_certs_chain);
+    INIT(permissions);
+    INIT(geoscopes);
+    INIT(last_crl);
+    INIT(next_crl);
+    INIT(verified);
+    INIT(identifier);
+    INIT(digest);
+
+    if(cert_req_error->signer.type == CERTIFICATE_DIGEST_WITH_ECDSAP224){
+        res = INVAILD_CA_SIGNATURE_ALGORITHM;
+        goto end;
+    }
+    if(cert_req_error->signer.type == CERTIFICATE_DIGEST_WITH_ECDSAP256){
+        type = ID_HASHEDID8;
+        hashedid8_2_string(&cert_req_error->signer.u.digest,&identifier);
+        res = cme_construct_certificate_chain(sdb,type,&identifier,NULL,false,255,&chain,&permissions,&geoscopes,&last_crl,&next_crl,&verified);
+    }
+    else if(cert_req_error->signer.type == CERTIFICATE){
+        type = ID_CERTIFICATE;
+        temp_certs_chain.len = 1;
+        if( temp_certs_chain.certs = (certificate*)malloc(sizeof(certificate) * 1)){
+            wave_malloc_error();
+            res = FAILURE;
+            goto end;
+        }
+        certificate_cpy(temp_certs_chain.certs,&cert_req_error->signer.u.certificate);
+        res = cme_construct_certificate_chain(sdb,type,NULL,&temp_certs_chain,false,255,&chain,&permissions,
+                   &geoscopes,&last_crl,&next_crl,&verified);
+
+    }
+    else if(cert_req_error->signer.type == CERTIFICATE_CHAIN){
+        type = ID_CERTIFICATE;
+        temp_certs_chain.len = cert_req_error->signer.u.certificates.len;
+        if( temp_certs_chain.certs = (certificate*)malloc(sizeof(certificate) * temp_certs_chain.len)){
+            wave_malloc_error();
+            res = FAILURE;
+            goto end;
+        }
+        for(i = 0;i<temp_certs_chain.len;i++){
+            certificate_cpy(temp_certs_chain.certs+i,cert_req_error->signer.u.certificates.buf+i);
+        }
+        res = cme_construct_certificate_chain(sdb,type,NULL,&temp_certs_chain,false,255,&chain,&permissions,
+                   &geoscopes,&last_crl,&next_crl,&verified);
+
+    }
+    else{
+        wave_error_printf("出现了不可能的指 %s %d",__FILE__,__LINE__);
+        res = -1;
+        goto end;
+    }
+    time(&t);
+    for(i=0;i<next_crl.len;i++){
+        if(*(next_crl.times+i) < t){
+            res = OVERDUE_CRL;
+            goto end;
+        }
+    }
+    if( (res = sec_check_certificate_chain_consistency(sdb,&chain,&permissions,&geoscopes)) ){
+        goto end;
+    }
+    //这个地方我们求digest我不知道求对没有，，请核实哈
+    digest.len = 10 + 1;
+    digest.buf = (u8*)malloc(digest.len);
+    if(digest.buf == NULL){
+        wave_malloc_error();
+        res = -1;
+        goto end;
+    }
+    memcpy(digest.buf,cert_req_error->request_hash,10);
+    *(digest.buf + 10) = (u8)cert_req_error->reason;
+    
+
+    res = sec_verify_chain_signature(sdb,&chain,&verified,&digest,&cert_req_error->signature);
+    goto end;
+end:
+    certificate_chain_free(&chain);
+    certificate_chain_free(&temp_certs_chain);
+    cme_permissions_array_free(&permissions);
+    geographic_region_array_free(&geoscopes);
+    time32_array_free(&last_crl);time32_array_free(&next_crl);
+    verified_array_free(&verified);
+    string_free(&identifier);
+    string_free(&digest);
+    return res;
+}
+result sec_certificate_response_verification(struct sec_db* sdb,tobe_encrypted_certificate_response* cert_resp){
+    result res = SUCCESS;
+    struct certificate_chain chain,temp_certs_chain;
+    struct cme_permissions_array permissions;
+    struct geographic_region_array geoscopes;
+    struct time32_array last_crl,next_crl;
+    struct verified_array verified;
+    struct crl *crl;
+    string temp;
+    time_t t;
+    int i;
+    
+    INIT(chain);
+    INIT(temp_certs_chain);
+    INIT(permissions);
+    INIT(geoscopes);
+    INIT(last_crl);
+    INIT(next_crl);
+    INIT(verified);
+    INIT(temp);
+
+    for(i=0;i<cert_resp->crl_path.len;i++){
+        crl = cert_resp->crl_path.buf+i;
+        string_free(&temp);
+        if(crl_2_string(crl,&temp)){
+            res = -1;
+            goto end;
+        }
+        res = sec_crl_verification(sdb,&temp,0,NULL,NULL,NULL);
+        if(res != SUCCESS)
+            goto end;
+        cme_add_crlinfo(sdb,crl->unsigned_crl.type,crl->unsigned_crl.crl_series,&crl->unsigned_crl.ca_id,crl->unsigned_crl.crl_serial,
+                            crl->unsigned_crl.start_period,crl->unsigned_crl.issue_date,crl->unsigned_crl.next_crl);
+    }
+    
+    temp_certs_chain.len = cert_resp->certificate_chain.len;
+    if( temp_certs_chain.certs = (certificate*)malloc(sizeof(certificate) * temp_certs_chain.len)){
+        wave_malloc_error();
+        res = -1;
+        goto end;
+    }
+    for(i = 0;i<temp_certs_chain.len;i++){
+        certificate_cpy(temp_certs_chain.certs+i,cert_resp->certificate_chain.buf+i);
+    }
+    res = cme_construct_certificate_chain(sdb,ID_CERTIFICATE,NULL,&temp_certs_chain,false,255,&chain,&permissions,
+                &geoscopes,&last_crl,&next_crl,&verified);
+    if(res != SUCCESS)
+        goto end;
+
+    time(&t);
+    for(i=0;i<next_crl.len;i++){
+        if(*(next_crl.times+i) < t){
+            res = OVERDUE_CRL;
+            goto end;
+        }
+    }
+    
+    if( (res = sec_check_certificate_chain_consistency(sdb,&chain,&permissions,&geoscopes)) ){
+        goto end;
+    }
+    /*********以下的请看协议，我不是很确定****************/
+    for(i=0;i<cert_resp->crl_path.len;i++){
+        crl = cert_resp->crl_path.buf+i;
+        //这里这个证书连第一个应该是我们申请的把。。。
+        if(hashedid8_cmp(&crl->unsigned_crl.ca_id,&cert_resp->certificate_chain.buf->unsigned_certificate.u.no_root_ca.signer_id)){
+            if(crl->unsigned_crl.crl_series == cert_resp->certificate_chain.buf->unsigned_certificate.crl_series){
+                break;
+            }
+        }
+    }
+    if(i == cert_resp->crl_path.len){
+        res = NO_RELEVANT_CRL_PROVIDED;
+        goto end;
+    }
+    /************************************/
+    /*********接下来的我感觉协议有些出入，自己按照自己的逻辑做的************/
+    res = sec_verify_chain_signature(sdb,&chain,&verified,NULL,NULL);
+    goto end; 
+end:
+    certificate_chain_free(&chain);
+    cme_permissions_array_free(&permissions);
+    geographic_region_array_free(&geoscopes);
+    time32_array_free(&last_crl);
+    time32_array_free(&next_crl);
+    verified_array_free(&verified);
+    string_free(&temp);
+    certificate_chain_free(&temp_certs_chain);
+    return res;
+}
+result get_current_location(two_d_location *td_location){
+    if(td_location == NULL)
+        return -1;
+    td_location->latitude = 0;
+    td_location->longitude = 0;
+    return 0;
+}
+
+u32 distance_with_two_d_location(two_d_location* a,two_d_location* b){
+    double r = 6371000;
+    double x1,y1,x2,y2;
+    u32 res;
+    x1 = a->longitude/1000/180*M_PI;
+    y1 = a->latitude/1000/180*M_PI;
+    x2 = b->longitude/1000/180*M_PI;
+    y2 = b->latitude/1000/180*M_PI;
+    
+    res = (u32)(r* acos( cos(y2) * cos(y1) *cos(x2-x1) + sin(y2) *sin(y1)));
     return res;
 }
