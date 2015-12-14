@@ -9,8 +9,9 @@ enum{
   MSG_DEBUG,MSG_INFO,MSG_WARNING,MSG_ERROR  
 };
 
+#define DEBUG
 #ifdef DEBUG
-extern int wave_debug_level;
+//extern int wave_debug_level;
 void wave_printf(int level,const char *fmt,...);
 void wave_printf_fl(int level,const char* fmt,...);
 void wave_error_printf(const char*fmt,...);

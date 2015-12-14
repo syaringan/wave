@@ -117,6 +117,7 @@ void inline cert_info_free(struct cert_info* certinfo);
 int cme_db_2_file(struct cme_db *cdb,char *name);
 int file_2_cme_db(struct cme_db *cdb,char *name);
 int cme_db_init(struct cme_db *cdb);
+int cme_db_empty(struct cme_db *cdb);
 void cme_lsis_insert(struct cme_db* cdb,struct cme_alloced_lsis* lsis);
 void cme_cmh_init_insert(struct cme_db* cdb,struct cmh_chain* cmh);
 void cert_info_init_rb(struct cert_info* certinfo);

@@ -7,7 +7,7 @@
 #include "cmp/cmp.h"
 #include "cme/cme.h"
 #include "pssme/pssme.h"
-
+#include <signal.h>
 
 #define SERVICE "/var/tmp/wave_sec.socket"
 #define CME_DB_CONFIG "/var/tmp/cme_db.config"
@@ -288,8 +288,8 @@ destructor:
 static void* app_do_request(void *ptr){
     int fd = *((int*)ptr);
     struct sec_db* sdb = &sec_db;
-    
-
+    do_client_request(sdb,fd);
+    return NULL;
 };
 static int app_start(struct sec_db* sdb){
     int fd,serve_fd;
@@ -335,13 +335,34 @@ static int inline init_wme_pthread_attr_t(pthread_attr_t* attr){
         return -1;
     return 0;
 }
-static struct sec_db* init_sec_db(){
-    pssme_db_init(&sec_db.pssme_db);
-    if( file_2_pdb(&sec_db.pssme_db,PSSME_DB_CONFIG))
+struct sec_db* init_sec_db(){
+    if( pssme_db_init(&sec_db.pssme_db)){
+        wave_error_printf("pssme_db init 失败  %s %d",__FILE__,__LINE__);
         return NULL;
-    cme_db_init(&sec_db.cme_db);
-    if( file_2_cme_db(&sec_db.cme_db,CME_DB_CONFIG))
+    }
+    if( file_2_pdb(&sec_db.pssme_db,PSSME_DB_CONFIG)){
+        wave_printf(MSG_WARNING,"没有配置文件,或者配置文件格式不对，这里我们生成一个空的pssme_db");
+        pssme_db_free(&sec_db.pssme_db);
+        if( pssme_db_empty_init(&sec_db.pssme_db)){
+            wave_error_printf("pssme_db_empty init 失败  %s %d",__FILE__,__LINE__);
+            return NULL;
+        }
+    }
+    wave_printf(MSG_INFO,"初始化完成 pssme_db");
+    if( cme_db_init(&sec_db.cme_db) ){
+        wave_error_printf("cme_db_init 失败  %s %d",__FILE__,__LINE__);
         return NULL;
+    }
+    wave_printf(MSG_DEBUG,"完成cme_db init");
+    if( file_2_cme_db(&sec_db.cme_db,CME_DB_CONFIG)){
+        wave_printf(MSG_WARNING,"没有配置文件，或者配置文件格式部队  这里我们生成一个空的cme_db");
+        cme_db_free(&sec_db.cme_db);
+        if( cme_db_empty_init(&sec_db.cme_db)){
+            wave_error_printf("pssme_db_empty init 失败  %s %d",__FILE__,__LINE__);
+            return NULL;
+        }
+    }
+    wave_printf(MSG_INFO,"初始化完成 cme_db");
     return &sec_db;
 }
 
@@ -367,27 +388,61 @@ int wave_cmp_start(struct sec_db* sdb){
     return 0;
 }
 void wave_exit_fun(){
+    wave_printf(MSG_INFO,"正在写入文件");
     pdb_2_file(&sec_db.pssme_db,PSSME_DB_CONFIG);
     cme_db_2_file(&sec_db.cme_db,CME_DB_CONFIG);
     cmp_end();
 }
+static void kill_handle(int signo){
+    exit(0);
+}
 int wave_start(){
     struct sec_db* sdb;
     int res;
+    wave_printf(MSG_INFO,"开始初始化sec_db ****************");
     sdb = init_sec_db();
     if(sdb == NULL){
+        wave_error_printf("初始化sec_db失败 ");
         return -1;
     }
+    /*******
+    pdb_2_file(&sec_db.pssme_db,PSSME_DB_CONFIG);
+    cme_db_2_file(&sec_db.cme_db,CME_DB_CONFIG);
+    wave_printf(MSG_INFO,"写入文件成功");
+    sdb = init_sec_db();
+    if(sdb == NULL){
+        wave_error_printf("初始化sec_db失败 ");
+        return -1;
+    }
+    *******/
+    wave_printf(MSG_INFO,"初始化sec_db 完成 **************");
+
     if(atexit(wave_exit_fun)){
         wave_error_printf("注册退出程序失败");
         return -1;
     }
-    if(wme_serv_start(sdb))
+    if(signal(SIGTERM,kill_handle) == SIG_ERR){
+        wave_error_printf("kill信号处理注册失败");
         return -1;
-    if(wave_cmp_start(sdb))
+    }
+    wave_printf(MSG_INFO,"kill处理函数 和 退出函数 完成");
+
+    if(wme_serv_start(sdb)){
+        wave_error_printf("wme_serv_start 失败");
         return -1;
-    if( app_start(sdb))
+    }
+    wave_error_printf("wme_serv_start 成功");
+
+    if(wave_cmp_start(sdb)){
+        wave_error_printf("wave_cmp 启动失败");
         return -1;
+    }
+    wave_error_printf("wave_cmp 启动成功");
+    if( app_start(sdb)){
+        wave_error_printf("wave_app 启动失败");
+        return -1;
+    }
+    wave_error_printf("wave_app 启动成功");
     return 0;
 }
 

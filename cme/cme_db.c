@@ -257,6 +257,27 @@ void cme_db_free(struct cme_db* cdb){
     lock_destroy(&cdb->lock);
 }
 int cme_db_init(struct cme_db *cdb){
+    if(cdb == NULL){
+        wave_error_printf("传入参数有问题  %s %d",__FILE__,__LINE__);
+        return -1;
+    }
+    cdb->certs = NULL;
+    INIT_LIST_HEAD(&cdb->crls.list);
+    lock_init(&cdb->lock);
+    
+    INIT_LIST_HEAD(&cdb->lsises.alloced_lsis.list);
+    INIT_LIST_HEAD(&cdb->lsises.lsises.list);
+    INIT_LIST_HEAD(&cdb->cmhs.alloc_cmhs.cmh_init.list);
+    INIT_LIST_HEAD(&cdb->cmhs.alloc_cmhs.cmh_keys.list);
+    cdb->cmhs.alloc_cmhs.cmh_key_cert = NULL;
+    INIT_LIST_HEAD(&cdb->cmhs.cmh_chain.list); 
+    return 0;
+}
+int cme_db_empty_init(struct cme_db *cdb){
+    if(cdb == NULL){
+        wave_error_printf("传入参数有问题  %s %d",__FILE__,__LINE__);
+        return -1;
+    }
     struct cme_lsis_chain* lsis_node;
     struct cmh_chain* cmh_node;
     int i;
@@ -280,7 +301,8 @@ int cme_db_init(struct cme_db *cdb){
     INIT_LIST_HEAD(&cdb->cmhs.alloc_cmhs.cmh_init.list);
     INIT_LIST_HEAD(&cdb->cmhs.alloc_cmhs.cmh_keys.list);
     cdb->cmhs.alloc_cmhs.cmh_key_cert = NULL;
-    
+   
+    INIT_LIST_HEAD(&cdb->cmhs.cmh_chain.list); 
     for(i=1;i<=CMH_MAX_NUM;i++){
         if( (cmh_node = (struct cmh_chain*)malloc(sizeof(struct cmh_chain))) == NULL){
             wave_malloc_error();
@@ -594,6 +616,7 @@ static int certs_2_file(struct cme_db *cdb,FILE *fp){
     struct cert_info *cinfo; 
     char buf = 0;
     cinfo = cdb->certs;
+    wave_printf(MSG_DEBUG,"certs_2_file    ");
     while(cinfo != NULL){
         cdb->certs = cert_info_delete(cdb->certs,cinfo);
         if( cert_info_2_file(cinfo,fp)){
@@ -1025,15 +1048,15 @@ static void cert_info_init(struct cert_info* cinfo){
     cert_info_init_rb(cinfo);
 }
 static int file_2_certs(struct cme_db* cdb,FILE* fp){
-    struct cert_info *cinfo;
+    struct cert_info *cinfo=NULL;
     char end = 0;
     char flag;
     int res = 0;
-
     if( fread(&flag,sizeof(flag),1,fp) != 1){
         wave_error_printf("读文件失败 %s %d",__FILE__,__LINE__);
         return -1;
     }
+    wave_printf(MSG_DEBUG,"flag %d",flag);
     while(flag != end){
         fseek(fp,-sizeof(flag),SEEK_CUR);
         cinfo = (struct cert_info*)malloc(sizeof(struct cert_info));
@@ -1048,6 +1071,10 @@ static int file_2_certs(struct cme_db* cdb,FILE* fp){
             goto end;
         }
         cdb->certs =  cert_info_insert(cdb->certs,cinfo);
+        if( fread(&flag,sizeof(flag),1,fp) != 1){
+            wave_error_printf("读文件失败 %s %d",__FILE__,__LINE__);
+            return -1;
+        }
     }
     goto end;
 end:
@@ -1061,12 +1088,13 @@ int file_2_cme_db(struct cme_db *cdb,char *name){
     FILE *fp;
     fp = fopen(name,"r");
     if(fp == NULL){
-        wave_error_printf("文件打开失败 %s %d",__FILE__,__LINE__);
+        wave_error_printf("%s 文件打开失败 %s %d",name,__FILE__,__LINE__);
         return -1;
     }
     lock_wrlock(&cdb->lock);
     if( file_2_certs(cdb,fp))
         goto fail;
+    wave_printf(MSG_DEBUG,"2_certs 完成 %s %d",__FILE__,__LINE__);
     if( file_2_crls(cdb,fp))
         goto fail;
     if( file_2_lsises(cdb,fp))

@@ -694,7 +694,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
                 }
                 break;
             case INHERITED_NOT_FOUND:
-                wave_printf("权限类型为继承");
+                wave_error_printf("权限类型为继承");
                 break;
             default:
                 wave_error_printf("错误的permission type");
@@ -721,7 +721,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
             case NONE:
                 break;
             case FROM_ISSUER:
-                wave_printf("region type为继承");
+                wave_printf(MSG_WARNING,"region type为继承");
                 break;
             default:
                 wave_error_printf("错误的region type");

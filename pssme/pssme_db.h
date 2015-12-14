@@ -68,7 +68,8 @@ static void inline pssme_psid_priority_ssp_chain_free(struct pssme_psid_priority
 }
 int file_2_pdb(struct pssme_db* pdb,char *name);
 int pdb_2_file(struct pssme_db* pdb,char *name);
-void psme_db_init(struct pssme_db* pdb);
+int psme_db_init(struct pssme_db* pdb);
+int pssme_db_empty_init(struct pssme_db* pdb);
 void pssme_db_free(struct pssme_db* pdb);
 
 

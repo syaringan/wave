@@ -10,6 +10,7 @@
 #include "data/data_handle.h"
 
 #define CERTICATE_BUF_LEN 1024
+#define PSSME_LSIS_MAX_NUM 1024
 int plchain_2_file(struct pssme_lsis_chain *plchain, FILE *fd){
     struct list_head *head;
     struct pssme_lsis_chain* plchain_temp;
@@ -216,7 +217,7 @@ int pdb_2_file(struct pssme_db* pdb,char* name)
     FILE *fd;
     fd = fopen(name,"w");
     if(fd == NULL){
-		printf("Open File Error!\n");
+		wave_error_printf("打开文件%s 失败!",name);
 		return -1;
 	}
 
@@ -368,7 +369,7 @@ int file_2_prc(struct pssme_receive_cert *prc, FILE *fd){
         wave_malloc_error();
         return -1;
     }
-    if( fwrite(&len,sizeof(len),1,fd) != 1){
+    if( fread(&len,sizeof(len),1,fd) != 1){
         wave_error_printf("写入文件错误 %s %d",__FILE__,__LINE__);
         return -1;
     }
@@ -477,7 +478,7 @@ int file_2_pdb(struct pssme_db *pdb, char *name)
 	FILE* fd = fopen(name, "r");            //以只读方式打开
 
 	if(fd == NULL){
-		printf("file_2_db Open File Error!\n");
+		wave_error_printf("%s 文件打开失败!",name);
 		return -1;
 	}
 
@@ -598,7 +599,19 @@ void pssme_db_free(struct pssme_db* pdb){
     pssme_cert_db_free(&pdb->cert_db);
     pssme_lsis_db_free(&pdb->lsis_db);
 }
-void pssme_db_init(struct pssme_db* pdb){
+int pssme_db_init(struct pssme_db* pdb){
+    if(pdb == NULL)
+        return -1;
+    lock_init(&pdb->lock);
+    INIT_LIST_HEAD(&pdb->cert_db.local_cert.list);
+    INIT_LIST_HEAD(&pdb->cert_db.receive_cert.list);
+    INIT_LIST_HEAD(&pdb->lsis_db.alloc_lsis.list);
+    INIT_LIST_HEAD(&pdb->lsis_db.lsises.list);
+    return 0;
+}
+int pssme_db_empty_init(struct pssme_db* pdb){
+    int i;
+    struct pssme_lsis_chain *lsis;
     if(pdb == NULL)
         return;
     lock_init(&pdb->lock);
@@ -606,4 +619,16 @@ void pssme_db_init(struct pssme_db* pdb){
     INIT_LIST_HEAD(&pdb->cert_db.receive_cert.list);
     INIT_LIST_HEAD(&pdb->lsis_db.alloc_lsis.list);
     INIT_LIST_HEAD(&pdb->lsis_db.lsises.list);
+
+    for(i=1;i<PSSME_LSIS_MAX_NUM;i++){
+        lsis = (struct pssme_lsis_chain*)malloc(sizeof(struct pssme_lsis_chain));
+        if(lsis == NULL){
+            wave_malloc_error();
+            pssme_db_free(pdb);
+            return -1;
+        }            
+        lsis->lsis = i;
+        list_add_tail(&lsis->list,&pdb->lsis_db.lsises.list);
+    }
+    return 0;
 }

@@ -158,8 +158,8 @@ int certificate_2_hash8(struct certificate *cert,string *hash8){
     }
     //什么是低字节，这个地方是低字节嘛
     memcpy(hash8->buf,hashed.buf+hashed.len-8,8);
-    wave_printf(MSG_DEBUG,"证书hash出来的低八字杰为：HASHEDID8_FORMAT",hash8.buf[0],hash8.buf[1],hash8.buf[2],hash8.buf[3],
-                hash8.buf[4],hash8.buf[5],hash8.buf[6],hash8.buf[7]);
+    wave_printf(MSG_DEBUG,"证书hash出来的低八字杰为：HASHEDID8_FORMAT",hash8->buf[0],hash8->buf[1],hash8->buf[2],hash8->buf[3],
+                hash8->buf[4],hash8->buf[5],hash8->buf[6],hash8->buf[7]);
     string_free(&c);
     string_free(&hashed);
     return 0;

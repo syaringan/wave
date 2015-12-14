@@ -184,15 +184,18 @@ static int crl_req_time_2_file(struct crl_req_time* ptr,FILE* fd){
 }
 static int crl_req_time_list_2_file(struct cmp_db* cmdb,FILE* fd){
     struct list_head *head;
-    struct crl_req_time* ptr;
+    struct crl_req_time *ptr;
     int len = 0; 
     head = &cmdb->crl_time.list;
+    //wave_printf(MSG_INFO,"准备写入crl_req_time_list_2_file %p %p",head,head->next);
     list_for_each_entry(ptr,head,list)
         len++;
+    //wave_printf(MSG_INFO,"cmp crl_req_time_list 长为 %d ",len);
     if( fwrite(&len,sizeof(len),1,fd) != 1){
         wave_error_printf("写入文件错误 %s %d",__FILE__,__LINE__);
         return -1;
     }
+    wave_printf(MSG_INFO,"写入了list的长度  %d ",len);
     list_for_each_entry(ptr,head,list){
         if( ( crl_req_time_2_file(ptr,fd)) < 0){
             return -1;
@@ -216,7 +219,6 @@ static void cmp_db_2_file(struct cmp_db* cmdb,const char* name){
         goto fail;
     if( cert_2_file(cmdb,fd) < 0)
         goto fail;
-    fclose(fd);
 fail:
     fclose(fd);
 }
@@ -364,7 +366,7 @@ static int file_2_crl_req_time(struct crl_req_time* ptr,FILE* fd){
             fread(&ptr->issuer,sizeof(ptr->issuer),1,fd) != 1 ||
             fread(&ptr->crl_series,sizeof(ptr->crl_series),1,fd) != 1||
             fread(&ptr->issue_date,sizeof(ptr->issue_date),1,fd) != 1){
-        wave_error_printf("写入文件有错误 %s %d",__FILE__,__LINE__);
+        wave_error_printf("读取文件有错误 %s %d",__FILE__,__LINE__);
         return -1;
     }
     return 0;
@@ -376,8 +378,8 @@ static int file_2_crl_req_time_list(struct cmp_db* cmdb,FILE* fd){
     struct crl_req_time* ptr;
     
     head = &cmdb->crl_time.list;
-    if( fwrite(&len,sizeof(len),1,fd) != 1){
-        wave_error_printf("写入文件错误 %s %d",__FILE__,__LINE__);
+    if( fread(&len,sizeof(len),1,fd) != 1){
+        wave_error_printf("读取文件错误 %s %d",__FILE__,__LINE__);
         return -1;
     }
     for(i=0;i<len;i++){
@@ -398,10 +400,10 @@ static int file_2_crl_req_time_list(struct cmp_db* cmdb,FILE* fd){
 static int file_2_cmp_db(struct cmp_db* cmdb,const char* name){
     FILE* fd;
     if( (fd = fopen(name,"r"))  == NULL){
-        wave_error_printf("文件 %s 打开失败\n",name);
-        fclose(fd);
+        wave_error_printf("文件 %s 打开失败",name);
         return -2;
     }
+    wave_printf(MSG_INFO,"文件打开  %s",name);
     if( file_2_crl_req_time_list(cmdb,fd) ||
             file_2_crl_cert(cmdb,fd) ||
             file_2_lsis_array(cmdb,fd) ||
@@ -491,20 +493,28 @@ void cmp_do_certificate_applycation(){
     pending_certificate_request(cmdb);
 }
 
-u32 cmp_init(){
+int cmp_init(){
     int res;
     cmdb = (struct cmp_db*)malloc(sizeof(struct cmp_db));
-    if(cmdb == NULL)
+    if(cmdb == NULL){
+        wave_malloc_error();
         return -1;
-    INIT(cmdb);
+    }
+    INIT(*cmdb);
     cmdb->pending = 0;
     pthread_mutex_init(&cmdb->lock,NULL);
     INIT_LIST_HEAD(&cmdb->crl_time.list);
-
+     /************
+    cmp_end();
+    wave_printf(MSG_INFO,"cmp 写入文件成功");
+  //  file_2_cmp_db(cmdb,"./cmp_db.txt");
+   // wave_printf(MSG_INFO,"cmp 从文件写回");
+    *********/
     res = file_2_cmp_db(cmdb,"./cmp_db.txt");
     if( res ){
         return file_2_cmp_db(cmdb,"./cmp_db.init");
     }
+   
     return res;
 }
 void cmp_end(){

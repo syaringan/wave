@@ -3621,7 +3621,7 @@ result sec_verify_chain_signature(struct sec_db* sdb,
         if(verified_array->verified[i] == false && cert_chain->certs[i].version_and_type == 2){
             //调用crypto++的函数来验证
             if(i == cert_chain->len - 1){
-                wave_printf("这里应该怎么弄？？，我直接认为头都不被信任 返回错误 %s %d",__FILE__,__LINE__);
+                wave_printf(MSG_ERROR,"这里应该怎么弄？？，我直接认为头都不被信任 返回错误 %s %d",__FILE__,__LINE__);
                 res = CERTIFICATE_VERIFICATION_FAILED;
                 goto end;
             }

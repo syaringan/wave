@@ -3,77 +3,8 @@
 #include"cme/cme.h"
 #include"sec/sec.h"
 
-#define ERROR_PRINTF(n) printf("n %s %d",__FILE__,__LINE__)
-
-int do_client_request(struct sec_db* sdb,int fd)
-{
-    int len = sizeof(app_tag);
-    char* buf = (char*)malloc(len);
-    if(buf == NULL){
-        ERROR_PRINTF("内存分配失败");
-        return -1;
-    }
-
-    int slen = 0;
-    int len_r = 0;
-    while(slen != len){
-        len_r = read(fd,buf+slen,len-slen);
-        if(len_r <= 0){
-            ERROR_PRINTF("读取失败");
-            free(buf);
-            return -1;
-        }
-        slen += len_r;
-    }
-
-    app_tag tag = *((app_tag*)buf);
-    free(buf);
-
-    switch(tag){
-        case CME_LSIS_REQUEST:
-            if(do_cme_lsis_request(sdb,fd) < 0)
-                return -1;
-            break;
-        case CME_CMH_REQUEST:
-            if(do_cme_cmh_request(sdb,fd) < 0)
-                return -1;
-            break;
-        case CME_GENERATE_KEYPARI:
-            if(do_cme_generate_keypair(sdb,fd) < 0)
-                return -1;
-            break;
-        case CME_STORE_CERT:
-            if(do_cme_store_cert(sdb,fd) < 0)
-                return -1;
-            break;
-        case CME_STORE_CERT_KEY:
-            if(do_cme_store_cert_key(sdb,fd) < 0)
-                return -1;
-            break;
-        case SEC_SIGNED_DATA:
-            if(do_sec_signed_data(sdb,fd) < 0)
-                return -1;
-            break;
-        case SEC_ENCRYPTED_DATA:
-            if(do_sec_encrypted_data(sdb,fd) < 0)
-                return -1;
-            break;
-        case SEC_SECURE_DATA_CONTENT_EXTRATION:
-            if(do_sec_secure_data_content_extration(sdb,fd) < 0)
-                return -1;
-            break;
-        case SEC_SIGNED_DATA_VERIFICATION:
-            if(do_sec_signed_data_verification(sdb,fd) < 0)
-                return -1;
-            break;
-        default:
-            ERROR_PRINTF("tag错误");
-            return -1;
-    }
-
-    return 0;
-}
-
+#define ERROR_PRINTF(n) wave_error_printf("n %s %d",__FILE__,__LINE__)
+#define INIT(n) memset(&n,0,sizeof(n))
 
 static int do_cme_lsis_request(struct sec_db* sdb,int fd)
 {
@@ -1280,4 +1211,92 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     return -1;
 }
 
+int do_client_request(struct sec_db* sdb,int fd){
+    int len = sizeof(app_tag);
+    char* buf = (char*)malloc(len);
+    if(buf == NULL){
+        ERROR_PRINTF("内存分配失败");
+        close(fd);
+        return -1;
+    }
+
+    int slen = 0;
+    int len_r = 0;
+    while(slen != len){
+        len_r = read(fd,buf+slen,len-slen);
+        if(len_r <= 0){
+            ERROR_PRINTF("读取失败");
+            free(buf);
+            close(fd);
+            return -1;
+        }
+        slen += len_r;
+    }
+
+    app_tag tag = *((app_tag*)buf);
+    free(buf);
+
+    switch(tag){
+        case CME_LSIS_REQUEST:
+            if(do_cme_lsis_request(sdb,fd) < 0){
+                close(fd);
+                return -1;
+            }
+            break;
+        case CME_CMH_REQUEST:
+            if(do_cme_cmh_request(sdb,fd) < 0){
+                close(fd);
+                return -1;
+            }
+            break;
+        case CME_GENERATE_KEYPARI:
+            if(do_cme_generate_keypair(sdb,fd) < 0){
+                close(fd);
+                return -1;
+            }
+            break;
+        case CME_STORE_CERT:
+            if(do_cme_store_cert(sdb,fd) < 0){
+                close(fd);
+                return -1;
+            }
+            break;
+        case CME_STORE_CERT_KEY:
+            if(do_cme_store_cert_key(sdb,fd) < 0){
+                close(fd);
+                return -1;
+            }
+            break;
+        case SEC_SIGNED_DATA:
+            if(do_sec_signed_data(sdb,fd) < 0){
+                close(fd);
+                return -1;
+            }
+            break;
+        case SEC_ENCRYPTED_DATA:
+            if(do_sec_encrypted_data(sdb,fd) < 0){
+                close(fd);
+                return -1;
+            }
+            break;
+        case SEC_SECURE_DATA_CONTENT_EXTRATION:
+            if(do_sec_secure_data_content_extration(sdb,fd) < 0){
+                close(fd);
+                return -1;
+            }
+            break;
+        case SEC_SIGNED_DATA_VERIFICATION:
+            if(do_sec_signed_data_verification(sdb,fd) < 0){
+                close(fd);
+                return -1;
+            }
+            break;
+        default:
+            ERROR_PRINTF("tag错误");
+            close(fd);
+            return -1;
+    }
+    close(fd);
+    return 0;
+}
 

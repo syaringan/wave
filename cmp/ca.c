@@ -22,7 +22,7 @@ int ca_init(){
 }
 int ca_write(string *buf){
     if(buf == NULL || buf->buf != NULL){
-        wave_error_printf("参数有问题 %s %d",__FILE__,_LINE__);
+        wave_error_printf("参数有问题 %s %d",__FILE__,__LINE__);
         return -1;
     }
     if( sendto(sockfd,buf->buf,buf->len,0,&addr,sizeof(addr)) != buf->len){
