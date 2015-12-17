@@ -37,10 +37,10 @@ int cme_store_keypair(cmh cmh,int algorithm,
                         char* pub_key_y,int y_len,
                         char* pri_key,int pri_len);
 
-int cme_store_cert(cmh cmh,certificate* cert,
+int cme_store_cert(cmh cmh,char* cert,int cert_len,
                         char* transfor,int transfor_len);
 
-int cme_store_cert_key(cmh cmh,certificate* cert,
+int cme_store_cert_key(cmh cmh,char* cert,int cert_len,
                         char* pri_key,int pri_len);
 
 /**
@@ -59,9 +59,9 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 /**
  * @compressed:这能为0或者1
  */
-int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int certs_len,int compressed,time64 time,
+int sec_encrypted_data(int type,char* data,int data_len,char* certs,int certs_len,int certs_data_len,int compressed,time64 time,
         
-                        char* encrypted_data,int *encrypted_len,certificate *failed_certs,int *failed_certs_len);
+                        char* encrypted_data,int *encrypted_len,char* failed_certs,int *failed_certs_len,int *failed_certs_data_len);
 
 /**
  *@set_geneartion_time/set_generation_location:只能为0或者1
@@ -73,7 +73,7 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
                 psid* psid,char* ssp,int *ssp_len,int *set_generation_time,time64* generation_time,
                 unsigned char *generation_long_std_dev,int* set_expiry_time,time64* exprity_time,
                 int *set_generation_location,int* latitude,int* longtitude,
-                unsigned char *elevation,certificate* send_cert);
+                unsigned char *elevation,char* send_cert,int* cert_len);
 /**
  *@detect_reply/check_generation_time/check_expiry_time/check_generation_location:只能为0或这1
  *@elevation:默认为2字节。
@@ -103,6 +103,6 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
                 
                 time32 *last_recieve_crl_times,int *last_len,
                 time32 *next_expected_crl_times,int *next_len,
-                certificate* send_cert);
+                char* send_cert,int* cert_len);
 
 
