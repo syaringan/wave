@@ -606,7 +606,7 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
 static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
 {
     int len = 1024;
-    int count = 0;
+//    int count = 0;
     char* buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
@@ -646,7 +646,7 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
 
     content_type type = *((int*)buf);
     buf += 4;
-    count += 4;
+//    count += 4;
 
     string* data;
     INIT(*data);
@@ -660,18 +660,23 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
     }
     memcpy(data->buf,buf,data->len);
     buf += data->len;
-    count += (4 + data->len);
+//    count += (4 + data->len);
 
+    ///////////////////////////////////////////////////////////////
     struct certificate_chain* certs;
     INIT(certs);
     certs->len = *((int*)buf);
     buf += 4;
-    count += 4;
+//    count += 4;
+
+    int certs_data_len = *((int*)buf);
+    buf += 4;
 
     int i,j;
     int cert_len;
+    int count = 0;
     for(i=0;i<certs->len;i++){
-        cert_len = buf_2_certificate(buf,len-count,certs->certs+i);
+        cert_len = buf_2_certificate(buf,certs_data_len-count,certs->certs+i);
         if(cert_len < 0){
             ERROR_PRINTF("buf_2_certificate失败");
             certs->len = i + 1;          //实际已填充的证书个数
@@ -707,7 +712,7 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
         return -1;
     }
 
-    len = sizeof(int)*3 + encrypted_data->len + failed_certs->len*sizeof(certificate); //??
+    len = sizeof(int)*4 + encrypted_data->len + failed_certs->len*sizeof(certificate); //??
     buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
@@ -733,11 +738,17 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
     buf += 4;
     count += 4;
 
+    char* failed_certs_data_len = buf; //证书链长度
+    *failed_certs_data_len = 0;
+    buf += 4;
+    count += 4;
+
     for(i=0;i<failed_certs->len;i++){
         cert_len = certificate_2_buf(failed_certs->certs+i,buf,len-count);
         if(cert_len > 0){
             buf += cert_len;
             count += cert_len;
+            *failed_certs_data_len += cert_len;
         }
         else if(cert_len == -2){
             len *= 2;
@@ -899,7 +910,7 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
     certificate_free(send_cert);
     send_cert_len = res;
 
-    len = sizeof(int)*11 + sizeof(psid) + sizeof(time64)*2 + 3 + data->len + signed_data->len + ssp->len + send_cert_len;
+    len = sizeof(int)*12 + sizeof(psid) + sizeof(time64)*2 + 3 + data->len + signed_data->len + ssp->len + send_cert_len;
     buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
@@ -965,6 +976,9 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
 
     memcpy(buf,location->elevation,2);
     buf += 2;
+
+    *((int*)buf) = send_cert_len;
+    buf += 4;
 
     memcpy(buf,cert_buf,send_cert_len);
     
@@ -1169,7 +1183,7 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     certificate_free(send_cert);
     send_cert_len = res;
 
-    len = sizeof(int)*3 + sizeof(time32)*(last_recieve_crl_times->len + next_expected_crl_times->len) + send_cert_len;
+    len = sizeof(int)*4 + sizeof(time32)*(last_recieve_crl_times->len + next_expected_crl_times->len) + send_cert_len;
     buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
@@ -1194,6 +1208,9 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
 
     memcpy(buf,next_expected_crl_times->times,sizeof(time32)*next_expected_crl_times->len);
     buf += sizeof(time32)*next_expected_crl_times->len;
+
+    *((int*)buf) = send_cert_len;
+    buf += 4;
 
     memcpy(buf,cert_buf,send_cert_len);
 

@@ -328,7 +328,7 @@ int cme_store_keypair(cmh cmh,int algorithm,
 }
 
 
-int cme_store_cert(cmh cmh,certificate* cert,
+int cme_store_cert(cmh cmh,char* cert,int cert_len,
 					char* transfor,int transfor_len)
 {
 	if(cert == NULL || transfor == NULL){
@@ -336,8 +336,7 @@ int cme_store_cert(cmh cmh,certificate* cert,
 		return -1;
 	}
 
-	int len = 1024;
-	int count = 0;
+	int len = 4 + sizeof(app_tag) + sizeof(cmh) + sizeof(int)*2 + cert_len + transfor_len;
 	char* buf = (char*)malloc(len);
     app_tag tag = CME_STORE_CERT;
 	if(buf == NULL){
@@ -348,53 +347,26 @@ int cme_store_cert(cmh cmh,certificate* cert,
 
 	memcpy(buf,&tag,sizeof(app_tag));
 	buf += sizeof(app_tag);
-	count += sizeof(app_tag);
 
-	buf += 4;
-	count += 4; //后面计算长度时-4
+	*((int*)buf) = len - 4 - sizeof(app_tag);
+    buf += 4;
 
 	memcpy(buf,&cmh,sizeof(cmh));
 	buf += sizeof(cmh);
-	count += sizeof(cmh);
 
-	char* cert_len_p = buf; //空4字节保存cert的长度
-	buf += 4;
-	count += 4;
-	
-	int cert_len = -2;
-	while(cert_len == -2){ //buf空间不足
-		cert_len = certificate_2_buf(cert,buf,len-count);
-		if(cert_len == -1){
-			ERROR_PRINTF("certificate_2_buf失败");
-			free(buf_beg);
-			return -1;
-		}else if(cert_len == -2){
-			len *= 2;
-			buf_beg = (char*)realloc(buf_beg,len);
-			cert_len_p = buf_beg + count - 4;
-			buf = buf_beg + count;
-		}
-	}
-	*cert_len_p = cert_len;
-	buf += cert_len;
-	count += cert_len;
+    *((int*)buf) = cert_len;
+    buf += 4;
 
-	if(len < (count + transfor_len + 4)){
-		buf_beg = (char*)realloc(buf_beg,count + transfor_len + 4);
-		buf = buf_beg + count;
-	}
+    memcpy(buf,cert,cert_len);
+    buf += cert_len;
 
 	*((int*)buf) = transfor_len;
 	buf += 4;
-	count += 4;
 
 	memcpy(buf,transfor,transfor_len);
-	count += transfor_len;
-
-	*((int*)(buf_beg+sizeof(app_tag))) = count - 4 - sizeof(app_tag); //在app_tag后填充数据长度
 
 	int fd = getsocket();
-	if(write(fd,buf_beg,count) != count){
+	if(write(fd,buf_beg,len) != len){
 		ERROR_PRINTF("写入失败");
 		free(buf_beg);
 		close(fd);
@@ -406,7 +378,7 @@ int cme_store_cert(cmh cmh,certificate* cert,
     return 0;
 }
 
-int cme_store_cert_key(cmh cmh,certificate* cert,
+int cme_store_cert_key(cmh cmh,char* cert,int cert_len,
 					char* pri_key,int pri_len)
 {
 	if(cert == NULL || pri_key == NULL){
@@ -414,8 +386,7 @@ int cme_store_cert_key(cmh cmh,certificate* cert,
 		return -1;
 	}
 
-	int len = 1024;
-	int count = 0;
+	int len = 4 + sizeof(app_tag) + sizeof(cmh) + sizeof(int)*2 + cert_len + pri_len;
 	char* buf = (char*)malloc(len);
     app_tag tag = CME_STORE_CERT_KEY;
 	if(buf == NULL){
@@ -426,53 +397,26 @@ int cme_store_cert_key(cmh cmh,certificate* cert,
 
 	memcpy(buf,&tag,sizeof(app_tag));
 	buf += sizeof(app_tag);
-	count += sizeof(app_tag);
-				
+	
+    *((int*)buf) = len - 4 - sizeof(app_tag);
 	buf += 4;
-	count += 4;
 							
 	memcpy(buf,&cmh,sizeof(cmh));
 	buf += sizeof(cmh);
-	count += sizeof(cmh);
-										
-	char* cert_len_p = buf;
-	buf += 4;
-	count += 4;
 
-	int cert_len = -2;
-	while(cert_len == -2){
-		cert_len = certificate_2_buf(cert,buf,len-count);
-		if(cert_len == -1){
-			ERROR_PRINTF("certificate_2_buf失败");
-			free(buf_beg);
-			return -1;
-		}else if(cert_len == -2){
-			len *= 2;
-			buf_beg = (char*)realloc(buf_beg,len);
-			cert_len_p = buf_beg + count - 4;
-			buf = buf_beg + count;
-		}
-	}
-	*cert_len_p = cert_len;
-	buf += cert_len;
-	count += cert_len;
+    *((int*)buf) = cert_len;
+    buf += 4;
 
-	if(len < (count + pri_len + 4)){
-		buf_beg = (char*)realloc(buf_beg,count + pri_len + 4);
-		buf = buf_beg + count;
-	}
+    memcpy(buf,cert,cert_len);
+    buf += cert_len;
 
 	*((int*)buf) = pri_len;
 	buf += 4;
-	count += 4;
 
 	memcpy(buf,pri_key,pri_len);
-	count += pri_len;
-
-	*((int*)(buf_beg+sizeof(app_tag))) = count - 4 - sizeof(app_tag);
 
 	int fd = getsocket();
-	if(write(fd,buf_beg,count) != count){
+	if(write(fd,buf_beg,len) != len){
 		ERROR_PRINTF("写入失败");
 		free(buf_beg);
 		close(fd);
@@ -673,9 +617,9 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 /**
  * @compressed:这能为0或者1
  */
-int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int certs_len,int compressed,time64 time,
+int sec_encrypted_data(int type,char* data,int data_len,char* certs,int certs_len,int certs_data_len,int compressed,time64 time,
 		        
-						char* encrypted_data,int *encrypted_len,certificate *failed_certs,int *failed_certs_len)
+						char* encrypted_data,int *encrypted_len,char* failed_certs,int *failed_certs_len,int *failed_certs_data_len)
 {
 	if((compressed != 0 && compressed != 1) ||
 		(type < 0 || type > 12) ||
@@ -685,9 +629,7 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
         return -1;
 	}
 
-	int len = 4 + sizeof(app_tag) + sizeof(int)*4 + sizeof(time64) + data_len 
-                + certs_len*sizeof(certificate);  //此函数中len表示分配内存大小，后面会检查内存大小是否够用
-    int count = 0;                                //count计算实际的数据长度
+	int len = 4 + sizeof(app_tag) + sizeof(int)*5 + sizeof(time64) + data_len + certs_data_len;
     app_tag tag = SEC_ENCRYPTED_DATA;
 	char* buf = (char*)malloc(len);
 	if(buf == NULL){
@@ -698,57 +640,33 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 
 	memcpy(buf,&tag,sizeof(app_tag));
 	buf += sizeof(app_tag);
-    count += sizeof(app_tag);
 
+    *((int*)buf) = len - 4 - sizeof(app_tag);
     buf += 4;
-    count += 4;
 
 	*((int*)buf) = type;
 	buf += 4;
-    count += 4;
 
 	*((int*)buf) = data_len;
 	buf += 4;
-    count += 4;
 
 	memcpy(buf,data,data_len);
 	buf += data_len;
-    count += data_len;
 
-	*((int*)buf) = certs_len;
+	*((int*)buf) = certs_len;  //证书链中证书的个数
 	buf += 4;
-    count += 4;
 
-    int i;
-    int cert_len;
-    for(i=0;i<certs_len;i++){
-        cert_len = certificate_2_buf(certs+i,buf,len-count);
-        if(cert_len > 0){
-            buf += cert_len;
-            count += cert_len;
-        }
-        else if(cert_len == -2){
-            len *= 2;
-            buf_beg = (char*)realloc(buf_beg,len);
-            buf = buf_beg + count;
-            i--;
-        }
-        else if(cert_len < 0){
-            ERROR_PRINTF("certificate_2_buf失败");
-            free(buf_beg);
-            return -1;
-        }
-    }
+    *((int*)buf) = certs_data_len;  //证书链的总数据长度
+    buf += 4;
+
+    memcpy(buf,certs,certs_data_len);
+    buf += certs_data_len;
 
 	*((int*)buf) = compressed;
 	buf += 4;
-    count += 4;
 
 	memcpy(buf,&time,sizeof(time64));
 	buf += sizeof(time64);
-    count += sizeof(time64);
-
-    *((int*)(buf+sizeof(app_tag))) = count - 4 - sizeof(app_tag);
 
 	int fd = getsocket();
 	if(write(fd,buf_beg,len) != len){
@@ -768,7 +686,6 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
         return -1;
 	}
 	buf_beg = buf;
-    count = 0;  //重置
 
 	int len_r;
 	while(slen != 4){
@@ -811,12 +728,10 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 		*encrypted_len = slen;
 	}
 	buf += 4;
-    count += 4;
 
 	if(encrypted_data != NULL)
 		memcpy(encrypted_data,buf,*encrypted_len);
 	buf += slen;
-    count += slen;
 
 	slen = *((int*)buf);
 	if(failed_certs_len != NULL){
@@ -829,22 +744,14 @@ int sec_encrypted_data(int type,char* data,int data_len,certificate *certs,int c
 		*failed_certs_len = slen;
 	}
 	buf += 4;
-    count += 4;
 
-    int j;
-    if(failed_certs != NULL && failed_certs_len != NULL){
-        for(i=0;i<*failed_certs_len;i++){
-            cert_len = buf_2_certificate(buf,len-count,failed_certs + i);
-            if(cert_len < 0){
-                ERROR_PRINTF("buf_2_certificate失败");
-                *failed_certs_len = i + 1;  //实际已填充的证书个数
-                free(buf_beg);
-                close(fd);
-                return -1;
-            }
-            buf += cert_len;
-            count += cert_len;
-        }
+    if(failed_certs_data_len != NULL){
+        *failed_certs_data_len = *((int*)buf);
+        buf += 4;
+    }
+
+    if(failed_certs != NULL && failed_certs_len != NULL && failed_certs_data_len != NULL){
+        memcpy(failed_certs,buf,*failed_certs_data_len);
     }
 
 	free(buf_beg);
@@ -862,7 +769,7 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 				psid* pid,char* ssp,int *ssp_len,int *set_generation_time,time64* generation_time,
 				unsigned char *generation_long_std_dev,int* set_expiry_time,time64* expiry_time,
                 int *set_generation_location,int* latitude,int* longtitude,
-				unsigned char *elevation,certificate* send_cert)
+				unsigned char *elevation,char* send_cert,int* cert_len)
 {
 	if(recieve_data == NULL){
 		ERROR_PRINTF("参数错误");
@@ -903,7 +810,6 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 	free(buf_beg);
 
 	int slen = 0;
-	int count = 0;
 	len = 1024;
 	buf = (char*)malloc(len);
 	if(buf == NULL){
@@ -946,12 +852,10 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 	if(type != NULL)
 		*type = *((int*)buf);
 	buf += 4;
-	count += 4;
 
 	if(inner_type != NULL)
 		*inner_type = *((int*)buf);
 	buf += 4;
-	count += 4;
 
 	slen = *((int*)buf);
 	if(data_len != NULL){
@@ -964,12 +868,10 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 		*data_len = slen;
 	}
 	buf += 4;
-	count += 4;
 
 	if(data != NULL)
 		memcpy(data,buf,slen);
 	buf += slen;
-	count += slen;
 
 	slen = *((int*)buf);
 	if(signed_len != NULL){
@@ -982,17 +884,14 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 		*signed_len = slen;
 	}
 	buf += 4;
-	count += 4;
 
 	if(signed_data != NULL)
 		memcpy(signed_data,buf,slen);
 	buf += slen;
-	count += slen;
 
 	if(pid != NULL)
 		*pid = *((psid*)buf);
 	buf += sizeof(psid);
-	count += sizeof(psid);
 
 	slen = *((int*)buf);
 	if(ssp_len != NULL){
@@ -1005,65 +904,61 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 		*ssp_len = slen;
 	}
 	buf += 4;
-	count += 4;
 
 	if(ssp != NULL)
 		memcpy(ssp,buf,slen);
 	buf += slen;
-	count += slen;
 
 	if(set_generation_time != NULL)
 		*set_generation_time = *((int*)buf);
 	buf += 4;
-	count += 4;
 
 	if(generation_time != NULL)
 		memcpy(generation_time,buf,sizeof(time64));
 	buf += sizeof(time64);
-	count += sizeof(time64);
 
 	if(generation_long_std_dev != NULL)
 		*generation_long_std_dev = *buf++;
-	count++;
 
     if(set_expiry_time != NULL)
         *set_expiry_time = *((int*)buf);
     buf += 4;
-    count += 4;
 
     if(expiry_time != NULL)
         memcpy(expiry_time,buf,sizeof(time64));
     buf += sizeof(time64);
-    count += sizeof(time64);
 
 	if(set_generation_location != NULL)
 		*set_generation_location = *((int*)buf);
 	buf += 4;
-	count += 4;
 
 	if(latitude != NULL)
 		*latitude = *((int*)buf);
 	buf += 4;
-	count += 4;
 
 	if(longtitude != NULL)
 		*longtitude = *((int*)buf);
 	buf += 4;
-	count += 4;
 
 	if(elevation != NULL)
 		memcpy(elevation,buf,2);
 	buf += 2;
-	count += 2;
 
-	if(send_cert != NULL){
-		if(buf_2_certificate(buf,len-count,send_cert) < 0){
-			ERROR_PRINTF("buf_2_certificate失败");
-			free(buf_beg);
-			close(fd);
+    slen = *((int*)buf);
+    buf += 4;
+    if(cert_len != NULL){
+        if(*cert_len < slen){
+            ERROR_PRINTF("分配空间不足");
+            free(buf_beg);
+            close(fd);
             return -1;
-		}
-	}
+        }
+        *cert_len = slen;
+    }
+
+    if(send_cert != NULL){
+        memcpy(send_cert,buf,slen);
+    }
 	
 	free(buf_beg);
 	close(fd);
@@ -1100,7 +995,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 				
 				time32 *last_recieve_crl_times,int *last_len,
 				time32 *next_expected_crl_times,int *next_len,
-				certificate* send_cert){
+				char* send_cert,int* cert_len){
 
 	if((detect_reply != 0 && detect_reply != 1) ||
 		(check_generation_time != 0 && check_generation_time != 1) ||
@@ -1289,15 +1184,22 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
         memcpy(next_expected_crl_times,buf,sizeof(time32)*(*next_len));
 	buf += sizeof(time32)*(*next_len);
 
-	if(send_cert != NULL){
-		if(buf_2_certificate(buf,len-8-sizeof(time32)*2,send_cert) < 0){
-			ERROR_PRINTF("buf_2_certificate失败");
-			free(buf_beg);
-			close(fd);
+    slen = *((int*)buf);
+    buf += 4;
+    if(cert_len != NULL){
+        if(*cert_len < slen){
+            ERROR_PRINTF("分配空间不足");
+            free(buf_beg);
+            close(buf_beg);
             return -1;
-		}
-	}
-	
+        }
+        *cert_len = slen;
+    }
+
+    if(send_cert != NULL && cert_len != NULL){
+        memcpy(send_cert,buf,slen);
+    }
+
 	free(buf_beg);
 	close(fd);
     return 0;
