@@ -3638,7 +3638,7 @@ result sec_verify_chain_signature(struct sec_db* sdb,
 
             cert = cert_chain->certs + i;
             string_free(&temp);
-            if( tobesigned_certificate_2_string(&cert->unsigned_certificate,&temp)){
+            if( tobesigned_certificate_2_string(&cert->unsigned_certificate,&temp,cert->version_and_type)){
                 res = FAILURE;
                 goto end;
             }

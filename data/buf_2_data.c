@@ -860,6 +860,7 @@ static u32 buf_2_psid_array(  u8* buf,  u32 len,psid_array* psid_array){
 				psid_array->u.permissions_list.buf=(psid*)realloc(
 						psid_array->u.permissions_list.buf,sizeof(psid)*(i+1));
 				decode_len = psid_decoding(mbuf,psid_array->u.permissions_list.buf + i);
+                printf("psid :%04x\n",*(psid_array->u.permissions_list.buf+i));
 				if(decode_len < 0)
 					return decode_len;
 				mbuf += decode_len;
@@ -1443,7 +1444,6 @@ static u32 buf_2_root_ca_scope(  u8* buf,  u32 len,root_ca_scope* root_ca_scope)
 		mbuf += 2;
 		size -= 2;
 	}
-
 	if( (root_ca_scope->permitted_holder_types & 1<<0)!=0 ||
 		(root_ca_scope->permitted_holder_types & 1<<1)!=0 ||
 		(root_ca_scope->permitted_holder_types & 1<<2)!=0 ||
@@ -1783,6 +1783,7 @@ u32 buf_2_certificate(  u8* buf,  u32 len,certificate* certificate){
 
 	switch(certificate->version_and_type){
 		case 2:
+            printf("holder_type:%d",(int)certificate->unsigned_certificate.holder_type);
 			if(certificate->unsigned_certificate.holder_type == ROOT_CA){
 				signature_length= buf_2_signature(mbuf,size,&certificate->u.signature,
 				certificate->unsigned_certificate.version_and_type.verification_key.algorithm);

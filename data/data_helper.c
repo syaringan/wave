@@ -756,7 +756,7 @@ int string_2_tobe_encrypted(string* data,tobe_encrypted* tbencrypted){
     res = buf_2_tobe_encrypted(data->buf,data->len,tbencrypted);
     return res;
 }
-int tobesigned_certificate_2_string(tobesigned_certificate *cert,string* data){
+int tobesigned_certificate_2_string(tobesigned_certificate *cert,string* data,u8 version_and_type){
 	if(data == NULL || data->buf != NULL){
 		wave_error_printf("输入参数有误，请检查");
 		return -1;
@@ -773,7 +773,7 @@ int tobesigned_certificate_2_string(tobesigned_certificate *cert,string* data){
 			wave_malloc_error();
 			goto fail;
 		}
-		res = tobesigned_certificate_2_buf(cert,buf,len);
+		res = tobesigned_certificate_2_buf(cert,buf,len,version_and_type);
 		if(res == -1)
 			goto fail;
 		len *= 2;

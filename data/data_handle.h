@@ -88,7 +88,7 @@ int certificate_request_2_string(certificate_request* cert_req,string* data);
 int tobe_encrypted_2_string(tobe_encrypted* tbencrypted,string* data);
 int string_2_tobe_encrypted(string *data,tobe_encrypted* tbencrypted);
 
-int tobesigned_certificate_2_string(tobesigned_certificate* cert,string* data);
+int tobesigned_certificate_2_string(tobesigned_certificate* cert,string* data,u8 verision_and_type);
 int tobesigned_wsa_2_string(tobesigned_wsa* wsa,string* data);
 int tobesigned_data_2_string(tobesigned_data* tbsigneddata,string* data);
 bool certid10_equal(certid10* a,certid10* b);

@@ -176,7 +176,7 @@ static u32 psid_encoding(u8* buf,const psid* psid){
 	}
 	u32 size;
 	u32 value = host_to_be32(*psid);
-
+    printf("value:%02x %02x %02x %02x\n",getchar1(value),getchar2(value),getchar3(value),getchar4(value));
 	if((*psid & 14<<28) == 14<<28){
 		size = 4;
 	}
@@ -207,23 +207,26 @@ static u32 psid_encoding(u8* buf,const psid* psid){
 
 	switch(size){
 		case 1:
-			value = value>>24;
+            *buf++ = getchar4(value);
 			break;
 		case 2:
-			value = value>>16;
+            *buf++ = getchar3(value);
+            *buf++ = getchar4(value);
 			break;
 		case 3:
-			value = value>>8;
+            *buf++ = getchar2(value);
+            *buf++ = getchar3(value);
+            *buf++ = getchar4(value);
 			break;
 		default:
+            *buf++ = getchar1(value);
+	        *buf++ = getchar2(value);
+	        *buf++ = getchar3(value);
+	        *buf++ = getchar4(value);
 			break;
 	}
-
-	*buf++ = getchar1(value);
-	*buf++ = getchar2(value);
-	*buf++ = getchar3(value);
-	*buf++ = getchar4(value);
-
+    printf("size: %d ",size);
+    printf("%x %x %x %x\n",*(buf-4),*(buf-3),*(buf-2),*(buf-1));
 	return size;
 }
 
@@ -812,6 +815,7 @@ static u32 psid_array_2_buf(const psid_array *psid_array,u8* buf,u32 len){
 			mbuf_beg = mbuf;
 			u32 data_len = 0;
 			for(i=0;i < psid_array->u.permissions_list.len;i++){
+                printf("psid:%x",psid_array->u.permissions_list.buf[i]);
 				encode_len = psid_encoding(mbuf,psid_array->u.permissions_list.buf + i);
 				if(encode_len < 0)
 					return encode_len;
@@ -820,9 +824,12 @@ static u32 psid_array_2_buf(const psid_array *psid_array,u8* buf,u32 len){
 				size -= encode_len;
 				res += encode_len;
 			}
+            printf("data_len:%d ",data_len);
+            printf("%02x %02x\n",mbuf_beg[0],mbuf_beg[1]);
 			mbuf_end = mbuf;
 
 			encode_len = varible_len_calculate(data_len);
+            printf("encode_len %d",encode_len);
 			if(size < encode_len){
 				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 				return NOT_ENOUGHT;
@@ -833,8 +840,9 @@ static u32 psid_array_2_buf(const psid_array *psid_array,u8* buf,u32 len){
 				mbuf_end--;
 				*(mbuf_end + encode_len) = *mbuf_end;
 			}
-
+            res += encode_len;
 			varible_len_encoding(mbuf_beg,data_len);
+            printf("%02x %02x %02x\n",mbuf_beg[0],mbuf_beg[1],mbuf_beg[2]);
 
 			return res;
 		case ARRAY_TYPE_FROM_ISSUER:
@@ -1369,7 +1377,7 @@ static u32 sec_data_exch_ca_scope_2_buf(const sec_data_exch_ca_scope *sec_data_e
 		res++;
 	}
 	else if(sec_data_exch_ca_scope->permitted_holder_types < 1<<14){
-		*mbuf = sec_data_exch_ca_scope->permitted_holder_types | 0x8000;
+		*((u16*)mbuf) = host_to_be16(sec_data_exch_ca_scope->permitted_holder_types | 0x8000);
 		mbuf += 2;
 		size -= 2;
 		res += 2;
@@ -1428,7 +1436,7 @@ static u32 root_ca_scope_2_buf(const root_ca_scope *root_ca_scope,u8* buf,u32 le
 		res++;
 	}
 	else if(root_ca_scope->permitted_holder_types < 1<<14){
-		*mbuf = root_ca_scope->permitted_holder_types | 0x8000;
+		*((u16*)mbuf) = host_to_be16(root_ca_scope->permitted_holder_types | 0x8000);
 		mbuf += 2;
 		size -= 2;
 		res += 2;
@@ -1707,7 +1715,6 @@ u32 certificate_2_buf(const certificate *certificate,u8* buf,u32 len){
 		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
 		return NOT_ENOUGHT;
 	}
-
 	*mbuf = certificate->version_and_type;
 	mbuf++;
 	size--;
