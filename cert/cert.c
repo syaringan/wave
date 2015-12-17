@@ -98,7 +98,7 @@ static void cert_signed_cert(certificate* issuing,string* pri,certificate* issue
         error();
         goto end;
     }
-    if(signer_hashed.len != 8){
+    if(signer_hashed.len != 32){
         error();
         goto end;
     }
@@ -548,8 +548,13 @@ static void file_2_cert(certificate* cert,char* name){
         fclose(fp);
         return;
     }
-    
-    if(string_2_certificate(&str,cert)){
+     int i;
+    for(i=0;i<str.len;i++){
+        printf("%02x ",str.buf[i]);
+    }
+    printf("\n");
+    if(string_2_certificate(&str,cert) <= 0 ){
+        certificate_printf(cert);
         error();
         fclose(fp);
         return;
@@ -604,6 +609,7 @@ void generate_cert(){
         generate_ca_cert(&cert);
         strcpy(pwd,"/home/ljh/ljh-wave-1609.2/cert/ca_cert/ca.cert");
         cert_2_file(&cert,pwd);
+        certificate_printf(&cert);
     }
     else{
         printf("输入证书名字:");

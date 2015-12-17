@@ -317,8 +317,9 @@ static u32 buf_2_elliptic_curve_point(  u8* buf,   u32 len,
 		wave_error_printf("传入算法错误 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
-
+    printf("qian: %d zhong : %d hou: %d ",*(mbuf-1),*(mbuf),*(mbuf+1));
 	elliptic_curve_point->type = get8(mbuf);
+    printf(" type: %d",elliptic_curve_point->type);
 	mbuf++;
 	size--;
 
@@ -353,7 +354,7 @@ static u32 buf_2_elliptic_curve_point(  u8* buf,   u32 len,
 		mbuf += elliptic_curve_point->u.y.len * sizeof(u8);
 		size -= elliptic_curve_point->u.y.len * sizeof(u8);
 	}
-
+    printf("mbuf :%x",*mbuf);
 	return len - size;
 }
 /**
@@ -766,7 +767,6 @@ static u32 buf_2_psid_priority_array(  u8* buf,const u32 len,psid_priority_array
 
 			bitnum=head_bit_num(mbuf);
 			data_length = variablelength_data_num(mbuf,bitnum);
-			psid_priority_array->u.permissions_list.len = data_length/5;
 
 			if(size < data_length + bitnum){
 				wave_error_printf("填充数据不足 %s %d",__FILE__,__LINE__);
@@ -790,6 +790,7 @@ static u32 buf_2_psid_priority_array(  u8* buf,const u32 len,psid_priority_array
 				mbuf += decode_len;
 				decode_len_sum += decode_len;
 			}
+            psid_priority_array->u.permissions_list.len = i;
 
 			size -= data_length;
 
@@ -1384,7 +1385,7 @@ static u32 buf_2_sec_data_exch_ca_scope(  u8* buf,  u32 len,sec_data_exch_ca_sco
 		mbuf++;
 		size--;
 	}else{
-		sec_data_exch_ca_scope->permitted_holder_types = get16(mbuf) & 0x7fff;
+		sec_data_exch_ca_scope->permitted_holder_types = be_to_host16(get16(mbuf)) & 0x7fff;
 		mbuf += 2;
 		size -= 2;
 	}
@@ -1440,7 +1441,7 @@ static u32 buf_2_root_ca_scope(  u8* buf,  u32 len,root_ca_scope* root_ca_scope)
 		mbuf++;
 		size--;
 	}else{
-		root_ca_scope->permitted_holder_types = be_to_host16(get16(mbuf) & 0x7fff);
+		root_ca_scope->permitted_holder_types = be_to_host16(get16(mbuf))& 0x7fff;
 		mbuf += 2;
 		size -= 2;
 	}

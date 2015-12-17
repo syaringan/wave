@@ -375,8 +375,8 @@ static u32 elliptic_curve_point_2_buf(const elliptic_curve_point *elliptic_curve
 		for(i=0;i < elliptic_curve_point->u.y.len;i++){
 			*mbuf++ = *(elliptic_curve_point->u.y.buf + i);
 		}
-		size = size - encode_len - elliptic_curve_point->u.y.len;
-		res = res + encode_len + elliptic_curve_point->u.y.len;
+		size = size  - elliptic_curve_point->u.y.len;
+		res = res  + elliptic_curve_point->u.y.len;
 	}
 	return res;
 }
