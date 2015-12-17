@@ -94,4 +94,35 @@ int tobesigned_data_2_string(tobesigned_data* tbsigneddata,string* data);
 bool certid10_equal(certid10* a,certid10* b);
 int  certid10_cmp(certid10 *a,certid10* b);
 void certid10_cpy(certid10* dst,certid10* src);
+
+/**************证书打印，在data_printf.c中实现******************/
+static void space_print(int n);
+
+void two_d_location_printf(two_d_location* two_d_location,int n);
+void rectangular_region_printf(rectangular_region* rectangular_region,int n);
+void circular_region_printf(circular_region* circular_region,int n);
+
+void geographic_region_printf(geographic_region* geographic_region,int n);
+void psid_priority_printf(psid_priority* psid_priority,int n);
+void psid_priority_array_printf(psid_priority_array* psid_pa,int n);
+void psid_array_printf(psid_array* psid_array,int n);
+void psid_ssp_printf(psid_ssp* psid_ssp,int n);
+void psid_ssp_array_printf(psid_ssp_array* psid_ssp_array,int n);
+void psid_priority_ssp_printf(psid_priority_ssp* psid_ps,int n);
+void psid_priority_ssp_array_printf(psid_priority_ssp_array* psid_psa,int n);
+
+void root_ca_scope_printf(root_ca_scope* root_ca_scope,int n);
+void sec_data_exch_ca_scope_printf(sec_data_exch_ca_scope* sec_decs,int n);
+void wsa_ca_scope_printf(wsa_ca_scope* wsa_cs,int n);
+void identified_not_localized_scope_printf(identified_not_localized_scope* id_nls,int n);
+void identified_scope_printf(identified_scope* identified_scope,int n);
+void anonymous_scope_printf(anonymous_scope* anonymous_scope,int n);
+void wsa_scope_printf(wsa_scope* wsa_scope,int n);
+void cert_specific_data_printf(cert_specific_data* cert_sd,int n,holder_type holder_type);
+void public_key_printf(public_key* public_key,int n);
+void ecdsa_signature_printf(ecdsa_signature* ecdsa_sig,int n);
+void tobesigned_certificate_printf(tobesigned_certificate* tbs_cert,int n,char version_and_type);
+void signature_printf(signature* signature,int n,pk_algorithm algorithm);
+void elliptic_curve_point_printf(elliptic_curve_point* ell_cp,int n);
+void certificate_printf(certificate* cert);
 #endif
