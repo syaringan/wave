@@ -142,8 +142,8 @@ static u32 psid_decoding(u8* buf,psid* psid){
 	u8* mbuf = buf;
 	
 	if((*buf & 0xf0) == 0xf0){
-//		wave_error_printf("psid大于4字节 %s %d",__FILE__,__LINE__);
-		wave_error_printf("psid");
+		wave_error_printf("psid大于4字节 %s %d",__FILE__,__LINE__);
+	//	wave_error_printf("psid");
 		return -1;
 	}
 
@@ -1440,7 +1440,7 @@ static u32 buf_2_root_ca_scope(  u8* buf,  u32 len,root_ca_scope* root_ca_scope)
 		mbuf++;
 		size--;
 	}else{
-		root_ca_scope->permitted_holder_types = get16(mbuf) & 0x7fff;
+		root_ca_scope->permitted_holder_types = be_to_host16(get16(mbuf) & 0x7fff);
 		mbuf += 2;
 		size -= 2;
 	}

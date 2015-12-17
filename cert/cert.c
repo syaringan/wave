@@ -51,6 +51,7 @@ static void privatekey_signed_cert(pk_algorithm algorithm,string* pri,certificat
         error();
         goto end;
     }
+    printf("r.len s.len :%d %d",r.len,s.len);
     signature = &issued->u.signature.u.ecdsa_signature;
     signature->s.len = s.len;
     signature->s.buf = (u8*)malloc(s.len);
