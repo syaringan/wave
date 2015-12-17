@@ -247,7 +247,7 @@ void psid_priority_ssp_array_printf(psid_priority_ssp_array* psid_psa,int n){
         case ARRAY_TYPE_SPECIFIED:
             for(i=0;i<psid_psa->u.permissions_list.len;i++){
                 space_print(n);
-                wave_printf(MSG_INFO,"permissions_list %d:\n",i+1); //之前没加冒号，后面处理
+                wave_printf(MSG_INFO,"permissions_list %d:\n",i+1);
                 psid_priority_ssp_printf(psid_psa->u.permissions_list.buf + i,n+N);
             }
             break;
@@ -281,8 +281,14 @@ void root_ca_scope_printf(root_ca_scope* root_ca_scope,int n){
     }
     wave_printf(MSG_INFO,"\n");
 
-    space_print(n); //这里，data_2_buf里面分了两种情况，没仔细看
-    wave_printf(MSG_INFO,"permitted_holder_types: %x\n",root_ca_scope->permitted_holder_types);
+    char* buf = (char*)(&root_ca_scope->permitted_holder_types);
+    space_print(n);
+    if(root_ca_scope->permitted_holder_types < 1<<7){
+        wave_printf(MSG_INFO,"permitted_holder_types: %x\n",*buf);
+    }
+    else if(root_ca_scope->permitted_holder_types < 1<<14){
+        wave_printf(MSG_INFO,"permitted_holder_types: %x %x\n",*buf,*(buf+1));
+    }
 
     if((root_ca_scope->permitted_holder_types & 1<<0)!=0 ||
         (root_ca_scope->permitted_holder_types & 1<<1)!=0 ||
@@ -333,9 +339,15 @@ void sec_data_exch_ca_scope_printf(sec_data_exch_ca_scope* sec_decs,int n){
         wave_printf(MSG_INFO,"%x ",*(sec_decs->name.buf + i));
     }
     wave_printf(MSG_INFO,"\n");
-    
+   
+    char* buf = (char*)(&sec_decs->permitted_holder_types);
     space_print(n);
-    wave_printf(MSG_INFO,"permitted_holder_types: %x\n");  //data_2_buf中分情况，再看
+    if(sec_decs->permitted_holder_types < 1<<7){
+        wave_printf(MSG_INFO,"permitted_holder_types: %x\n",*buf);
+    }
+    else if(sec_decs->permitted_holder_types < 1<<14){
+        wave_printf(MSG_INFO,"permitted_holder_types: %x %x\n",*buf,*(buf+1));
+    }
 
     space_print(n);
     wave_printf(MSG_INFO,"permissions:\n");
@@ -386,6 +398,29 @@ void identified_not_localized_scope_printf(identified_not_localized_scope* id_nl
     space_print(n);
     wave_printf(MSG_INFO,"permissions:\n");
     psid_ssp_array_printf(&id_nls->permissions,n+N);
+}
+
+void identified_scope_printf(identified_scope* identified_scope,int n){
+    int i;
+    
+    space_print(n);
+    wave_printf(MSG_INFO,"name:");
+    for(i=0;i<identified_scope->name.len;i++){
+        if(i%16 == 0){
+            wave_printf(MSG_INFO,"\n");
+            space_print(n+N);
+        }
+        wave_printf(MSG_INFO,"%x ",*(identified_scope->name.buf + i));
+    }
+    wave_printf(MSG_INFO,"\n");
+
+    space_print(n);
+    wave_printf(MSG_INFO,"permissions:\n");
+    psid_ssp_array_printf(&identified_scope->permissions,n+N);
+
+    space_print(n);
+    wave_printf(MSG_INFO,"region:\n");
+    geographic_region_printf(&identified_scope->region,n+N);
 }
 
 void anonymous_scope_printf(anonymous_scope* anonymous_scope,int n){
@@ -587,7 +622,7 @@ void tobesigned_certificate_printf(tobesigned_certificate* tbs_cert,int n,char v
 
     space_print(n);
     wave_printf(MSG_INFO,"scope:\n");
-    cert_specific_data_print(tbs_cert->scope,n+N);
+    cert_specific_data_printf(&tbs_cert->scope,n+N,tbs_cert->holder_type);
 
     space_print(n);
     wave_printf(MSG_INFO,"expiration: ");

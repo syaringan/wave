@@ -115,6 +115,7 @@ void root_ca_scope_printf(root_ca_scope* root_ca_scope,int n);
 void sec_data_exch_ca_scope_printf(sec_data_exch_ca_scope* sec_decs,int n);
 void wsa_ca_scope_printf(wsa_ca_scope* wsa_cs,int n);
 void identified_not_localized_scope_printf(identified_not_localized_scope* id_nls,int n);
+void identified_scope_printf(identified_scope* identified_scope,int n);
 void anonymous_scope_printf(anonymous_scope* anonymous_scope,int n);
 void wsa_scope_printf(wsa_scope* wsa_scope,int n);
 void cert_specific_data_printf(cert_specific_data* cert_sd,int n,holder_type holder_type);
