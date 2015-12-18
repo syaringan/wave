@@ -712,7 +712,7 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
         return -1;
     }
 
-    len = sizeof(int)*4 + encrypted_data->len + failed_certs->len*sizeof(certificate); //??
+    len = sizeof(int)*4 + encrypted_data->len + failed_certs->len*sizeof(certificate); //估计长度
     buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
@@ -721,7 +721,7 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
         return -1;
     }
     buf_beg = buf;
-    count = 0;
+    count = 0;  //实际数据长度
 
     buf += 4;
     count += 4;
@@ -738,7 +738,7 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
     buf += 4;
     count += 4;
 
-    char* failed_certs_data_len = buf; //证书链长度
+    int* failed_certs_data_len = (int*)buf; //该地址处保存证书链长度
     *failed_certs_data_len = 0;
     buf += 4;
     count += 4;
@@ -750,7 +750,7 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
             count += cert_len;
             *failed_certs_data_len += cert_len;
         }
-        else if(cert_len == -2){
+        else if(cert_len == -2){  //空间不够，重新分配
             len *= 2;
             buf_beg = (char*)realloc(buf_beg,len);
             buf = buf_beg + count;
@@ -770,7 +770,7 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
     certificate_chain_free(failed_certs);
     string_free(encrypted_data);
 
-    if(write(fd,buf_beg,len) != len){
+    if(write(fd,buf_beg,count) != count){
         ERROR_PRINTF("写入失败");
         free(buf_beg);
         return -1;
