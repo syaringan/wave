@@ -606,7 +606,6 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
 static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
 {
     int len = 1024;
-//    int count = 0;
     char* buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
@@ -646,7 +645,6 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
 
     content_type type = *((int*)buf);
     buf += 4;
-//    count += 4;
 
     string* data;
     INIT(*data);
@@ -660,14 +658,11 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
     }
     memcpy(data->buf,buf,data->len);
     buf += data->len;
-//    count += (4 + data->len);
 
-    ///////////////////////////////////////////////////////////////
     struct certificate_chain* certs;
     INIT(certs);
     certs->len = *((int*)buf);
     buf += 4;
-//    count += 4;
 
     int certs_data_len = *((int*)buf);
     buf += 4;
