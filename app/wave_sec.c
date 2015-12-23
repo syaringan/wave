@@ -747,8 +747,8 @@ int sec_encrypted_data(int type,char* data,int data_len,char* certs,int certs_le
 
     if(failed_certs_data_len != NULL){
         *failed_certs_data_len = *((int*)buf);
-        buf += 4;
     }
+    buf += 4;
 
     if(failed_certs != NULL && failed_certs_len != NULL && failed_certs_data_len != NULL){
         memcpy(failed_certs,buf,*failed_certs_data_len);
