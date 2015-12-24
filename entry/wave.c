@@ -10,8 +10,8 @@
 #include <signal.h>
 
 #define SERVICE "/var/tmp/wave_sec.socket"
-#define CME_DB_CONFIG "/var/tmp/cme_db.config"
-#define PSSME_DB_CONFIG "/var/tmp/pssme_db.config"
+#define CME_DB_CONFIG "./cme_db.config"
+#define PSSME_DB_CONFIG "./pssme_db.config"
 #define INIT(m) memset(&m, 0, sizeof(m));
 #define RECV_S_HEAD_LEN 15
 #define RECV_V_HEAD_LEN 12 
@@ -302,7 +302,9 @@ static int app_start(struct sec_db* sdb){
         if( (fd = serv_accept(serve_fd,NULL)) < 0){
             return -1;
         }
-        if( pthread_attr_init(&attr))
+        if(pthread_attr_init(&attr))
+            return -1;
+        if(pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED))
             return -1;
         if( pthread_create(&tid,&attr,app_do_request,(void*)&fd))
             return -1;
@@ -390,8 +392,11 @@ int wave_cmp_start(struct sec_db* sdb){
 void wave_exit_fun(){
     wave_printf(MSG_INFO,"正在写入文件");
     pdb_2_file(&sec_db.pssme_db,PSSME_DB_CONFIG);
+    wave_printf(MSG_INFO,"pssme_db 完成");
     cme_db_2_file(&sec_db.cme_db,CME_DB_CONFIG);
+    wave_printf(MSG_INFO,"cme_db 完成");
     cmp_end();
+    wave_printf(MSG_INFO,"cmp_db 完成");
 }
 static void kill_handle(int signo){
     exit(0);
@@ -399,22 +404,11 @@ static void kill_handle(int signo){
 int wave_start(){
     struct sec_db* sdb;
     int res;
-    wave_printf(MSG_INFO,"开始初始化sec_db ****************");
     sdb = init_sec_db();
     if(sdb == NULL){
         wave_error_printf("初始化sec_db失败 ");
         return -1;
     }
-    /*******
-    pdb_2_file(&sec_db.pssme_db,PSSME_DB_CONFIG);
-    cme_db_2_file(&sec_db.cme_db,CME_DB_CONFIG);
-    wave_printf(MSG_INFO,"写入文件成功");
-    sdb = init_sec_db();
-    if(sdb == NULL){
-        wave_error_printf("初始化sec_db失败 ");
-        return -1;
-    }
-    *******/
     wave_printf(MSG_INFO,"初始化sec_db 完成 **************");
 
     if(atexit(wave_exit_fun)){
@@ -438,11 +432,12 @@ int wave_start(){
         return -1;
     }
     wave_error_printf("wave_cmp 启动成功");
+
+    wave_error_printf("wave_app 启动");
     if( app_start(sdb)){
         wave_error_printf("wave_app 启动失败");
         return -1;
     }
-    wave_error_printf("wave_app 启动成功");
     return 0;
 }
 

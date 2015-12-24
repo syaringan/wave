@@ -317,9 +317,7 @@ static u32 buf_2_elliptic_curve_point(  u8* buf,   u32 len,
 		wave_error_printf("传入算法错误 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
-    printf("qian: %d zhong : %d hou: %d ",*(mbuf-1),*(mbuf),*(mbuf+1));
 	elliptic_curve_point->type = get8(mbuf);
-    printf(" type: %d",elliptic_curve_point->type);
 	mbuf++;
 	size--;
 
@@ -354,7 +352,6 @@ static u32 buf_2_elliptic_curve_point(  u8* buf,   u32 len,
 		mbuf += elliptic_curve_point->u.y.len * sizeof(u8);
 		size -= elliptic_curve_point->u.y.len * sizeof(u8);
 	}
-    printf("mbuf :%x",*mbuf);
 	return len - size;
 }
 /**
@@ -861,7 +858,6 @@ static u32 buf_2_psid_array(  u8* buf,  u32 len,psid_array* psid_array){
 				psid_array->u.permissions_list.buf=(psid*)realloc(
 						psid_array->u.permissions_list.buf,sizeof(psid)*(i+1));
 				decode_len = psid_decoding(mbuf,psid_array->u.permissions_list.buf + i);
-                printf("psid :%04x\n",*(psid_array->u.permissions_list.buf+i));
 				if(decode_len < 0)
 					return decode_len;
 				mbuf += decode_len;
@@ -1784,7 +1780,6 @@ u32 buf_2_certificate(  u8* buf,  u32 len,certificate* certificate){
 
 	switch(certificate->version_and_type){
 		case 2:
-            printf("holder_type:%d",(int)certificate->unsigned_certificate.holder_type);
 			if(certificate->unsigned_certificate.holder_type == ROOT_CA){
 				signature_length= buf_2_signature(mbuf,size,&certificate->u.signature,
 				certificate->unsigned_certificate.version_and_type.verification_key.algorithm);

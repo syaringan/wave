@@ -1,11 +1,15 @@
 #include"cme_db.h"
 #include"utils/lock.h"
+#include"sec/sec_db.h"
 #include<stdio.h>
+#include<string.h>
+#include<error.h>
 #define CMH_MAX_NUM 1024
 #define LSIS_MAX_NUM 1024
 #define CERTIFICATE_BUF_LNE 1024
 #define READ_BUF_LEN 1024
 
+#define INIT(n) memset(&n,0,sizeof(n))
 void inline cme_alloced_lsis_free(struct cme_alloced_lsis* alloced_lsis){
     if(alloced_lsis == NULL)
         return;
@@ -81,6 +85,7 @@ static int cert_info_equal(struct rb_head* a,void* value){
     certinfoa = rb_entry(a,struct cert_info,rb);
     if(ptr->type == ID_HASHEDID8){
         for(i=0;i<8;i++){
+            //注意高地位是怎么回事>>
            if( certinfoa->certid10.certid10[i+2] < ptr->u.hashedid8.hashedid8[i]) 
                return -1;
            if( certinfoa->certid10.certid10[i+2] > ptr->u.hashedid8.hashedid8[i])
@@ -108,6 +113,7 @@ struct cert_info* cert_info_find(struct cert_info* root,void* value){
     struct rb_head* rb;
     if(root == NULL)
         return NULL;
+
     rb = rb_find(&root->rb,value);
     if(rb == NULL)
         return NULL;
@@ -118,6 +124,8 @@ struct cert_info* cert_info_delete(struct cert_info* root,struct cert_info* node
     if(root == NULL)
         return NULL;
     rb = rb_delete(&root->rb,&node->rb);
+    if(rb == NULL)
+        return NULL;
     return rb_entry(rb,struct cert_info,rb);
 }
 /**************cert_info 红黑书函数操作结束*************/
@@ -169,6 +177,8 @@ struct cmh_key_cert*  ckc_delete(struct cmh_key_cert* root,struct cmh_key_cert* 
     if(root == NULL)
         return NULL;
     rb = rb_delete(&root->rb,&node->rb);
+    if(rb == NULL)
+        return NULL;
     return rb_entry(rb,struct cmh_key_cert,rb);
 }
 /***************cmh_key_cert 红黑树操作函数结束**************/
@@ -263,8 +273,10 @@ int cme_db_init(struct cme_db *cdb){
     }
     cdb->certs = NULL;
     INIT_LIST_HEAD(&cdb->crls.list);
-    lock_init(&cdb->lock);
-    
+    if(lock_init(&cdb->lock)){
+        wave_error_printf("锁初始化失败  %s %d",__FILE__,__LINE__);
+        return -1;
+    }
     INIT_LIST_HEAD(&cdb->lsises.alloced_lsis.list);
     INIT_LIST_HEAD(&cdb->lsises.lsises.list);
     INIT_LIST_HEAD(&cdb->cmhs.alloc_cmhs.cmh_init.list);
@@ -273,14 +285,75 @@ int cme_db_init(struct cme_db *cdb){
     INIT_LIST_HEAD(&cdb->cmhs.cmh_chain.list); 
     return 0;
 }
-int cme_db_empty_init(struct cme_db *cdb){
-    if(cdb == NULL){
-        wave_error_printf("传入参数有问题  %s %d",__FILE__,__LINE__);
+static int get_ca_cert(struct certificate* cert){
+    FILE *fp;
+    string str;
+
+    INIT(str);
+    fp = fopen("./cert/ca_cert/ca.cert","r");
+    if(fp == NULL){
+        wave_error_printf("没有ca证书，请查看路径有问题没有 %s %d",__FILE__,__LINE__);
         return -1;
     }
+    str.len = 400;
+    str.buf = (u8*)malloc(str.len);
+    if(str.buf == NULL){
+        wave_malloc_error();
+        fclose(fp);
+        return -1;
+    }
+    str.len = fread(str.buf,1,str.len,fp);
+    if(str.len <= 0){
+        wave_error_printf("读取文件出现了错误 %s %d",__FILE__,__LINE__);
+        fclose(fp);
+        string_free(&str);
+        return -1;
+    }
+    if(string_2_certificate(&str,cert) <=0 ){
+        wave_error_printf("证书解码有问题  %s %d",__FILE__,__LINE__);
+        fclose(fp);
+        string_free(&str);
+        return -1;
+    }
+    fclose(fp);
+    string_free(&str);
+    return 0;
+}
+static int get_ca_pri(string *str){
+    FILE *fp;
+
+    fp = fopen("./cert/ca_cert/ca.veri.pri","r");
+    if(fp == NULL){
+        wave_error_printf("没有ca证书，请查看路径有问题没有 %s %d",__FILE__,__LINE__);
+        return -1;
+    }
+    str->len = 400;
+    str->buf = (u8*)malloc(str->len);
+    if(str->buf == NULL){
+        wave_malloc_error();
+        fclose(fp);
+        return -1;
+    }
+    str->len = fread(str->buf,1,str->len,fp);
+    if(str->len <= 0){
+        wave_error_printf("读取文件出现了错误 %s %d",__FILE__,__LINE__);
+        fclose(fp);
+        string_free(str);
+        return -1;
+    }
+    fclose(fp);
+    return 0;
+}
+int cme_db_empty_init(struct sec_db* sdb){
     struct cme_lsis_chain* lsis_node;
     struct cmh_chain* cmh_node;
+    struct cmh_key_cert *key_cert;
+    struct cmh_chain *ca_cmh;
+    struct cme_db *cdb;
+    struct certificate ca;
+    string pri;
     int i;
+    cdb = &sdb->cme_db;
     cdb->certs = NULL;
     INIT_LIST_HEAD(&cdb->crls.list);
     lock_init(&cdb->lock);
@@ -303,7 +376,8 @@ int cme_db_empty_init(struct cme_db *cdb){
     cdb->cmhs.alloc_cmhs.cmh_key_cert = NULL;
    
     INIT_LIST_HEAD(&cdb->cmhs.cmh_chain.list); 
-    for(i=1;i<=CMH_MAX_NUM;i++){
+    //1这个指 直接给ca
+    for(i=2;i<=CMH_MAX_NUM;i++){
         if( (cmh_node = (struct cmh_chain*)malloc(sizeof(struct cmh_chain))) == NULL){
             wave_malloc_error();
             cme_db_free(cdb);
@@ -312,6 +386,30 @@ int cme_db_empty_init(struct cme_db *cdb){
         cmh_node->cmh = i;
         list_add_tail(&cmh_node->list,&cdb->cmhs.cmh_chain.list);
     }
+
+    //这里我要为他载入默认的ca
+    ca_cmh = (struct cmh_chain*)malloc(sizeof(struct cmh_chain));
+    if(ca_cmh == NULL){
+        wave_malloc_error();
+        cme_db_free(cdb);
+        return -1;
+    }
+    ca_cmh->cmh = 1;
+    list_add_tail(&ca_cmh->list,&cdb->cmhs.alloc_cmhs.cmh_init.list);
+    INIT(ca);
+    INIT(pri);
+    if(get_ca_cert(&ca) || get_ca_pri(&pri)){
+        wave_error_printf("获取初始ca有问题 %s %d",__FILE__,__LINE__);
+        cme_db_free(cdb);
+        return -1;
+    }
+    
+    if(cme_store_cert_key(sdb,1,&ca,&pri)){
+        cme_db_free(cdb);
+        return -1;
+    }
+    string_free(&pri);
+    certificate_free(&ca);
     return 0;
 }
 static int cmh_chain_2_file(struct cmh_chain* cmh,FILE *fp){
@@ -597,7 +695,7 @@ static int cert_info_2_file(struct cert_info *cinfo,FILE *fp){
         res = -1;
         goto end;
     }
-    if(  fwrite(cert_string.buf,1,cert_string.len,fp) != len ||
+    if(  fwrite(cert_string.buf,1,cert_string.len,fp) != cert_string.len ||
             fwrite(cinfo->certid10.certid10,1,10,fp) != 10 ||
             fwrite(&cinfo->verified,sizeof(cinfo->verified),1,fp) != 1 ||
             fwrite(&cinfo->trust_anchor,sizeof(cinfo->trust_anchor),1,fp) != 1 ||
@@ -616,7 +714,6 @@ static int certs_2_file(struct cme_db *cdb,FILE *fp){
     struct cert_info *cinfo; 
     char buf = 0;
     cinfo = cdb->certs;
-    wave_printf(MSG_DEBUG,"certs_2_file    ");
     while(cinfo != NULL){
         cdb->certs = cert_info_delete(cdb->certs,cinfo);
         if( cert_info_2_file(cinfo,fp)){
@@ -624,8 +721,9 @@ static int certs_2_file(struct cme_db *cdb,FILE *fp){
             free(cinfo);
             return -1;
         }
-        cert_info_free(cinfo);
+        //cert_info_free(cinfo);
         free(cinfo);
+        cinfo = cdb->certs;
     }
     //书写一个0标志结束，因为证书的第一个字节不可能为0
     if( (fwrite(&buf,sizeof(char),1,fp) != 1)){
@@ -689,8 +787,18 @@ static int file_2_cmh_key_cert(struct cme_db *cdb,struct cmh_key_cert* key_cert,
     int len,cert_len;
     
     if(fread(&key_cert->cmh,sizeof(key_cert->cmh),1,fp) != 1||
-            fread(&key_cert->private_key.len,sizeof(key_cert->private_key.len),1,fp) != 1||
-            fread(key_cert->private_key.buf,1,key_cert->private_key.len,fp) != key_cert->private_key.len){
+            fread(&key_cert->private_key.len,sizeof(key_cert->private_key.len),1,fp) != 1){
+        wave_error_printf("写入文件有错误 %s %d",__FILE__,__LINE__);
+        res = -1;
+        goto end;
+    }
+    key_cert->private_key.buf = (u8*)malloc(key_cert->private_key.len);
+    if(key_cert->private_key.buf == NULL){
+        wave_malloc_error();
+        res = -1;
+        goto end;
+    }
+    if( fread(key_cert->private_key.buf,1,key_cert->private_key.len,fp) != key_cert->private_key.len){
         wave_error_printf("写入文件有错误 %s %d",__FILE__,__LINE__);
         res = -1;
         goto end;
@@ -714,7 +822,6 @@ static int file_2_cmh_key_cert(struct cme_db *cdb,struct cmh_key_cert* key_cert,
         goto end;
     }
     fseek(fp,cert_len-len,SEEK_CUR);
-
     if(certificate_2_certid10(cert,&certid)){
         res = -1;
         goto end;    
@@ -797,6 +904,12 @@ static int file_2_alloced_cmhs(struct cme_db *cdb,struct alloced_cmhs* alloced_c
             return -1;
         }
         alloced_cmh->cmh_key_cert = ckc_insert(alloced_cmh->cmh_key_cert,key_cert_temp);
+        
+        if( fread(&flag,sizeof(flag),1,fp) != 1){
+            wave_error_printf("写入文件错误 %s %d",__FILE__,__LINE__);
+            return -1;
+        }
+
     }
     return 0;
     
@@ -1056,7 +1169,6 @@ static int file_2_certs(struct cme_db* cdb,FILE* fp){
         wave_error_printf("读文件失败 %s %d",__FILE__,__LINE__);
         return -1;
     }
-    wave_printf(MSG_DEBUG,"flag %d",flag);
     while(flag != end){
         fseek(fp,-sizeof(flag),SEEK_CUR);
         cinfo = (struct cert_info*)malloc(sizeof(struct cert_info));
@@ -1078,6 +1190,8 @@ static int file_2_certs(struct cme_db* cdb,FILE* fp){
     }
     goto end;
 end:
+    if(res == 0)
+        return 0;
     if( cinfo != NULL){
         cert_info_free(cinfo);
         free(cinfo);
@@ -1094,7 +1208,6 @@ int file_2_cme_db(struct cme_db *cdb,char *name){
     lock_wrlock(&cdb->lock);
     if( file_2_certs(cdb,fp))
         goto fail;
-    wave_printf(MSG_DEBUG,"2_certs 完成 %s %d",__FILE__,__LINE__);
     if( file_2_crls(cdb,fp))
         goto fail;
     if( file_2_lsises(cdb,fp))
@@ -1107,5 +1220,5 @@ int file_2_cme_db(struct cme_db *cdb,char *name){
 fail:
     fclose(fp);
     lock_unlock(&cdb->lock);
-    return 0;
+    return -1;
 }

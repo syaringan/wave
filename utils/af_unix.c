@@ -74,12 +74,14 @@ int serv_accept(int listenfd,uid_t *uidptr){
         }
         break;
     }
-
+/*
     len -= offsetof(struct sockaddr_un,sun_path);
     memcpy(name,un.sun_path,len);
     name[len] = 0;
     
+    printf("%s\n",name);    
     if(stat(name,&statbuf) < 0 ){
+        perror("stat:");
         printf("获取文件状态失败%s %d\n",__FILE__,__LINE__);
         close(clifd);
         return -1;
@@ -115,6 +117,7 @@ int serv_accept(int listenfd,uid_t *uidptr){
     }
     unlink(name);
     free(name);
+    */
     return clifd;
 }
 
@@ -131,11 +134,11 @@ int cli_connect(const char *name){
         printf("socket 申请失败 %s %d\n",__FILE__,__LINE__);
         return -1;
     }
-
+/*
     memset(&un,0,sizeof(un));
     un.sun_family = AF_UNIX;
     sprintf(un.sun_path,"%s%05ld%05ld",CLI_PATH,(long)getpid(),(long)pthread_self());
-    
+    printf("%s\n",un.sun_path); 
     len = offsetof(struct sockaddr_un,sun_path) + strlen(un.sun_path);
 
     unlink(un.sun_path);
@@ -149,7 +152,7 @@ int cli_connect(const char *name){
         close(fd);
         return -1;
     }
-
+*/
     memset(&sun,0,sizeof(sun));
     sun.sun_family = AF_UNIX;
     strcpy(sun.sun_path,name);

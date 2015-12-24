@@ -51,7 +51,6 @@ static void privatekey_signed_cert(pk_algorithm algorithm,string* pri,certificat
         error();
         goto end;
     }
-    printf("r.len s.len :%d %d",r.len,s.len);
     signature = &issued->u.signature.u.ecdsa_signature;
     signature->s.len = s.len;
     signature->s.buf = (u8*)malloc(s.len);
@@ -88,7 +87,8 @@ static void cert_signed_cert(certificate* issuing,string* pri,certificate* issue
 
     INIT(signer_encode);
     INIT(signer_hashed);
-
+    
+    
     //这个地方签发证书，我们选取的tobesigned_certificate  而签发者我们选取的certificate 这个整体
     if(certificate_2_string(issuing,&signer_encode)){
         error();
@@ -143,7 +143,7 @@ static void fill_version_and_type(certificate* cert){
 static void fill_holder_type(certificate* cert){
     enum holder_type holder_type;
     char name[20];
-    printf("输入holder_type(root_ca,wsa_ca,wsa,sde_ca):");
+    printf("输入holder_type(root_ca,wsa_ca,wsa,sde_ca,sde_id_localized):");
     scanf("%s",name);
     if(strcmp(name,"root_ca") == 0){
         holder_type = ROOT_CA;
@@ -156,6 +156,9 @@ static void fill_holder_type(certificate* cert){
     }
     else if(strcmp(name,"sde_ca") == 0){
         holder_type = SDE_CA;
+    }
+    else if(strcmp(name,"sde_id_localized") == 0){
+        holder_type = SDE_IDENTIFIED_LOCALIZED;
     }
     else{
         error();
@@ -195,10 +198,25 @@ static void fill_psid_priority_array(psid_priority_array* ppa){
     ppa->u.permissions_list.buf[1].psid = 0x23;
     ppa->u.permissions_list.buf[1].max_priority = 0x1f;
 }
+static void fill_psid_ssp_array(psid_ssp_array* psa){
+    psa->type = ARRAY_TYPE_SPECIFIED;
+
+    psa->u.permissions_list.len = 2;
+    psa->u.permissions_list.buf = (psid_ssp*)malloc(sizeof(psid_ssp) * 2);
+    if(psa->u.permissions_list.buf == NULL){
+        error();
+        return;
+    }
+    psa->u.permissions_list.buf[0].psid = 0x20;
+    psa->u.permissions_list.buf[0].service_specific_permissions.len = 0;
+
+    psa->u.permissions_list.buf[1].psid = 0x23;
+    psa->u.permissions_list.buf[1].service_specific_permissions.len= 0;
+}
 static void fill_psid_priority_ssp_array(psid_priority_ssp_array* ppsa){
     ppsa->type = ARRAY_TYPE_SPECIFIED;
     ppsa->u.permissions_list.len =2 ;
-    ppsa->u.permissions_list.buf = (psid_priority_ssp*)malloc(sizeof(psid_priority_ssp_array) * 2);
+    ppsa->u.permissions_list.buf = (psid_priority_ssp*)malloc(sizeof(psid_priority_ssp) * 2);
     if(ppsa->u.permissions_list.buf == NULL){
         error();
         return;
@@ -275,6 +293,20 @@ static void fill_wsa(certificate* cert){
     fill_psid_priority_ssp_array(&scope->permissions);
     fill_geographic_region(&scope->region);
 }
+static void fill_id_scope(certificate* cert){
+    identified_scope* idscope;
+    idscope = &cert->unsigned_certificate.scope.u.id_scope;
+    
+    idscope->name.len = 4;
+    idscope->name.buf = (u8*)malloc(idscope->name.len);
+    if(idscope->name.buf == NULL){
+        error();
+        return;
+    }
+    strcpy(idscope->name.buf,"ljh");
+    fill_psid_ssp_array(&idscope->permissions);
+    fill_geographic_region(&idscope->region);
+}
 static void fill_certspecificdata(certificate* cert){
    switch(cert->unsigned_certificate.holder_type){
         case ROOT_CA:
@@ -289,7 +321,10 @@ static void fill_certspecificdata(certificate* cert){
             fill_wsa_ca_scope(cert);
             break;
         case WSA:
-            fill_wsa_ca_scope(cert);
+            fill_wsa(cert);
+            break;
+        case SDE_IDENTIFIED_LOCALIZED:
+            fill_id_scope(cert);
             break;
         default:
             error();
@@ -518,11 +553,6 @@ static void cert_2_file(certificate* cert,char* name){
         fclose(fp);
         return;
     }
-    int i;
-    for(i=0;i<str.len;i++){
-        printf("%02x ",str.buf[i]);
-    }
-    printf("\n");
     string_free(&str);
     fclose(fp);
 }
@@ -548,11 +578,6 @@ static void file_2_cert(certificate* cert,char* name){
         fclose(fp);
         return;
     }
-     int i;
-    for(i=0;i<str.len;i++){
-        printf("%02x ",str.buf[i]);
-    }
-    printf("\n");
     if(string_2_certificate(&str,cert) <= 0 ){
         certificate_printf(cert);
         error();
@@ -590,6 +615,7 @@ static void generate_no_ca_cert(certificate *cert,char* name){
     fill_tobesigned_certificate(cert,pwd,&pri);
     file_2_verify_pri("/home/ljh/ljh-wave-1609.2/cert/ca_cert/ca.veri.pri",&ca_pri);
     file_2_cert(&ca_cert,"/home/ljh/ljh-wave-1609.2/cert/ca_cert/ca.cert");
+    certificate_printf(&ca_cert);
     cert_signed_cert(&ca_cert,&ca_pri,cert);
 
     string_free(&pri);
@@ -619,5 +645,6 @@ void generate_cert(){
         strcat(pwd,name);
         strcat(pwd,".cert");
         cert_2_file(&cert,pwd);
+        certificate_printf(&cert);
     }
 }

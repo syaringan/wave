@@ -1,7 +1,9 @@
 
-#include "data/data.h" //后面把直接需要的结构体复制过来
-#include "cme/cme_db.h"
-
+typedef unsigned int cmh;
+typedef unsigned int cme_lsis;
+typedef unsigned int psid;
+typedef unsigned long long time64;
+typedef unsigned int time32;
 /**
  * 这里我没有为上层提供调试的功能，只是0代表成功，-1代表失败.
  */

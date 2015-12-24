@@ -1614,7 +1614,6 @@ u32 tobesigned_certificate_2_buf(const tobesigned_certificate *tobesigned_certif
 			res++;
 			break;
 	}
-
 	encode_len = cert_specific_data_2_buf(&tobesigned_certificate->scope,mbuf,size,tobesigned_certificate->holder_type);
 	if(encode_len < 0)
 		return encode_len;
@@ -1723,7 +1722,6 @@ u32 certificate_2_buf(const certificate *certificate,u8* buf,u32 len){
 	res++;
 
 	encode_len = tobesigned_certificate_2_buf(&certificate->unsigned_certificate,mbuf,size,certificate->version_and_type);
-
 	if(encode_len < 0)
 		return encode_len;
 	mbuf += encode_len;

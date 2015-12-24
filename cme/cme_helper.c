@@ -3,7 +3,7 @@
 #include "utils/debug.h"
 #include "cme_db.h"
 #include <math.h>
-#define INIT(n) memset(&n,sizeof(n),0)
+#define INIT(n) memset(&n,0,sizeof(n))
 int certificate_get_start_time(certificate* cert,time32 *start_time){
     if(cert->unsigned_certificate.expiration == 0){
         wave_printf(MSG_WARNING,"这个证书没有过期时间");
@@ -264,7 +264,7 @@ int get_cert_info_by_certid(struct sec_db *sdb,enum identifier_type type,string 
     }
     if(type == ID_CERTIFICATE){
         cinfo_cmp.type = ID_CERTID10;
-        if(string_2_certificate(identifier,&cert)){
+        if(string_2_certificate(identifier,&cert) <= 0){
             res = -1;
             goto end;
         }

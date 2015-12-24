@@ -80,7 +80,7 @@ result cme_store_keypair(struct sec_db* sdb,  cmh cmh,
 result cme_store_cert(struct sec_db* sdb,  cmh cmh,
                               certificate* cert,
                               string* transfor);
-result cme_store_cert_key(struct sec_db* sdb,  certificate* cert,
+result cme_store_cert_key(struct sec_db* sdb,  cmh cmh,certificate* cert,
                               string* pri_key);
 
 

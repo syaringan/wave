@@ -299,5 +299,5 @@ struct rb_head* rb_delete(struct rb_head *tree,struct rb_head *x)
 
     if (color == BLACK)
 	    tree = rb_delete_fixup(tree,fix);
-    return tree;
+    return (tree == &mynil)?NULL:tree;
 }

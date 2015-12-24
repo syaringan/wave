@@ -492,7 +492,40 @@ static void pending_certificate_request(struct cmp_db* cmdb){
 void cmp_do_certificate_applycation(){
     pending_certificate_request(cmdb);
 }
+static int get_ca_cert(struct cmp_db* cmdb){
+    FILE *fp;
+    string str;
 
+    INIT(str);
+    fp = fopen("./cert/ca_cert/ca.cert","r");
+    if(fp == NULL){
+        wave_error_printf("没有ca证书，请查看路径有问题没有 %s %d",__FILE__,__LINE__);
+        return -1;
+    }
+    str.len = 400;
+    str.buf = (u8*)malloc(str.len);
+    if(str.buf == NULL){
+        wave_malloc_error();
+        fclose(fp);
+        return -1;
+    }
+    str.len = fread(str.buf,1,str.len,fp);
+    if(str.len <= 0){
+        wave_error_printf("读取文件出现了错误 %s %d",__FILE__,__LINE__);
+        fclose(fp);
+        string_free(&str);
+        return -1;
+    }
+    if(string_2_certificate(&str,&cmdb->ca_cert) <=0 ){
+        wave_error_printf("证书解码有问题  %s %d",__FILE__,__LINE__);
+        fclose(fp);
+        string_free(&str);
+        return -1;
+    }
+    fclose(fp);
+    string_free(&str);
+    return 0;
+}
 int cmp_init(){
     int res;
     cmdb = (struct cmp_db*)malloc(sizeof(struct cmp_db));
@@ -502,17 +535,16 @@ int cmp_init(){
     }
     INIT(*cmdb);
     cmdb->pending = 0;
+    cmdb->ca_cmh = 1;
     pthread_mutex_init(&cmdb->lock,NULL);
     INIT_LIST_HEAD(&cmdb->crl_time.list);
-     /************
-    cmp_end();
-    wave_printf(MSG_INFO,"cmp 写入文件成功");
-  //  file_2_cmp_db(cmdb,"./cmp_db.txt");
-   // wave_printf(MSG_INFO,"cmp 从文件写回");
-    *********/
     res = file_2_cmp_db(cmdb,"./cmp_db.txt");
     if( res ){
-        return file_2_cmp_db(cmdb,"./cmp_db.init");
+        wave_printf(MSG_WARNING,"我这里要生成一个空的cmp，我会到制定地方读取ca");
+        cmdb->ca_cmh = 1;
+        if(get_ca_cert(cmdb)){
+            return -1;
+        }
     }
    
     return res;
@@ -808,7 +840,7 @@ static void data_recieve_progress(struct sec_db* sdb,string* rec_data){
     
     
     sec_data_free(&sdata);
-    if(string_2_sec_data(rec_data,&sdata)){
+    if(string_2_sec_data(rec_data,&sdata) <= 0 ){
             goto end;
     }
     if(sdata.protocol_version != CURRETN_VERSION)

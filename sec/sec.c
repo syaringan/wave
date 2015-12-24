@@ -1313,7 +1313,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     }
     else if(type == SIGNED || type == SIGNED_PARTIAL_PAYLOAD || type == SIGNED_EXTERNAL_PAYLOAD){
         tbencrypted.type = type;
-        if(  string_2_signed_data(data,&tbencrypted.u.signed_data)){
+        if(  string_2_signed_data(data,&tbencrypted.u.signed_data) <=0 ){
             wave_error_printf("string_2_signed_data 失败 %s %d",__FILE__,__LINE__);
             res = -1;
             goto end;
@@ -1399,7 +1399,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
     INIT(temp);
     INIT(permissions);
 
-    if(  string_2_sec_data(recieve_data,&sdata)){
+    if(  string_2_sec_data(recieve_data,&sdata) <= 0){
         wave_error_printf("不能将受到的数据变为sdata %s %d",__FILE__,__LINE__);
         res = INVALID_INPUT;
         goto end;
@@ -1637,7 +1637,7 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
     INIT(times);
     INIT(digest);
 
-    if( string_2_signed_data(signed_data, &s_data) ){
+    if( string_2_signed_data(signed_data, &s_data) <=0 ){
         wave_error_printf("signed_data解码失败 %s %d",__FILE__,__LINE__);
         res = INVALID_INPUT;
         goto end;
@@ -2022,7 +2022,7 @@ result sec_crl_verification(struct sec_db* sdb,string* crl,time32 overdue_crl_to
     INIT(cert_hashedid8);
     INIT(temp_string);
 
-    if( string_2_crl(crl,&mycrl)){
+    if( string_2_crl(crl,&mycrl) <= 0){
         wave_error_printf("编码失败哦 %s %d",__FILE__,__LINE__);
         res = FAILURE;
         goto end;
@@ -2656,7 +2656,7 @@ result sec_certificate_response_processing(struct sec_db* sdb,cmh cmh,string* da
     INIT(cert_req_error);
     INIT(cert_resp);
 
-    if( string_2_sec_data(data,&s_data)){
+    if( string_2_sec_data(data,&s_data) <= 0){
         wave_error_printf("解码 失败 %s %d",__FILE__,__LINE__);
         res = FAILURE;
         goto end;
@@ -2684,7 +2684,7 @@ result sec_certificate_response_processing(struct sec_db* sdb,cmh cmh,string* da
         goto end;
     }
     if(m_type == CERTIFICATE_REQUSET_ERROR){
-        if( string_2_tobe_encrypted_certificate_request_error(&de_data,&cert_req_error)){
+        if( string_2_tobe_encrypted_certificate_request_error(&de_data,&cert_req_error) <= 0){
             res = FAILURE;
             wave_error_printf("解码错误 %s %d",__FILE__,__LINE__);
             goto end;
@@ -2701,7 +2701,7 @@ result sec_certificate_response_processing(struct sec_db* sdb,cmh cmh,string* da
        goto end;
     }
     if(m_type == CERTIFICATE_RESPONSE){
-        if(string_2_tobe_encrypted_certificate_response(&de_data,&cert_resp)){
+        if(string_2_tobe_encrypted_certificate_response(&de_data,&cert_resp) <=0 ){
             res = FAILURE;
             wave_error_printf("解码错误 %s %d",__FILE__,__LINE__);
             goto end;
@@ -2936,7 +2936,7 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
     INIT(digest);
     INIT(ser_info_array);
 
-    if(string_2_sec_data(wsa, &sec_data)){
+    if(string_2_sec_data(wsa, &sec_data) <= 0 ){
         wave_error_printf("sec_data解码失败");
         ret = FAILURE;
         goto end;
@@ -3734,7 +3734,7 @@ result sec_decrypt_data(struct sec_db* sdb,string* encrypted_data,cmh cmh,
     INIT(nonce);
     INIT(plaintext);
 
-    if(string_2_encrypted_data(encrypted_data,&encrypteddata)){
+    if(string_2_encrypted_data(encrypted_data,&encrypteddata) <= 0){
         res = -1;
         goto end;
     }
@@ -3810,7 +3810,7 @@ cmh存储的是证书和cmh存储的一对钥匙 但是我只做了前者的茶�
         res = -1;
         goto end;
     }
-    if(string_2_tobe_encrypted(&plaintext,&tobe_en)){
+    if(string_2_tobe_encrypted(&plaintext,&tobe_en) <= 0){
         res = -1;
         goto end;
     }

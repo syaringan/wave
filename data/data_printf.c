@@ -160,21 +160,15 @@ void psid_array_printf(psid_array* psid_array,int n){
 void psid_ssp_printf(psid_ssp* psid_ssp,int n){
     int i;
     char* buf = (char*)&psid_ssp->psid;
+    char temp[100];
 
     space_print(n);
-    wave_printf(MSG_INFO,"psid: ");
-    PRINTF32(buf);
+    wave_printf(MSG_INFO,"psid: %08x",psid_ssp->psid);
 
     space_print(n);
-    wave_printf(MSG_INFO,"service_specific_permissions:");
-    for(i=0;i<psid_ssp->service_specific_permissions.len;i++){
-        if(i%16 == 0){
-            wave_printf(MSG_INFO,"");
-            space_print(n+N);
-        }
-        wave_printf(MSG_INFO,"%x ",*(psid_ssp->service_specific_permissions.buf + i));
-    }
-    wave_printf(MSG_INFO,"");
+    memcpy(temp,psid_ssp->service_specific_permissions.buf,psid_ssp->service_specific_permissions.len);
+    temp[psid_ssp->service_specific_permissions.len] = '\0';
+    wave_printf(MSG_INFO,"service_specific_permissions:%s",temp);
 }
 
 void psid_ssp_array_printf(psid_ssp_array* psid_ssp_array,int n){
@@ -209,25 +203,19 @@ void psid_ssp_array_printf(psid_ssp_array* psid_ssp_array,int n){
 
 void psid_priority_ssp_printf(psid_priority_ssp* psid_ps,int n){
     int i;
+    char temp[100];
     char* buf = (char*)&psid_ps->psid;
     
     space_print(n);
-    wave_printf(MSG_INFO,"psid: ");
-    PRINTF32(buf);
+    wave_printf(MSG_INFO,"psid: %08x",psid_ps->psid);
 
     space_print(n);
     wave_printf(MSG_INFO,"max_priority: %x",psid_ps->max_priority);
 
     space_print(n);
-    wave_printf(MSG_INFO,"service_specific_permissions:");
-    for(i=0;i<psid_ps->service_specific_permissions.len;i++){
-        if(i%16 == 0){
-            wave_printf(MSG_INFO,"");
-            space_print(n+N);
-        }
-        wave_printf(MSG_INFO,"%x ",*(psid_ps->service_specific_permissions.buf + i));
-    }
-    wave_printf(MSG_INFO,"");
+    memcpy(temp,psid_ps->service_specific_permissions.buf,psid_ps->service_specific_permissions.len);
+    temp[psid_ps->service_specific_permissions.len] = '\0';
+    wave_printf(MSG_INFO,"service_specific_permissions:%s",temp);
 }
 
 void psid_priority_ssp_array_printf(psid_priority_ssp_array* psid_psa,int n){
@@ -384,17 +372,12 @@ void identified_not_localized_scope_printf(identified_not_localized_scope* id_nl
 
 void identified_scope_printf(identified_scope* identified_scope,int n){
     int i;
-    
+     char temp[100];
+   
+    memcpy(temp,identified_scope->name.buf,identified_scope->name.len);
+    temp[identified_scope->name.len] = '\0';
     space_print(n);
-    wave_printf(MSG_INFO,"name:");
-    for(i=0;i<identified_scope->name.len;i++){
-        if(i%16 == 0){
-            wave_printf(MSG_INFO,"");
-            space_print(n+N);
-        }
-        wave_printf(MSG_INFO,"%x ",*(identified_scope->name.buf + i));
-    }
-    wave_printf(MSG_INFO,"");
+    wave_printf(MSG_INFO,"name:%s",temp);
 
     space_print(n);
     wave_printf(MSG_INFO,"permissions:");
@@ -430,17 +413,11 @@ void anonymous_scope_printf(anonymous_scope* anonymous_scope,int n){
 
 void wsa_scope_printf(wsa_scope* wsa_scope,int n){
     int i;
-
+    int temp[100];
+    memcpy(temp,wsa_scope->name.buf,wsa_scope->name.len);
+    temp[wsa_scope->name.len] = '\0';
     space_print(n);
-    wave_printf(MSG_INFO,"name:");
-    for(i=0;i<wsa_scope->name.len;i++){
-        if(i%16 == 0){
-            wave_printf(MSG_INFO,"");
-            space_print(n+N);
-        }
-        wave_printf(MSG_INFO,"%x ",*(wsa_scope->name.buf + i));
-    }
-    wave_printf(MSG_INFO,"");
+    wave_printf(MSG_INFO,"name:%s",temp);
 
     space_print(n);
     wave_printf(MSG_INFO,"permissions:");
@@ -590,7 +567,7 @@ void tobesigned_certificate_printf(tobesigned_certificate* tbs_cert,int n,char v
             wave_printf(MSG_INFO,"no_root_ca:");
 
             space_print(n+N);
-            wave_printf(MSG_INFO,"signer_id:HASHEDID8_FORMAT",HASHEDID8_VALUE(tbs_cert->u.no_root_ca.signer_id));
+            wave_printf(MSG_INFO,"signer_id:"HASHEDID8_FORMAT,HASHEDID8_VALUE(tbs_cert->u.no_root_ca.signer_id));
 
             space_print(n+N);
             wave_printf(MSG_INFO,"signature_alg: %d",tbs_cert->u.no_root_ca.signature_alg);

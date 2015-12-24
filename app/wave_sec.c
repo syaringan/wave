@@ -10,7 +10,7 @@
 
 #define SERVICE "/var/tmp/wave_sec.socket"
 
-#define	ERROR_PRINTF(n) printf("n %s %d",__FILE__,__LINE__)
+#define	ERROR_PRINTF(n) printf(n"%s %d\n",__FILE__,__LINE__)
 
 static int getsocket(){
     int fd = -1;

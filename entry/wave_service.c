@@ -3,7 +3,7 @@
 #include"cme/cme.h"
 #include"sec/sec.h"
 
-#define ERROR_PRINTF(n) wave_error_printf("n %s %d",__FILE__,__LINE__)
+#define ERROR_PRINTF(n) wave_error_printf(n" %s %d",__FILE__,__LINE__)
 #define INIT(n) memset(&n,0,sizeof(n))
 
 static int do_cme_lsis_request(struct sec_db* sdb,int fd)
@@ -50,13 +50,13 @@ static int do_cme_cmh_request(struct sec_db* sdb,int fd)
         free(buf);
         return -1;
     }
-
+   
     if(write(fd,buf,len) != len){
         ERROR_PRINTF("写入失败");
         free(buf);
         return -1;
     }
-
+    
     free(buf);
     return 0;
 }
@@ -405,7 +405,7 @@ static int do_cme_store_cert_key(struct sec_db* sdb,int fd)
 
     free(buf_beg);
 
-    int res = cme_store_cert_key(sdb,cert,pri_key);
+    int res = cme_store_cert_key(sdb,cmh,cert,pri_key);
     certificate_free(cert);
     string_free(pri_key);
     if(res != 0){

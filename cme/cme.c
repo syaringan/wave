@@ -142,13 +142,15 @@ result cme_cmh_request(struct sec_db* sdb,cmh* cmh){
     head = &cdb->cmhs.cmh_chain.list;
     if( list_empty(head)){
         lock_unlock(&cdb->lock);
-        wave_error_printf("cmh为空");
+        wave_error_printf("cmh为空 %s %d",__FILE__,__LINE__);
         return FAILURE;
     }
+    
+
     node = list_entry(head->next,struct cmh_chain,list);
     list_del(&node->list);
     cme_cmh_init_insert(cdb,node);
-    lock_unlock(&cdb->lock);
+    lock_unlock(&cdb->lock); 
     *cmh = node->cmh;
     wave_printf(MSG_DEBUG,"分配的cmh：%d\n",*cmh);
     return SUCCESS;
@@ -325,7 +327,7 @@ static int is_certificate_verified(struct sec_db* sdb,struct certificate* cert){
         goto end;
     }
     else{
-        wave_printf(MSG_WARNING,"这里我觉得不应该是root——ca的 %s %d",__FILE__,__LINE__);
+        wave_printf(MSG_WARNING,"这里我觉得不应该是root_ca的 %s %d",__FILE__,__LINE__);
     }
     answer = true;
     goto end;
@@ -552,30 +554,72 @@ fail:
     return FAILURE;
 }
 
-result cme_store_cert_key(struct sec_db* sdb,  certificate* cert,
+result cme_store_cert_key(struct sec_db* sdb, cmh cmh, certificate* cert,
                               string* pri_key){
-    struct cert_info* certinfo,root;
-    struct certificate* mcert; 
+    struct cert_info *certinfo= NULL,root;
+    struct certificate* mcert = NULL; 
     struct cme_db* cdb;
+    struct list_head *head;
+    struct cmh_chain* cmh_init;
+    struct cmh_key_cert *key_cert = NULL;
     cdb = &sdb->cme_db;
     
+    lock_wrlock(&cdb->lock);
+    head = &cdb->cmhs.alloc_cmhs.cmh_init.list;
+    list_for_each_entry(cmh_init,head,list){
+        if(cmh_init->cmh == cmh){
+            break;
+        }
+        if(cmh_init->cmh  > cmh){
+            wave_error_printf("没有找到这个cmh %s %d",__FILE__,__LINE__);
+            lock_unlock(&cdb->lock);
+            goto fail;
+        }
+    }
+    if(&cmh_init->list == head){
+        wave_error_printf("没有找到这个cmh %s %d",__FILE__,__LINE__);
+        lock_unlock(&cdb->lock);
+        goto fail;
+    }
+    list_del(&cmh_init->list);
+    free(cmh_init);
+
+
     mcert = (struct certificate*)malloc(sizeof(struct certificate));
     if(mcert == NULL){
         wave_error_printf("内存分配失败");
+        lock_unlock(&cdb->lock);
         goto fail;
     }
     INIT(*mcert);
     certinfo = (struct cert_info*)malloc(sizeof(struct cert_info));
     if(certinfo == NULL){
         wave_error_printf("内存分配失败");
+        lock_unlock(&cdb->lock);
         goto fail;
     }
     INIT(*certinfo);
+    key_cert = (struct cmh_key_cert*)malloc(sizeof(struct cmh_key_cert));
+    if(key_cert == NULL){
+        wave_error_printf("内存分配失败");
+        lock_unlock(&cdb->lock);
+        goto fail;
+    }
+    INIT(*key_cert);
+
     certificate_cpy(mcert,cert);
     cert_info_init(sdb,certinfo,mcert);
-    lock_wrlock(&cdb->lock);
     cdb->certs = cert_info_insert(cdb->certs,certinfo);
+    certinfo->key_cert = key_cert;
+
+    key_cert->cert = mcert;
+    ckc_init_rb(key_cert);
+    key_cert->cert_info = certinfo;
+    key_cert->cmh = cmh;
+    string_cpy(&key_cert->private_key,pri_key);
+    cdb->cmhs.alloc_cmhs.cmh_key_cert = ckc_insert(cdb->cmhs.alloc_cmhs.cmh_key_cert,key_cert);
     lock_unlock(&cdb->lock);
+    return SUCCESS;
 fail:
     if(mcert != NULL){
         certificate_free(mcert);
@@ -585,6 +629,11 @@ fail:
         certinfo->cert = NULL;
         cert_info_free(certinfo);
         free(certinfo);
+    }
+    if(key_cert != NULL){
+        key_cert->cert = NULL;
+        key_cert->cert_info = NULL;
+        free(key_cert);
     }
     return FAILURE;
 }
@@ -613,7 +662,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
         ret = CERTIFICATE_NOT_FOUND;
         if(type == ID_CERTIFICATE){
             if(next_crl_time != NULL){
-                if(string_2_certificate(identifier, &cert_decoded)){
+                if(string_2_certificate(identifier, &cert_decoded) <= 0){
                     wave_error_printf("证书解码失败!");
                     ret = FAILURE;
                     goto fail;

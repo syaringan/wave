@@ -366,7 +366,7 @@ int certificate_cpy(certificate* dst,certificate *src){
         goto end;
 	}
 	res = string_2_certificate(&data,dst);
-	if(res != 0){
+	if(res <= 0){
 		wave_error_printf("string_2_certificate失败");
         goto end;
 	}

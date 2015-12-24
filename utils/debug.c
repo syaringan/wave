@@ -3,7 +3,8 @@
 #include <stdio.h>
 
 #ifdef DEBUG
-int wave_debug_level = MSG_DEBUG;
+static int wave_debug_level = MSG_DEBUG;
+static void** ptr=NULL;
 void wave_printf(int level,const char *fmt,...){
     va_list ap;
 
@@ -30,5 +31,12 @@ void wave_error_printf(const char* fmt,...){
         vprintf(fmt,ap);
         printf("\n");
     }
+}
+void point_save(void **p){
+    ptr = p;
+}
+void point_show(){
+    if(ptr != NULL)
+        printf("point %p\n",*ptr);
 }
 #endif
