@@ -1,3 +1,8 @@
+/*
+ * 向A端传回的数据中，前4字节表示调用的函数的返回值res，
+ * 默认情况下填充0
+ */
+
 #include<stdio.h>
 #include "wave_service.h"
 #include"cme/cme.h"
@@ -8,18 +13,24 @@
 
 static int do_cme_lsis_request(struct sec_db* sdb,int fd)
 {
-    int len = sizeof(int) + sizeof(cme_lsis);
+    int len = sizeof(int)*2 + sizeof(cme_lsis);
     char* buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
         return -1;
     }
 
-    *((int*)buf) = sizeof(cme_lsis);
+    *((int*)buf) = 0;  //默认cme_lsis_request函数执行成功
 
-    if(cme_lsis_request(sdb,(cme_lsis*)(buf+4)) != 0){
+    *((int*)(buf+4)) = sizeof(cme_lsis);
+
+    int res = cme_lsis_request(sdb,(cme_lsis*)(buf+8));
+    if(res != 0){
         ERROR_PRINTF("cme_lsis_request失败");
         free(buf);
+        if(write(fd,&res,4) != 4){
+            ERROR_PRINTF("写入失败");
+        }
         return -1;
     }
 
@@ -36,18 +47,24 @@ static int do_cme_lsis_request(struct sec_db* sdb,int fd)
 
 static int do_cme_cmh_request(struct sec_db* sdb,int fd)
 {
-    int len = sizeof(int) + sizeof(cmh);
+    int len = sizeof(int)*2 + sizeof(cmh);
     char* buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
         return -1;
     }
 
-    *((int*)buf) = sizeof(cmh);
+    *((int*)buf) = 0;
 
-    if(cme_cmh_request(sdb,(cmh*)(buf+4)) != 0){
+    *((int*)(buf+4)) = sizeof(cmh);
+
+    int res = cme_cmh_request(sdb,(cmh*)(buf+8));
+    if(res != 0){
         ERROR_PRINTF("cme_cmh_request失败");
         free(buf);
+        if(write(fd,&res,4) != 4){
+            ERROR_PRINTF("写入失败");
+        }
         return -1;
     }
    
@@ -104,10 +121,13 @@ static int do_cme_generate_keypair(struct sec_db* sdb,int fd)
         ERROR_PRINTF("cme_generate_keypair失败");
         string_free(pub_key_x);
         string_free(pub_key_y);
+        if(write(fd,&res,4)!= 4){
+            ERROR_PRINTF("写入失败");
+        }
         return -1;
     }
 
-    len = sizeof(int)*3 + pub_key_x->len + pub_key_y->len;
+    len = sizeof(int)*4 + pub_key_x->len + pub_key_y->len;
     buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
@@ -117,7 +137,10 @@ static int do_cme_generate_keypair(struct sec_db* sdb,int fd)
     }
     buf_beg = buf;
 
-    *((int*)buf) = len - 4;
+    *((int*)buf) = 0;
+    buf += 4;
+
+    *((int*)buf) = len - 8;
     buf += 4;
 
     *((int*)buf) = pub_key_x->len;
@@ -242,6 +265,9 @@ static int do_cme_store_keypair(struct sec_db* sdb,int fd)
     string_free(pri_key);
     if(res != 0){
         ERROR_PRINTF("cme_store_keypair失败");
+        if(write(fd,&res,4) != 4){
+            ERROR_PRINTF("写入失败");
+        }
         return -1;
     }
 
@@ -326,6 +352,9 @@ static int do_cme_store_cert(struct sec_db* sdb,int fd)
     string_free(transfor);
     if(res != 0){
         ERROR_PRINTF("cme_store_cert失败");
+        if(write(fd,&res,4) != 4){
+            ERROR_PRINTF("写入失败");
+        }
         return -1;
     }
 
@@ -414,6 +443,9 @@ static int do_cme_store_cert_key(struct sec_db* sdb,int fd)
     string_free(&pri_key);
     if(res != 0){
         ERROR_PRINTF("cme_store_cert_key失败");
+        if(write(fd,&res,4) != 4){
+            ERROR_PRINTF("写入失败");
+        }
         return -1;
     }
 
@@ -573,10 +605,13 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
     string_free(ssp);
     if(res != 0){
         ERROR_PRINTF("sec_signed_data失败");
+        if(write(fd,&res,4) != 4){
+            ERROR_PRINTF("写入失败");
+        }
         return -1;
     }
 
-    len = sizeof(int)*3 + signed_data->len;
+    len = sizeof(int)*4 + signed_data->len;
     buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
@@ -584,7 +619,10 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
     }
     buf_beg = buf;
 
-    *((int*)buf) = len - 4;
+    *((int*)buf) = 0;
+    buf += 4;
+
+    *((int*)buf) = len - 8;
     buf += 4;
 
     *((int*)buf) = signed_data->len;
@@ -709,10 +747,13 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
         ERROR_PRINTF("sec_encrypted_data失败");
         string_free(encrypted_data);
         certificate_chain_free(failed_certs);
+        if(write(fd,&res,4) != 4){
+            ERROR_PRINTF("写入失败");
+        }
         return -1;
     }
 
-    len = sizeof(int)*4 + encrypted_data->len + failed_certs->len*sizeof(certificate); //估计长度
+    len = sizeof(int)*5 + encrypted_data->len + failed_certs->len*sizeof(certificate); //估计长度
     buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
@@ -722,6 +763,9 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
     }
     buf_beg = buf;
     count = 0;  //实际数据长度
+
+    *((int*)buf) = 0;
+    count += 4;
 
     buf += 4;
     count += 4;
@@ -766,7 +810,7 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
     }
 
 
-    *((int*)buf_beg) = count - 4;
+    *((int*)(buf_beg+4)) = count - 8;
     certificate_chain_free(failed_certs);
     string_free(encrypted_data);
 
@@ -874,6 +918,9 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
         string_free(signed_data);
         string_free(ssp);
         certificate_free(send_cert);
+        if(write(fd,&res,4) != 4){
+            ERROR_PRINTF("写入失败");
+        }
         return -1;
     }
     if((set_geneartion_time != 0 && set_geneartion_time != 1) ||
@@ -910,7 +957,7 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
     certificate_free(send_cert);
     send_cert_len = res;
 
-    len = sizeof(int)*12 + sizeof(psid) + sizeof(time64)*2 + 3 + data->len + signed_data->len + ssp->len + send_cert_len;
+    len = sizeof(int)*13 + sizeof(psid) + sizeof(time64)*2 + 3 + data->len + signed_data->len + ssp->len + send_cert_len;
     buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
@@ -922,7 +969,10 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
     }
     buf_beg = buf;
 
-    *((int*)buf) = len - 4;
+    *((int*)buf) = 0;
+    buf += 4;
+
+    *((int*)buf) = len - 8;
     buf += 4;
 
     *((int*)buf) = type;
@@ -1160,6 +1210,9 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
         time32_array_free(last_recieve_crl_times);
         time32_array_free(next_expected_crl_times);
         certificate_free(send_cert);
+        if(write(fd,&res,4) != 4){
+            ERROR_PRINTF("写入失败");
+        }
         return -1;
     }
 
@@ -1183,7 +1236,7 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     certificate_free(send_cert);
     send_cert_len = res;
 
-    len = sizeof(int)*4 + sizeof(time32)*(last_recieve_crl_times->len + next_expected_crl_times->len) + send_cert_len;
+    len = sizeof(int)*5 + sizeof(time32)*(last_recieve_crl_times->len + next_expected_crl_times->len) + send_cert_len;
     buf = (char*)malloc(len);
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
@@ -1194,7 +1247,10 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     }
     buf_beg = buf;
 
-    *((int*)buf) = len - 4;
+    *((int*)buf) = 0;
+    buf += 4;
+
+    *((int*)buf) = len - 8;
     buf += 4;
 
     *((int*)buf) = last_recieve_crl_times->len;
