@@ -585,7 +585,7 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
         (type <0 || type >12) ||
 		(signer_type < 0 || signer_type > 2) ||
 		(fs_type < 0 || fs_type > 2) ||
-		data == NULL || exter_data == NULL || ssp == NULL || elevation == NULL)
+		data == NULL || elevation == NULL)
 	{
 		ERROR_PRINTF("参数错误");
         return -1;
@@ -619,11 +619,13 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 	memcpy(buf,data,data_len);
 	buf += data_len;
 
-	*((int*)buf) = exter_len;
+	*((int*)buf) = exter_len; //exter_data可能为NULL
 	buf += 4;
 
-	memcpy(buf,exter_data,exter_len);
-	buf += exter_len;
+    if(exter_len != 0){ 
+        memcpy(buf,exter_data,exter_len);
+        buf += exter_len;
+    }
 
 	*((typeof(psid)*)buf) = psid;
 	buf += sizeof(psid);
@@ -631,8 +633,10 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 	*((int*)buf) = ssp_len;
 	buf += 4;
 
-	memcpy(buf,ssp,ssp_len);
-	buf += ssp_len;
+    if(ssp_len != 0){
+        memcpy(buf,ssp,ssp_len);
+        buf += ssp_len;
+    }
 
 	*((int*)buf) = set_generation_time;
 	buf += 4;
