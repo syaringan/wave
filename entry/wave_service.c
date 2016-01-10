@@ -345,6 +345,7 @@ static int do_cme_store_cert_key(struct sec_db* sdb,int fd)
 
     int slen = 0;
     int len_r;
+    printf("-----%s %d\n",__FILE__,__LINE__);
     while(slen != 4){
         len_r = read(fd,buf+slen,4-slen);
         if(len_r <= 0){
@@ -380,39 +381,43 @@ static int do_cme_store_cert_key(struct sec_db* sdb,int fd)
     int cert_len = *((int*)buf);
     buf += 4;
 
-    certificate* cert;
-    INIT(*cert);
-    if(buf_2_certificate(buf,cert_len,cert) < 0){
+    printf("-----%s %d\n",__FILE__,__LINE__);
+    certificate cert;
+    INIT(cert);
+    if(buf_2_certificate(buf,cert_len,&cert) < 0){
         ERROR_PRINTF("buf_2_certificate失败");
-        certificate_free(cert);
+        certificate_free(&cert);
         free(buf_beg);
         return -1;
     }
     buf += cert_len;
 
-    string* pri_key;
-    INIT(*pri_key);
-    pri_key->len = *((int*)buf);
+    printf("-----%s %d\n",__FILE__,__LINE__);
+    string pri_key;
+    INIT(pri_key);
+    pri_key.len = *((int*)buf);
     buf += 4;
-    pri_key->buf = (char*)malloc(pri_key->len);
-    if(pri_key->buf == NULL){
+    pri_key.buf = (char*)malloc(pri_key.len);
+    if(pri_key.buf == NULL){
         ERROR_PRINTF("内存分配失败");
         certificate_free(cert);
         free(buf_beg);
         return -1;
     }
-    memcpy(pri_key->buf,buf,pri_key->len);
+    memcpy(pri_key.buf,buf,pri_key.len);
 
     free(buf_beg);
 
-    int res = cme_store_cert_key(sdb,cmh,cert,pri_key);
-    certificate_free(cert);
-    string_free(pri_key);
+    printf("-----%s %d\n",__FILE__,__LINE__);
+    int res = cme_store_cert_key(sdb,cmh,&cert,&pri_key);
+    certificate_free(&cert);
+    string_free(&pri_key);
     if(res != 0){
         ERROR_PRINTF("cme_store_cert_key失败");
         return -1;
     }
 
+    printf("-----%s %d\n",__FILE__,__LINE__);
     return 0;
 }
 

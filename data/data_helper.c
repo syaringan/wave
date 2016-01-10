@@ -895,3 +895,65 @@ int certid10_cmp(certid10* a,certid10* b){
     }
     return 0;
 }
+void circular_region_cpy(circular_region* dst,circular_region* src){
+     if(dst == NULL){
+        wave_error_printf("参数错误 %s %d",__FILE__,__LINE__);
+        return ;
+    }
+    memcpy(dst,src,sizeof(circular_region));
+}
+void rectangular_region_cpy(rectangular_region* dst,rectangular_region* src){
+    if(dst == NULL){
+        wave_error_printf("参数错误 %s %d",__FILE__,__LINE__);
+        return ;
+    }
+    memcpy(dst,src,sizeof(rectangular_region));
+}
+void two_d_location_cpy(two_d_location* dst,two_d_location* src){
+    if(dst == NULL){
+        wave_error_printf("参数错误 %s %d",__FILE__,__LINE__);
+        return ;
+    }
+    memcpy(dst,src,sizeof(two_d_location));
+} 
+
+void geographic_region_cpy(geographic_region* dst,geographic_region* src){
+    if(dst == NULL){
+        wave_error_printf("参数错误 %s %d",__FILE__,__LINE__);
+        return ;
+    }
+    int i;
+    dst->region_type = src->region_type;
+    switch(dst->region_type){
+        case CIRCLE:
+            circular_region_cpy(&dst->u.circular_region,&src->u.circular_region);
+            break;
+        case RECTANGLE:
+            dst->u.rectangular_region.len = src->u.rectangular_region.len;
+            if((dst->u.rectangular_region.buf = (rectangular_region*)malloc(sizeof(rectangular_region)*
+                            dst->u.rectangular_region.len)) == NULL ){
+                wave_malloc_error();
+                return;
+            }
+            for(i=0;i<dst->u.rectangular_region.len;i++){
+                memset(dst->u.rectangular_region.buf+i,0,sizeof(rectangular_region));
+                rectangular_region_cpy(dst->u.rectangular_region.buf+i,src->u.rectangular_region.buf+i);
+            }
+            break;
+        case POLYGON:
+            dst->u.polygonal_region.len = src->u.polygonal_region.len;
+            if( (dst->u.polygonal_region.buf = (two_d_location*)malloc(sizeof(two_d_location) * dst->u.polygonal_region.len)) == NULL){
+                wave_malloc_error();
+                return;
+            }
+            for(i=0;i<dst->u.polygonal_region.len;i++){
+                memset(dst->u.polygonal_region.buf+i,0,sizeof(two_d_location));
+                two_d_location_cpy(dst->u.polygonal_region.buf+i,src->u.polygonal_region.buf+i);
+            }
+            break;
+        default:
+            wave_error_printf("我这里没有写这个其他的");
+            break;
+    }
+    return;
+}

@@ -95,6 +95,7 @@ bool certid10_equal(certid10* a,certid10* b);
 int  certid10_cmp(certid10 *a,certid10* b);
 void certid10_cpy(certid10* dst,certid10* src);
 
+void geographic_region_cpy(geographic_region* dst,geographic_region* src);
 /**************证书打印，在data_printf.c中实现******************/
 static void space_print(int n);
 

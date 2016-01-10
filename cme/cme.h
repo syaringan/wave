@@ -22,7 +22,7 @@ struct cme_permissions{
     //相反链表会好很多，最主要的是让整个内部的数据结构统一，避免链表转数组，数组转链表的操作
 };
 void cme_permissions_free(struct cme_permissions* permissions);
-
+void cme_permissions_cpy(struct cme_permissions* dst,struct cme_permissions* src);
 struct verified_array{
     bool *verified;
     u32 len;

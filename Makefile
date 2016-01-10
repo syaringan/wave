@@ -14,5 +14,5 @@ clean:
 		do $(MAKE) -C $$a clean;done;
 	rm wave_sec;
 install:
-	for a in $(SUBDORS);\
-		do $(MAKE) -C $$a install;done
+	for a in $(SUBDIRS);\
+		do $(MAKE) install -C $$a;done;
