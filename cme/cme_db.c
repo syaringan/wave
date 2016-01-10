@@ -116,7 +116,6 @@ struct cert_info* cert_info_find(struct cert_info* root,void* value){
         wave_printf(MSG_DEBUG,"cert_info root == NULL  %s %d",__FILE__,__LINE__);
         return NULL;
     }
-    printf(CERTID10_FORMAT"\n",CERTID10_VALUE(root->certid10));
     rb = rb_find(&root->rb,value);
     if(rb == NULL)
         return NULL;

@@ -3,6 +3,7 @@
 #include"msocket.h"
 #include<stdlib.h>
 #include<time.h>
+#include<string.h>
 #define MY_PORT 2000
 #define OPP_PORT 2010
 #define error() printf("error %s %d\n",__FILE__,__LINE__);
@@ -76,7 +77,7 @@ static void generated_signed_data(cmh cmh,struct string* sdata){
         error();
         return ;
     }
-
+    memset(sdata->buf,1,sdata->len);
     int type ;
     type = SIGNED;
 
@@ -124,10 +125,12 @@ int main(){
         error();
         return-1;
     }
+    printf("cmh = %d\n",mcmh);
     if( cme_store_cert_key(mcmh,mcert.buf,mcert.len,mpri.buf,mpri.len)){
         error();
         return -1;
     }
-    //generated_signed_data(mcmh,&signed_data);    
+    printf("store cert and key\n");
+    generated_signed_data(mcmh,&signed_data);    
         
 }

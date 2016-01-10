@@ -7,7 +7,7 @@
 #include<pthread.h>
 #include<stddef.h>
 #include"utils/af_unix.h"
-
+#include<error.h>
 #define SERVICE "/var/tmp/wave_sec.socket"
 
 #define	ERROR_PRINTF(n) printf(n"%s %d\n",__FILE__,__LINE__)
@@ -62,6 +62,7 @@ int cme_lsis_request(cme_lsis* lsis){
         return -1;
     }
     //读取数据长度
+    slen=0;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
 		if(len_r <= 0){
@@ -133,6 +134,7 @@ int cme_cmh_request(cmh* cmh){
         return -1;
     }
 
+    slen = 0;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
 		if(len_r <= 0){
@@ -245,6 +247,7 @@ int cme_generate_keypair(cmh cmh,int algorithm,
         return -1;
     }
 
+    slen=0;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);//返回读取了多少字节，若不够则需要继续读取
 		if(len_r <= 0){
@@ -542,6 +545,7 @@ int cme_store_cert_key(cmh cmh,char* cert,int cert_len,
 		len_r = read(fd,buf+slen,4-slen);
 		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
+            perror("read");
             free(buf);
 			close(fd);
             return -1;
@@ -708,6 +712,7 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
         return -1;
     }
 
+    slen=0;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
 		if(len_r <= 0){
@@ -854,6 +859,7 @@ int sec_encrypted_data(int type,char* data,int data_len,char* certs,int certs_le
         return -1;
     }
 
+    slen=0;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
 		if(len_r <= 0){
@@ -1003,6 +1009,7 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
         return -1;
     }
 
+    slen=0;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
 		if(len_r <= 0){
@@ -1323,6 +1330,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
         return -1;
     }
 
+    slen=0;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
 		if(len_r <= 0){

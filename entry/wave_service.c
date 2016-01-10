@@ -73,7 +73,7 @@ static int do_cme_cmh_request(struct sec_db* sdb,int fd)
         free(buf);
         return -1;
     }
-    
+    printf("%d %s\n",__LINE__,__FILE__);    
     free(buf);
     return 0;
 }
@@ -263,11 +263,11 @@ static int do_cme_store_keypair(struct sec_db* sdb,int fd)
     string_free(pub_key_x);
     string_free(pub_key_y);
     string_free(pri_key);
+    if(write(fd,&res,4) != 4){
+        ERROR_PRINTF("写入失败");
+    }
     if(res != 0){
         ERROR_PRINTF("cme_store_keypair失败");
-        if(write(fd,&res,4) != 4){
-            ERROR_PRINTF("写入失败");
-        }
         return -1;
     }
 
@@ -350,11 +350,11 @@ static int do_cme_store_cert(struct sec_db* sdb,int fd)
     int res = cme_store_cert(sdb,cmh,cert,transfor);
     certificate_free(cert);
     string_free(transfor);
+    if(write(fd,&res,4)!=4){
+        ERROR_PRINTF("写入失败");
+    }
     if(res != 0){
         ERROR_PRINTF("cme_store_cert失败");
-        if(write(fd,&res,4) != 4){
-            ERROR_PRINTF("写入失败");
-        }
         return -1;
     }
 
@@ -441,11 +441,11 @@ static int do_cme_store_cert_key(struct sec_db* sdb,int fd)
     int res = cme_store_cert_key(sdb,cmh,&cert,&pri_key);
     certificate_free(&cert);
     string_free(&pri_key);
+    if(write(fd,&res,4)!=4){
+        ERROR_PRINTF("写入失败");
+    }
     if(res != 0){
         ERROR_PRINTF("cme_store_cert_key失败");
-        if(write(fd,&res,4) != 4){
-            ERROR_PRINTF("写入失败");
-        }
         return -1;
     }
 
