@@ -518,15 +518,17 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
     INIT(*exter_data);
     exter_data->len = *((int*)buf);
     buf += 4;
-    exter_data->buf = (char*)malloc(exter_data->len);
-    if(exter_data->buf == NULL){
-        ERROR_PRINTF("内存分配失败");
-        string_free(data);
-        free(buf_beg);
-        return -1;
+    if(exter_data->len != 0){  //若为0，则buf不分配内存
+        exter_data->buf = (char*)malloc(exter_data->len);
+        if(exter_data->buf == NULL){
+            ERROR_PRINTF("内存分配失败");
+            string_free(data);
+            free(buf_beg);
+            return -1;
+        }
+        memcpy(exter_data->buf,buf,exter_data->len);
+        buf += exter_data->len;
     }
-    memcpy(exter_data->buf,buf,exter_data->len);
-    buf += exter_data->len;
 
     psid psid;
     memcpy(&psid,buf,sizeof(psid));
@@ -536,16 +538,18 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
     INIT(*ssp);
     ssp->len = *((int*)buf);
     buf += 4;
-    ssp->buf = (char*)malloc(ssp->len);
-    if(ssp->buf == NULL){
-        ERROR_PRINTF("内存分配失败");
-        string_free(data);
-        string_free(exter_data);
-        free(buf_beg);
-        return -1;
+    if(ssp->len != 0){
+        ssp->buf = (char*)malloc(ssp->len);
+        if(ssp->buf == NULL){
+            ERROR_PRINTF("内存分配失败");
+            string_free(data);
+            string_free(exter_data);
+            free(buf_beg);
+            return -1;
+        }
+        memcpy(ssp->buf,buf,ssp->len);
+        buf += ssp->len;
     }
-    memcpy(ssp->buf,buf,ssp->len);
-    buf += ssp->len;
 
     bool set_geneartion_time = *((int*)buf);
     buf += 4;
