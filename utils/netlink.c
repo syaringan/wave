@@ -14,7 +14,8 @@ int create_netlink(struct msghdr *msg, struct nlmsghdr *nlh)
     int fd;
     struct sockaddr_nl src_addr, dest_addr;
     struct iovec iov;
-    fd = socket(PF_NETLINK, SOCK_RAW, 21);
+    //NETLINK_WAVE是需要和.3的模块统一的，需要在linux/netlink.h中添加一个新的协议类型 21
+    fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_WAVE);
     if(fd < 0){
         wave_error_printf("创建fd失败");
         return -1;
@@ -66,5 +67,4 @@ int dot2_init_netlink(struct nlmsghdr *nlh, struct msghdr *msg){
     }
     return fd;
 }
-
 
