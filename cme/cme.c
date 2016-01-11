@@ -51,6 +51,89 @@ void cme_permissions_free(struct cme_permissions* permissions){
             break;
     }
 }
+void cme_permissions_cpy(struct cme_permissions* dst,struct cme_permissions* src){
+    if(dst == NULL){
+        wave_error_printf("参数错粗  %s %d",__FILE__,__LINE__);
+        return ;
+    }
+    int i;
+    dst->type = src->type;
+    switch(dst->type){
+        case PSID:
+            if(dst->u.psid_array.buf != NULL){
+                wave_error_printf("存在野指针 %s %d",__FILE__,__LINE__);
+                goto fail ;
+            }
+            if( (dst->u.psid_array.buf = (psid*)malloc(sizeof(psid) * src->u.psid_array.len)) == NULL){
+                wave_malloc_error();
+                goto fail;
+            }
+            dst->u.psid_array.len = src->u.psid_array.len;
+            memcpy(dst->u.psid_array.buf,src->u.psid_array.buf,sizeof(psid) * src->u.psid_array.len);
+            break;
+        case PSID_PRIORITY:
+            if(dst->u.psid_priority_array.buf != NULL){
+                wave_error_printf("存在野指针 %s %d",__FILE__,__LINE__);
+                goto fail ;
+            }
+            if( (dst->u.psid_priority_array.buf = (psid_priority*)malloc(sizeof(psid_priority) * src->u.psid_priority_array.len)) == NULL){
+                wave_malloc_error();
+                goto fail ;
+            }
+            dst->u.psid_priority_array.len = src->u.psid_priority_array.len;
+            memcpy(dst->u.psid_priority_array.buf,src->u.psid_priority_array.buf,sizeof(psid_priority) * src->u.psid_priority_array.len);
+            break;
+        case PSID_SSP:
+            if(dst->u.psid_ssp_array.buf != NULL){
+                wave_error_printf("存在野指针 %s %d",__FILE__,__LINE__);
+                goto fail ;
+            }
+            if( (dst->u.psid_ssp_array.buf = (psid_ssp*)malloc(sizeof(psid_ssp) * src->u.psid_ssp_array.len)) == NULL){
+                wave_malloc_error();
+                goto fail ;
+            }
+            dst->u.psid_ssp_array.len = src->u.psid_ssp_array.len;
+            memcpy(dst->u.psid_ssp_array.buf,src->u.psid_ssp_array.buf,sizeof(psid_ssp) * src->u.psid_ssp_array.len);
+            for(i=0;i<dst->u.psid_ssp_array.len;i++){
+                (dst->u.psid_ssp_array.buf+i)->service_specific_permissions.len = 
+                                    (src->u.psid_ssp_array.buf+i)->service_specific_permissions.len;
+                if( ( (dst->u.psid_ssp_array.buf+i)->service_specific_permissions.buf = (u8*)malloc( (src->u.psid_ssp_array.buf+i)->service_specific_permissions.len  ))){
+                    wave_malloc_error();
+                    goto fail;
+                }
+                memcpy((dst->u.psid_ssp_array.buf+i)->service_specific_permissions.buf,(src->u.psid_ssp_array.buf+i)->service_specific_permissions.buf,
+                        (src->u.psid_ssp_array.buf+i)->service_specific_permissions.len);
+            }
+            break;
+        case PSID_PRIORITY_SSP:
+            if(dst->u.psid_priority_ssp_array.buf != NULL){
+                wave_error_printf("存在野指针 %s %d",__FILE__,__LINE__);
+                goto fail ;
+            }
+            if( (dst->u.psid_priority_ssp_array.buf = (psid_priority_ssp*)malloc(sizeof(psid_priority_ssp) * src->u.psid_priority_ssp_array.len)) == NULL){
+                wave_malloc_error();
+                goto fail ;
+            }
+            dst->u.psid_priority_ssp_array.len = src->u.psid_priority_ssp_array.len;
+            memcpy(dst->u.psid_priority_ssp_array.buf,src->u.psid_priority_ssp_array.buf,sizeof(psid_priority_ssp) * src->u.psid_priority_ssp_array.len);
+            for(i=0;i<dst->u.psid_priority_ssp_array.len;i++){
+                (dst->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.len = 
+                                    (src->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.len;
+                if( ( (dst->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.buf = 
+                                (u8*)malloc( (src->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.len  ))){
+                    wave_malloc_error();
+                    goto fail;
+                }
+                memcpy((dst->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.buf,(src->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.buf,
+                        (src->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.len);
+            }
+            break;
+    }
+    return;
+fail:
+    cme_permissions_free(dst);
+    return ;
+};
 void cme_permissions_array_free(struct cme_permissions_array* 
                 permission_array){
     int i;
@@ -327,14 +410,14 @@ static int is_certificate_verified(struct sec_db* sdb,struct certificate* cert){
         goto end;
     }
     else{
-        wave_printf(MSG_WARNING,"这里我觉得不应该是root_ca的 %s %d",__FILE__,__LINE__);
+        wave_printf(MSG_WARNING,"这里我是无条件的相信root_ca的 %s %d",__FILE__,__LINE__);
     }
     answer = true;
     goto end;
 end:
     string_free(&identifier);
     verified_array_free(&verifieds);
-    return res;
+    return answer;
 }
 static result get_crl_time_by_certificate(struct sec_db* sdb,certificate* cert,time32 *last_crl_time,time32 *next_crl_time){
     struct cme_db *cdb;
@@ -378,6 +461,16 @@ static result get_crl_time_by_certificate(struct sec_db* sdb,certificate* cert,t
             }
         }
     }
+    /*******这里因为没把法接受crl所以，这里我们先默认如果是root证书，我们就让他的crl time 无限大*******/
+    if(cert->unsigned_certificate.holder_type == ROOT_CA){
+        if(last_crl_time != NULL)
+            *last_crl_time = 0;
+        if(next_crl_time != NULL)
+            *next_crl_time = 2147483647; 
+        return SUCCESS;  
+    }
+    /*********请正式测的时候删掉这部分代码********************/
+
     if(last_crl_time != NULL)
         *last_crl_time = 0;
     if(next_crl_time != NULL)
@@ -407,25 +500,35 @@ static void del_certificate_by_certid10(struct sec_db* sdb,certid10* certid){
 }
 static result cert_info_init(struct sec_db* sdb,struct cert_info* certinfo,struct certificate* cert){
     result res = SUCCESS;
-
     certinfo->cert = cert;
     cert_info_init_rb(certinfo);
     if(certificate_2_certid10(cert,&certinfo->certid10)){
         res = FAILURE;
         goto end;
     }
+    printf("%s %d\n",__FILE__,__LINE__); 
     certinfo->revoked = is_certificate_revoked(sdb,cert);
     if(certinfo->revoked == -1){
         res = FAILURE;
         goto end;
     }
-    certinfo->expriry = cert->unsigned_certificate.expiration * US_TO_S;
+    printf("%s %d\n",__FILE__,__LINE__); 
+    certinfo->expriry =(time64)cert->unsigned_certificate.expiration * US_TO_S;
+    printf("%s %d expriry %llu %u\n",__FILE__,__LINE__, certinfo->expriry, cert->unsigned_certificate.expiration); 
     certinfo->verified = is_certificate_verified(sdb,cert);
+    printf("%s %d verified= %d \n",__FILE__,__LINE__,certinfo->verified); 
     if(certinfo->verified == -1){
         res = FAILURE;
+        printf("%s %d\n",__FILE__,__LINE__); 
         goto end;
     }
-    certinfo->trust_anchor = false;
+    printf("%s %d\n",__FILE__,__LINE__);
+    if(cert->unsigned_certificate.holder_type == ROOT_CA){
+        wave_printf(MSG_DEBUG,"这里无条件相信的ca 所以我把他作为了信任茅");
+        certinfo->trust_anchor = true;
+    } 
+    else
+        certinfo->trust_anchor = false;
     certinfo->key_cert = NULL;
     goto end;
 end:
@@ -563,7 +666,7 @@ result cme_store_cert_key(struct sec_db* sdb, cmh cmh, certificate* cert,
     struct cmh_chain* cmh_init;
     struct cmh_key_cert *key_cert = NULL;
     cdb = &sdb->cme_db;
-    
+    printf("%s %d\n",__FILE__,__LINE__); 
     lock_wrlock(&cdb->lock);
     head = &cdb->cmhs.alloc_cmhs.cmh_init.list;
     list_for_each_entry(cmh_init,head,list){
@@ -581,10 +684,11 @@ result cme_store_cert_key(struct sec_db* sdb, cmh cmh, certificate* cert,
         lock_unlock(&cdb->lock);
         goto fail;
     }
+    printf("%s %d\n",__FILE__,__LINE__); 
     list_del(&cmh_init->list);
     free(cmh_init);
 
-
+    
     mcert = (struct certificate*)malloc(sizeof(struct certificate));
     if(mcert == NULL){
         wave_error_printf("内存分配失败");
@@ -607,16 +711,24 @@ result cme_store_cert_key(struct sec_db* sdb, cmh cmh, certificate* cert,
     }
     INIT(*key_cert);
 
+    printf("%s %d\n",__FILE__,__LINE__); 
     certificate_cpy(mcert,cert);
-    cert_info_init(sdb,certinfo,mcert);
+    printf("%s %d\n",__FILE__,__LINE__); 
+    if( cert_info_init(sdb,certinfo,mcert)){
+        goto fail;
+    }
+    printf("%s %d\n",__FILE__,__LINE__); 
     cdb->certs = cert_info_insert(cdb->certs,certinfo);
+    printf("%s %d\n",__FILE__,__LINE__); 
     certinfo->key_cert = key_cert;
 
+    printf("%s %d\n",__FILE__,__LINE__); 
     key_cert->cert = mcert;
     ckc_init_rb(key_cert);
     key_cert->cert_info = certinfo;
     key_cert->cmh = cmh;
     string_cpy(&key_cert->private_key,pri_key);
+    printf("%s %d\n",__FILE__,__LINE__); 
     cdb->cmhs.alloc_cmhs.cmh_key_cert = ckc_insert(cdb->cmhs.alloc_cmhs.cmh_key_cert,key_cert);
     lock_unlock(&cdb->lock);
     return SUCCESS;
@@ -638,6 +750,7 @@ fail:
     return FAILURE;
 }
 
+/*******这个代码可能有问题  参数不能用于中间量************/
 result cme_certificate_info_request(struct sec_db* sdb, 
                     enum identifier_type type,
                     string *identifier,
@@ -655,10 +768,13 @@ result cme_certificate_info_request(struct sec_db* sdb,
     time32 m_last_crl_time;
     string signer_id;
 
+    printf("%s %d\n",__FILE__,__LINE__); 
     INIT(signer_id);
     INIT(cert_decoded);
 
+    printf("%s %d\n",__FILE__,__LINE__); 
     if(get_cert_info_by_certid(sdb, type, identifier, &cert_info)){
+        printf("%s %d\n",__FILE__,__LINE__);
         ret = CERTIFICATE_NOT_FOUND;
         if(type == ID_CERTIFICATE){
             if(next_crl_time != NULL){
@@ -673,10 +789,11 @@ result cme_certificate_info_request(struct sec_db* sdb,
                 }
             }
         }
+        printf("%s %d\n",__FILE__,__LINE__);
         goto fail;
     }
 
-    if(!cert_info->revoked){
+    if(cert_info->revoked){
         ret = CERTIFICATE_REVOKED;
         goto fail;
     }
@@ -686,6 +803,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
         ret = FAILURE;
         goto fail;
     }
+    printf("%s %d  time %d  %d %d\n",__FILE__,__LINE__,m_next_crl_time,time(NULL),cert_info->expriry/US_TO_S);
     if(m_next_crl_time < time(NULL) || cert_info->expriry / US_TO_S < time(NULL)){
         ret = CERTIFICATE_NOT_TRUSTED;
         goto fail;
@@ -752,6 +870,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
         }
     }
 
+    printf("%s %d\n",__FILE__,__LINE__); 
     if(scope != NULL){
         switch(scope->region_type){
             case CIRCLE:
@@ -778,6 +897,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
                 goto fail;
         }
     }
+    printf("%s %d\n",__FILE__,__LINE__); 
     if(permissions != NULL && scope != NULL){
         if(permissions->type != INHERITED_NOT_FOUND && scope->region_type != FROM_ISSUER)
             goto fail;        
@@ -797,6 +917,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
         goto fail;
     }
 
+    printf("%s %d\n",__FILE__,__LINE__); 
     if(hashedid8_2_string(&cert_info->cert->unsigned_certificate.u.no_root_ca.signer_id, &signer_id)){
         wave_error_printf("hash to string fail!");
         goto fail;
@@ -822,9 +943,10 @@ result cme_certificate_info_request(struct sec_db* sdb,
             s = scope;
     }
 
+    printf("%s %d\n",__FILE__,__LINE__); 
     ret = cme_certificate_info_request(sdb, ID_HASHEDID8, &signer_id, NULL, p, s, NULL, NULL, NULL, NULL);
-
 fail:
+    printf("%s %d\n",__FILE__,__LINE__);
     certificate_free(&cert_decoded);
     string_free(&signer_id);
     p = NULL;
@@ -1305,12 +1427,12 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
                 bool terminate_at_root,
                 u32 max_chain_len,
                 
-                struct certificate_chain* certificate_chain,
-                struct cme_permissions_array* permissions_array,
-                struct geographic_region_array* regions,
-                struct time32_array *last_crl_times_array,
-                struct time32_array *next_crl_times_array,
-                struct verified_array *verified_array){
+                struct certificate_chain* mcertificate_chain,
+                struct cme_permissions_array* mpermissions_array,
+                struct geographic_region_array* mregions,
+                struct time32_array *mlast_crl_times_array,
+                struct time32_array *mnext_crl_times_array,
+                struct verified_array *mverified_array){
     result ret = FAILURE;
     struct certificate *certificate = NULL;
     bool trust_anchor;
@@ -1319,10 +1441,36 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
     string cert_encoded;
     string hash8;
 
+    struct certificate_chain *certificate_chain;
+    struct cme_permissions_array* permissions_array;
+    struct geographic_region_array* regions;
+    struct time32_array *last_crl_times_array,*next_crl_times_array;
+    struct verified_array *verified_array;
+
+    certificate_chain = (struct certificate_chain*)malloc(sizeof(struct certificate_chain));
+    permissions_array = (struct cme_permissions_array*)malloc(sizeof(struct cme_permissions_array));
+    regions = (struct geographic_region_array*)malloc(sizeof(struct geographic_region_array));
+    last_crl_times_array = (struct time32_array*)malloc(sizeof(struct time32_array));
+    next_crl_times_array = (struct time32_array*)malloc(sizeof(struct time32_array));
+    verified_array = (struct verified_array*)malloc(sizeof(struct verified_array));
+
+    if(certificate_chain == NULL || permissions_array == NULL || regions == NULL ||
+            last_crl_times_array == NULL || next_crl_times_array == NULL || verified_array == NULL){
+        wave_malloc_error();
+        return ;
+    }
     INIT(sign_id);
     INIT(hash8);
     INIT(cert_encoded);
 
+    INIT(*certificate_chain);
+    INIT(*permissions_array);
+    INIT(*regions);
+    INIT(*last_crl_times_array);
+    INIT(*next_crl_times_array);
+    INIT(*verified_array);
+    
+    printf("%s %d\n",__FILE__,__LINE__); 
     if(certificate_chain != NULL){
         if(certificate_chain->certs != NULL){
             wave_error_printf("证书链中buf已经被填充");
@@ -1371,6 +1519,7 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
         regions->len = 0;
     }
 
+    printf("%s %d\n",__FILE__,__LINE__); 
     if(last_crl_times_array != NULL){
         if(last_crl_times_array->times != NULL){
             wave_error_printf("last crl中的buf已经被填充");
@@ -1444,10 +1593,28 @@ construct_chain:
     string_free(&cert_encoded);
     INIT(cert_encoded);
 
-    if(certificate == NULL)
+    printf("%s %d "HASHEDID8_FORMAT"\n",__FILE__,__LINE__,sign_id.buf[0],sign_id.buf[1],sign_id.buf[2],sign_id.buf[3],
+                        sign_id.buf[4],sign_id.buf[5],sign_id.buf[6],sign_id.buf[7]); 
+    if(certificate == NULL){
+        printf("%s %d\n",__FILE__,__LINE__); 
         ret = cme_certificate_info_request(sdb, ID_HASHEDID8, &sign_id, &cert_encoded, &(permissions_array->cme_permissions[i]), 
                 &(regions->regions[i]), &(last_crl_times_array->times[i]), &(next_crl_times_array->times[i]), 
                 &trust_anchor, &(verified_array->verified[i]));
+        if(cert_encoded.buf != NULL){
+            certificate = (struct certificate*)malloc( sizeof(struct certificate));
+            if(certificate == NULL){
+                wave_malloc_error();
+                ret = FAILURE;
+                goto fail;
+            }
+            INIT(*certificate);
+            if(string_2_certificate(&cert_encoded,certificate) != cert_encoded.len){
+                wave_error_printf("解码有错误");
+                ret = FAILURE;
+                goto fail;
+            }
+        }
+    }
     else{
         certificate_2_string(certificate, &cert_encoded);
         ret = cme_certificate_info_request(sdb, ID_CERTIFICATE, &cert_encoded, &cert_encoded, &(permissions_array->cme_permissions[i]), 
@@ -1458,6 +1625,7 @@ construct_chain:
     if(ret != FOUND && ret != CERTIFICATE_NOT_FOUND)
         goto fail;
    
+    printf("%s %d\n",__FILE__,__LINE__); 
     if(ret == CERTIFICATE_NOT_FOUND && certificate == NULL){
         if(type != ID_CERTIFICATE){
             ret = NOT_ENOUGH_INFORMATION_TO_CONSTRUT_CHAIN;
@@ -1484,32 +1652,141 @@ construct_chain:
         goto fail;
     }
    
+    printf("%s %d\n",__FILE__,__LINE__); 
     if(ret == CERTIFICATE_NOT_FOUND && certificate != NULL){
+        printf("%s %d\n",__FILE__,__LINE__); 
         verified_array->verified[i] = false;
     }
-    certificate_cpy(&certificate_chain->certs[i], certificate);
+    printf("%s %d %p %p\n",__FILE__,__LINE__,certificate_chain->certs+i,certificate); 
+    certificate_cpy(certificate_chain->certs+i, certificate);
+    printf("%s %d\n",__FILE__,__LINE__); 
    
     i++;
     if(i > max_chain_len){
         ret = CHAINE_TOO_LONG;
+        printf("%s %d\n",__FILE__,__LINE__); 
         goto fail;
     }
     
     if(terminate_at_root == false){
-        if(trust_anchor == false)
+        if(trust_anchor == false){
+            printf("%s %d\n",__FILE__,__LINE__); 
             goto construct_chain;
+        }
     }
     else{
-        if(certificate->unsigned_certificate.holder_type != ROOT_CA)
+        if(certificate->unsigned_certificate.holder_type != ROOT_CA){
+            printf("%s %d\n",__FILE__,__LINE__); 
             goto construct_chain;
+        }
     }
 
+    printf("%s %d\n",__FILE__,__LINE__); 
+    if(mcertificate_chain != NULL){
+        mcertificate_chain->len = i;
+        mcertificate_chain->certs = (struct certificate*)malloc(sizeof(certificate) * i);
+        if(mcertificate_chain->certs == NULL){
+            wave_malloc_error();
+            ret = FAILURE;
+            goto fail;
+        }
+        for(j=0;j<i;j++){
+            INIT(*(mcertificate_chain->certs+j));
+            certificate_cpy(mcertificate_chain->certs+j,certificate_chain->certs+j);
+        }
+    }
+
+    if(mpermissions_array != NULL){
+        mpermissions_array->len = i;
+        mpermissions_array->cme_permissions = (struct cme_permissions*)malloc(sizeof(struct cme_permissions) * i);
+        if(mpermissions_array->cme_permissions == NULL){
+            wave_malloc_error();
+            ret = FAILURE;
+            goto fail;
+        }
+        for(j=0;j<i;j++){
+            INIT(*(mpermissions_array->cme_permissions+j));
+            cme_permissions_cpy(mpermissions_array->cme_permissions+j,permissions_array->cme_permissions + j);
+        }
+    }
+    printf("%s %d\n",__FILE__,__LINE__); 
+    if(mregions != NULL){
+        mregions->len = i;
+        mregions->regions = (struct geographic_region*)malloc(sizeof(struct geographic_region) * i);
+        if(mregions->regions == NULL){
+            wave_malloc_error();
+            ret = FAILURE;
+            goto fail;
+        }
+        for(j = 0;j<i;j++){
+            INIT(*(mregions->regions+j));
+            geographic_region_cpy(mregions->regions+j,regions->regions+j); 
+        }
+    }
+    if(mlast_crl_times_array != NULL){
+        mlast_crl_times_array->len = i;
+        mlast_crl_times_array->times = (time32*)malloc(sizeof(time32) * i);
+        if(mlast_crl_times_array->times == NULL){
+            wave_malloc_error();
+            ret = FAILURE;
+            goto fail;
+        }
+        memcpy(mlast_crl_times_array->times,last_crl_times_array->times,sizeof(time32) * i);
+    }
+    if(mnext_crl_times_array != NULL){
+        mnext_crl_times_array->len = i;
+        mnext_crl_times_array->times = (time32*)malloc(sizeof(time32) * i);
+        if(mnext_crl_times_array->times == NULL){
+            wave_malloc_error();
+            ret = FAILURE;
+            goto fail;
+        }
+        memcpy(mnext_crl_times_array->times,next_crl_times_array->times,sizeof(time32) * i);
+    }
+    if(mverified_array != NULL){
+        mverified_array->len = i;
+        mverified_array->verified = (bool*)malloc(sizeof(bool) * i);
+        if(mverified_array->verified == NULL){
+            wave_malloc_error();
+            ret = FAILURE;
+            goto fail;
+        }
+        memcpy(mverified_array->verified,verified_array->verified,sizeof(bool) * i);
+    }
+    printf("%s %d\n",__FILE__,__LINE__); 
     ret = SUCCESS;
 fail:
+    if(ret != SUCCESS){
+        if(mcertificate_chain != NULL)
+            certificate_chain_free(mcertificate_chain);
+        if(mpermissions_array != NULL)
+            cme_permissions_array_free(mpermissions_array);
+        if(mregions != NULL)
+            geographic_region_array_free(mregions);
+        if(mlast_crl_times_array != NULL)
+            time32_array_free(mlast_crl_times_array);
+        if(mnext_crl_times_array != NULL)
+            time32_array_free(mnext_crl_times_array);
+        if(mverified_array != NULL)
+            verified_array_free(mverified_array);
+    }
     certificate = NULL;
     string_free(&sign_id);
     string_free(&cert_encoded);
     string_free(&hash8);
+    certificate_chain_free(certificate_chain);
+    free(certificate_chain);
+    printf("%s %d\n",__FILE__,__LINE__); 
+    cme_permissions_array_free(permissions_array);
+    free(permissions_array);
+    geographic_region_array_free(regions);
+    free(regions);
+    time32_array_free(last_crl_times_array);
+    time32_array_free(next_crl_times_array);
+    free(last_crl_times_array);
+    free(next_crl_times_array);
+    verified_array_free(verified_array);
+    free(verified_array);
     return ret;
 }
 

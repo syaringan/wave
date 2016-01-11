@@ -4,6 +4,38 @@ typedef unsigned int cme_lsis;
 typedef unsigned int psid;
 typedef unsigned long long time64;
 typedef unsigned int time32;
+
+enum pk_algorithm{
+    ECDSA_NISTP224_WITH_SHA224 = 0,
+    ECDSA_NISTP256_WITH_SHA256 = 1,
+    ECIES_NISTP256 =2,
+    PK_ALGOTITHM_NOT_SET = 255,
+};
+enum content_type{
+    UNSECURED = 0,
+    SIGNED = 1,
+    ENCRYPTED = 2,
+    CERTIFICATE_REQUEST = 3,
+    CERTIFICATE_RESPONSE = 4,
+    ANOYMOUS_CERTIFICATE_RESPONSE = 5,
+    CERTIFICATE_REQUSET_ERROR = 6,
+    CONTENT_TYPE_CRL_REQUEST = 7,
+    CRL = 8,
+    SIGNED_PARTIAL_PAYLOAD = 9,
+    SIGNED_EXTERNAL_PAYLOAD = 10,
+    SIGNED_WSA = 11,
+    CERTIFACATE_RESPONSE_ACKNOWLEDGMENT = 12,
+};
+enum signed_data_signer_type{
+    SIGNED_DATA_CERTIFICATE = 0,
+    SIGNED_DATA_CERTIFICATE_DIGEST = 1,
+    SIGNED_DATA_CERTIFICATE_CHAIN = 2,
+};
+enum sign_with_fast_verification{
+    YES_UNCOMPRESSED = 0,
+    YES_COMPRESSED = 1,
+    NO = 2,
+};
 /**
  * 这里我没有为上层提供调试的功能，只是0代表成功，-1代表失败.
  */

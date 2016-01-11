@@ -259,9 +259,11 @@ int get_cert_info_by_certid(struct sec_db *sdb,enum identifier_type type,string 
 
     memset(&cert,0,sizeof(cert));
     cdb = &sdb->cme_db;
+    printf("%s %d\n",__FILE__,__LINE__);
     if(cert_info == NULL){
         return 0;
     }
+    printf("%s %d\n",__FILE__,__LINE__);
     if(type == ID_CERTIFICATE){
         cinfo_cmp.type = ID_CERTID10;
         if(string_2_certificate(identifier,&cert) <= 0){

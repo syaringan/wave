@@ -7,7 +7,7 @@
 #include<pthread.h>
 #include<stddef.h>
 #include"utils/af_unix.h"
-
+#include<error.h>
 #define SERVICE "/var/tmp/wave_sec.socket"
 
 #define	ERROR_PRINTF(n) printf(n"%s %d\n",__FILE__,__LINE__)
@@ -44,10 +44,30 @@ int cme_lsis_request(cme_lsis* lsis){
 	char* buf_beg = buf;
 
 	int len_r;
+    //判断函数调用是否成功
+    while(slen != 4){
+		len_r = read(fd,buf+slen,4-slen);
+		if(len_r <= 0){
+			ERROR_PRINTF("读取错误");
+            free(buf_beg);
+            close(fd);
+            return -1;
+		}
+		slen += len_r;
+	}
+    if(*((int*)buf) != 0){
+        ERROR_PRINTF("B端函数调用失败");
+        free(buf_beg);
+        close(fd);
+        return -1;
+    }
+    //读取数据长度
+    slen=0;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
 		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
+            free(buf_beg);
 			close(fd);
             return -1;
 		}
@@ -61,6 +81,7 @@ int cme_lsis_request(cme_lsis* lsis){
 		len_r = read(fd,buf+slen,len-slen);
 		if(len_r <= 0){
 			ERROR_PRINTF("读取错误");
+            free(buf_beg);
 			close(fd);
             return -1;
 		}
@@ -96,6 +117,24 @@ int cme_cmh_request(cmh* cmh){
 	char* buf_beg = buf;
 
 	int len_r;
+    while(slen != 4){
+		len_r = read(fd,buf+slen,4-slen);
+		if(len_r <= 0){
+			ERROR_PRINTF("读取错误");
+            free(buf_beg);
+			close(fd);
+            return -1;
+		}
+		slen += len_r;
+	}
+    if(*((int*)buf) != 0){
+        ERROR_PRINTF("B端函数调用失败");
+        free(buf_beg);
+        close(fd);
+        return -1;
+    }
+
+    slen = 0;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
 		if(len_r <= 0){
@@ -191,6 +230,24 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 	buf_beg = buf;
 
 	int len_r;
+    while(slen != 4){
+		len_r = read(fd,buf+slen,4-slen);
+		if(len_r <= 0){
+			ERROR_PRINTF("读取错误");
+            free(buf_beg);
+            close(fd);
+            return -1;
+		}
+		slen += len_r;
+	}
+    if(*((int*)buf) != 0){
+        ERROR_PRINTF("B端函数调用失败");
+        free(buf_beg);
+        close(fd);
+        return -1;
+    }
+
+    slen=0;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);//返回读取了多少字节，若不够则需要继续读取
 		if(len_r <= 0){
@@ -321,8 +378,34 @@ int cme_store_keypair(cmh cmh,int algorithm,
         close(fd);
         return -1;
     }
-
 	free(buf_beg);
+
+    buf = (char*)malloc(sizeof(int));
+    if(buf == NULL){
+        ERROR_PRINTF("内存分配失败");
+        close(fd);
+        return -1;
+    }
+    int slen = 0;
+    int len_r;
+    while(slen != 4){
+		len_r = read(fd,buf+slen,4-slen);
+		if(len_r <= 0){
+			ERROR_PRINTF("读取错误");
+            free(buf);
+			close(fd);
+            return -1;
+		}
+		slen += len_r;
+	}
+    if(*((int*)buf) != 0){
+        ERROR_PRINTF("B端函数调用失败");
+        free(buf);
+        close(fd);
+        return -1;
+    }
+
+    free(buf);
     close(fd);
     return 0;
 }
@@ -372,8 +455,34 @@ int cme_store_cert(cmh cmh,char* cert,int cert_len,
 		close(fd);
         return -1;
 	}
-
 	free(buf_beg);
+
+    buf = (char*)malloc(sizeof(int));
+    if(buf == NULL){
+        ERROR_PRINTF("内存分配失败");
+        close(fd);
+        return -1;
+    }
+    int slen = 0;
+    int len_r;
+    while(slen != 4){
+		len_r = read(fd,buf+slen,4-slen);
+		if(len_r <= 0){
+			ERROR_PRINTF("读取错误");
+            free(buf);
+			close(fd);
+            return -1;
+		}
+		slen += len_r;
+	}
+    if(*((int*)buf) != 0){
+        ERROR_PRINTF("B端函数调用失败");
+        free(buf);
+        close(fd);
+        return -1;
+    }
+
+    free(buf);
 	close(fd);
     return 0;
 }
@@ -422,8 +531,35 @@ int cme_store_cert_key(cmh cmh,char* cert,int cert_len,
 		close(fd);
         return -1;
 	}
-
 	free(buf_beg);
+
+    buf = (char*)malloc(sizeof(int));
+    if(buf == NULL){
+        ERROR_PRINTF("内存分配失败");
+        close(fd);
+        return -1;
+    }
+    int slen = 0;
+    int len_r;
+    while(slen != 4){
+		len_r = read(fd,buf+slen,4-slen);
+		if(len_r <= 0){
+			ERROR_PRINTF("读取错误");
+            perror("read");
+            free(buf);
+			close(fd);
+            return -1;
+		}
+		slen += len_r;
+	}
+    if(*((int*)buf) != 0){
+        ERROR_PRINTF("B端函数调用失败");
+        free(buf);
+        close(fd);
+        return -1;
+    }
+
+    free(buf);
 	close(fd);
     return 0;
 }
@@ -449,7 +585,7 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
         (type <0 || type >12) ||
 		(signer_type < 0 || signer_type > 2) ||
 		(fs_type < 0 || fs_type > 2) ||
-		data == NULL || exter_data == NULL || ssp == NULL || elevation == NULL)
+		data == NULL || elevation == NULL)
 	{
 		ERROR_PRINTF("参数错误");
         return -1;
@@ -483,11 +619,13 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 	memcpy(buf,data,data_len);
 	buf += data_len;
 
-	*((int*)buf) = exter_len;
+	*((int*)buf) = exter_len; //exter_data可能为NULL
 	buf += 4;
 
-	memcpy(buf,exter_data,exter_len);
-	buf += exter_len;
+    if(exter_len != 0){ 
+        memcpy(buf,exter_data,exter_len);
+        buf += exter_len;
+    }
 
 	*((typeof(psid)*)buf) = psid;
 	buf += sizeof(psid);
@@ -495,8 +633,10 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 	*((int*)buf) = ssp_len;
 	buf += 4;
 
-	memcpy(buf,ssp,ssp_len);
-	buf += ssp_len;
+    if(ssp_len != 0){
+        memcpy(buf,ssp,ssp_len);
+        buf += ssp_len;
+    }
 
 	*((int*)buf) = set_generation_time;
 	buf += 4;
@@ -559,6 +699,24 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 	buf_beg = buf;
 
 	int len_r;
+    while(slen != 4){
+		len_r = read(fd,buf+slen,4-slen);
+		if(len_r <= 0){
+			ERROR_PRINTF("读取错误");
+            free(buf_beg);
+			close(fd);
+            return -1;
+		}
+		slen += len_r;
+	}
+    if(*((int*)buf) != 0){
+        ERROR_PRINTF("B端函数调用失败");
+        free(buf_beg);
+        close(fd);
+        return -1;
+    }
+
+    slen=0;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
 		if(len_r <= 0){
@@ -688,6 +846,24 @@ int sec_encrypted_data(int type,char* data,int data_len,char* certs,int certs_le
 	buf_beg = buf;
 
 	int len_r;
+    while(slen != 4){
+		len_r = read(fd,buf+slen,4-slen);
+		if(len_r <= 0){
+			ERROR_PRINTF("读取错误");
+            free(buf_beg);
+			close(fd);
+            return -1;
+		}
+		slen += len_r;
+	}
+    if(*((int*)buf) != 0){
+        ERROR_PRINTF("B端函数调用失败");
+        free(buf_beg);
+        close(fd);
+        return -1;
+    }
+
+    slen=0;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
 		if(len_r <= 0){
@@ -820,6 +996,24 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 	buf_beg = buf;
 	
 	int len_r;
+    while(slen != 4){
+		len_r = read(fd,buf+slen,4-slen);
+		if(len_r <= 0){
+			ERROR_PRINTF("读取错误");
+            free(buf_beg);
+			close(fd);
+            return -1;
+		}
+		slen += len_r;
+	}
+    if(*((int*)buf) != 0){
+        ERROR_PRINTF("B端函数调用失败");
+        free(buf_beg);
+        close(fd);
+        return -1;
+    }
+
+    slen=0;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
 		if(len_r <= 0){
@@ -1123,6 +1317,24 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 	buf_beg = buf;
 
 	int len_r;
+    while(slen != 4){
+		len_r = read(fd,buf+slen,4-slen);
+		if(len_r <= 0){
+			ERROR_PRINTF("读取错误");
+            free(buf_beg);
+			close(fd);
+            return -1;
+		}
+		slen += len_r;
+	}
+    if(*((int*)buf) != 0){
+        ERROR_PRINTF("B端函数调用失败");
+        free(buf_beg);
+        close(fd);
+        return -1;
+    }
+
+    slen=0;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
 		if(len_r <= 0){
