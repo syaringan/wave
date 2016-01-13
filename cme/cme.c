@@ -764,6 +764,8 @@ result cme_certificate_info_request(struct sec_db* sdb,
     bool trusted;
     struct certificate cert_decoded;
     struct cert_info *cert_info;
+    struct cme_permissions* m_permissions;
+    geographic_region *m_scope;
     time32 m_next_crl_time;
     time32 m_last_crl_time;
     string signer_id;
@@ -771,6 +773,13 @@ result cme_certificate_info_request(struct sec_db* sdb,
     printf("%s %d\n",__FILE__,__LINE__); 
     INIT(signer_id);
     INIT(cert_decoded);
+
+    m_permissions = (struct cme_permissions *)malloc(sizeof(struct cme_permissions));
+    m_scope =(geographic_region *)malloc(sizeof(struct geographic_region));
+    if(m_permissions == NULL || m_scope == NULL)
+        wave_malloc_error();
+    INIT(*m_permissions);
+    INIT(*m_scope);
 
     printf("%s %d\n",__FILE__,__LINE__); 
     if(get_cert_info_by_certid(sdb, type, identifier, &cert_info)){
@@ -826,7 +835,8 @@ result cme_certificate_info_request(struct sec_db* sdb,
         *next_crl_time = m_next_crl_time;
     }
 
-    if(get_permission_from_certificate(cert_info->cert, permissions, scope)){
+    //获取证书的权限，用临时变量保存
+    if(get_permission_from_certificate(cert_info->cert, m_permissions, m_scope)){
         wave_error_printf("提取证书权限失败");
         ret = FAILURE;
         goto fail;
@@ -834,84 +844,86 @@ result cme_certificate_info_request(struct sec_db* sdb,
     if(trust_anchor != NULL){
         *trust_anchor = cert_info->trust_anchor;
     }
-    if(permissions != NULL){
-        switch(permissions->type){
-            case PSID:
-                if(permissions->u.psid_array.len > MAX_PERMISSIONS_LENGTH){
-                    ret = TOO_MANY_ENTRIES_IN_PERMISSON_ARRAY;
-                    goto fail;
-                }
-                break;
-            case PSID_PRIORITY:
-                if(permissions->u.psid_priority_array.len > MAX_PERMISSIONS_LENGTH){
-                    ret = TOO_MANY_ENTRIES_IN_PERMISSON_ARRAY;
-                    goto fail;
-                }
-                break;
-            case PSID_SSP:
-                if(permissions->u.psid_ssp_array.len > MAX_PERMISSIONS_LENGTH){
-                    ret = TOO_MANY_ENTRIES_IN_PERMISSON_ARRAY;
-                    goto fail;
-                }
-                break;
-            case PSID_PRIORITY_SSP:
-                if(permissions->u.psid_priority_ssp_array.len > MAX_PERMISSIONS_LENGTH){
-                    ret = TOO_MANY_ENTRIES_IN_PERMISSON_ARRAY;
-                    goto fail;
-                }
-                break;
-            case INHERITED_NOT_FOUND:
-                wave_error_printf("权限类型为继承");
-                break;
-            default:
-                wave_error_printf("错误的permission type");
-                ret = FAILURE;
-                goto fail;
-        }
+    switch(m_permissions->type){
+        case PSID:
+            if(m_permissions->u.psid_array.len > MAX_PERMISSIONS_LENGTH){
+                 ret = TOO_MANY_ENTRIES_IN_PERMISSON_ARRAY;
+                 goto fail;
+            }
+              break;
+        case PSID_PRIORITY:
+              if(m_permissions->u.psid_priority_array.len > MAX_PERMISSIONS_LENGTH){
+                  ret = TOO_MANY_ENTRIES_IN_PERMISSON_ARRAY;
+                  goto fail;
+              }
+              break;
+        case PSID_SSP:
+              if(m_permissions->u.psid_ssp_array.len > MAX_PERMISSIONS_LENGTH){
+                  ret = TOO_MANY_ENTRIES_IN_PERMISSON_ARRAY;
+                  goto fail;
+              }
+              break;
+        case PSID_PRIORITY_SSP:
+              if(m_permissions->u.psid_priority_ssp_array.len > MAX_PERMISSIONS_LENGTH){
+                  ret = TOO_MANY_ENTRIES_IN_PERMISSON_ARRAY;
+                  goto fail;
+              }
+              break;
+        case INHERITED_NOT_FOUND:
+              wave_printf("权限类型为继承");
+              break;
+        default:
+              wave_error_printf("错误的permission type");
+              ret = FAILURE;
+              goto fail;
     }
 
     printf("%s %d\n",__FILE__,__LINE__); 
-    if(scope != NULL){
-        switch(scope->region_type){
-            case CIRCLE:
-                break;
-            case RECTANGLE:
-                if(scope->u.rectangular_region.len > MAX_RECTANGLES_ENTRIES_NUM){
-                    ret = TOO_MANY_ENTRIES_IN_RECTANGULAR_GEOGRAPHIC_SCOPE;
-                    goto fail;
-                }
-                break;
-            case POLYGON:
-                if(scope->u.polygonal_region.len > MAX_POLYGON_VERTICES_ENTRIES_NUM){
-                    ret = TOO_MANY_ENTRIES_IN_POLYGONAL_GEOGRAPHIC_SCOPE;
-                    goto fail;
-                }
-            case NONE:
-                break;
-            case FROM_ISSUER:
-                wave_printf(MSG_WARNING,"region type为继承");
-                break;
-            default:
-                wave_error_printf("错误的region type");
-                ret = UNSUPPORTED_REGION_TYPE_IN_CERTIFICATE;
+    switch(m_scope->region_type){
+        case CIRCLE:
+            break;
+        case RECTANGLE:
+            if(m_scope->u.rectangular_region.len > MAX_RECTANGLES_ENTRIES_NUM){
+                ret = TOO_MANY_ENTRIES_IN_RECTANGULAR_GEOGRAPHIC_SCOPE;
                 goto fail;
-        }
-    }
-    printf("%s %d\n",__FILE__,__LINE__); 
-    if(permissions != NULL && scope != NULL){
-        if(permissions->type != INHERITED_NOT_FOUND && scope->region_type != FROM_ISSUER)
-            goto fail;        
-    }
-    else if(permissions != NULL){
-        if(permissions->type != INHERITED_NOT_FOUND)
+            }
+            break;
+        case POLYGON:
+            if(m_scope->u.polygonal_region.len > MAX_POLYGON_VERTICES_ENTRIES_NUM){
+                ret = TOO_MANY_ENTRIES_IN_POLYGONAL_GEOGRAPHIC_SCOPE;
+                goto fail;
+            }
+        case NONE:
+            break;
+        case FROM_ISSUER:
+            wave_printf(MSG_WARNING,"region type为继承");
+            break;
+        default:
+            wave_error_printf("错误的region type");
+            ret = UNSUPPORTED_REGION_TYPE_IN_CERTIFICATE;
             goto fail;
     }
-    else if(scope != NULL){
-        if(scope->region_type != FROM_ISSUER)
-            goto fail;
-    }
+    //判断获取到的证书权限是否为继承，以及函数调用者是否需要权限作为返回值(即指针是否为空),如需要返回进行拷贝操作
+    if(m_permissions->type != INHERITED_NOT_FOUND && permissions != NULL)
+        cme_permissions_cpy(permissions, m_permissions);
+    if(m_scope->region_type != FROM_ISSUER && scope != NULL)
+        geographic_region_cpy(scope, m_scope);
+    //判断进行递归调用的函数参数是否取空，取空代表不需要返回值（1、已经获取到权限。2、不许要获取这些权限）
+    struct cme_permissions *p;
+    geographic_region *s;
+    if(permissions == NULL || m_permissions->type != INHERITED_NOT_FOUND)
+        p = NULL;
     else
+        p = permissions;
+    
+    if(scope == NULL || m_scope->region_type == FROM_ISSUER)
+        s = NULL;
+    else
+        s = scope;
+    printf("%s %d\n",__FILE__,__LINE__); 
+    if(p==NULL && s=NULL)
         goto fail;
+            
     if(trust_anchor){
         ret = CERTIFICATE_BADLY_FORMED;
         goto fail;
@@ -922,33 +934,13 @@ result cme_certificate_info_request(struct sec_db* sdb,
         wave_error_printf("hash to string fail!");
         goto fail;
     }
-    
-    struct cme_permissions *p;
-    geographic_region *s;
-    if(permissions == NULL)
-        p = NULL;
-    else{
-        if(permissions->type == INHERITED_NOT_FOUND)
-            p = NULL;
-        else
-            p = permissions;
-    }
-    if(scope == NULL){
-        s = NULL;
-    }
-    else{
-        if(scope->region_type == FROM_ISSUER)
-            s = NULL;
-        else
-            s = scope;
-    }
-
-    printf("%s %d\n",__FILE__,__LINE__); 
     ret = cme_certificate_info_request(sdb, ID_HASHEDID8, &signer_id, NULL, p, s, NULL, NULL, NULL, NULL);
 fail:
     printf("%s %d\n",__FILE__,__LINE__);
     certificate_free(&cert_decoded);
     string_free(&signer_id);
+    cme_permissions_free(m_permissions);
+    geographic_region_free(m_scope)
     p = NULL;
     s = NULL;
 

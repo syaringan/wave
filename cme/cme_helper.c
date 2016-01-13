@@ -340,7 +340,7 @@ int get_permission_from_certificate(certificate *cert,
                     permission->u.psid_ssp_array.len = per_len;
                     permission->u.psid_ssp_array.buf = malloc(sizeof(psid_ssp)*per_len);
                     if(!permission->u.psid_array.buf){
-                        wave_error_printf("内存分配失败");
+                        wave_malloc_error();
                         return -1;
                     }
                     for(i = 0; i < per_len; i++){
@@ -354,7 +354,7 @@ int get_permission_from_certificate(certificate *cert,
                             malloc(sizeof(u8)*permission->u.psid_ssp_array.buf[i].service_specific_permissions.len);
 
                         if(!permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf){
-                            wave_error_printf("malloc error!");
+                            wave_malloc_error();
                             return -1;
                         }
 
@@ -382,7 +382,7 @@ int get_permission_from_certificate(certificate *cert,
                     permission->u.psid_ssp_array.len = per_len;
                     permission->u.psid_ssp_array.buf = malloc(sizeof(psid_ssp)*per_len);
                     if(!permission->u.psid_array.buf){
-                        wave_error_printf("内存分配失败");
+                        wave_malloc_error();
                         return -1;
                     }
                     for(i = 0; i < per_len; i++){
@@ -396,7 +396,7 @@ int get_permission_from_certificate(certificate *cert,
                             malloc(sizeof(u8)*permission->u.psid_ssp_array.buf[i].service_specific_permissions.len);
 
                         if(!permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf){
-                            wave_error_printf("malloc error!");
+                            wave_malloc_error();
                             return -1;
                         }
 
@@ -421,7 +421,7 @@ int get_permission_from_certificate(certificate *cert,
                     permission->u.psid_ssp_array.len = per_len;
                     permission->u.psid_ssp_array.buf = malloc(sizeof(psid_ssp)*per_len);
                     if(!permission->u.psid_array.buf){
-                        wave_error_printf("内存分配失败");
+                        wave_malloc_error();
                         return -1;
                     }
                     for(i = 0; i < per_len; i++){
@@ -435,7 +435,7 @@ int get_permission_from_certificate(certificate *cert,
                             malloc(sizeof(u8)*permission->u.psid_ssp_array.buf[i].service_specific_permissions.len);
 
                         if(!permission->u.psid_ssp_array.buf[i].service_specific_permissions.buf){
-                            wave_error_printf("malloc error!");
+                            wave_malloc_error();
                             return -1;
                         }
 
@@ -464,7 +464,7 @@ int get_permission_from_certificate(certificate *cert,
                     permission->u.psid_array.len = per_len;
                     permission->u.psid_array.buf = malloc(sizeof(psid)*per_len);
                     if(!permission->u.psid_array.buf){
-                        wave_error_printf("内存分配失败");
+                        wave_malloc_error();
                         return -1;
                     }
                     memcpy(permission->u.psid_array.buf, 
@@ -490,7 +490,7 @@ int get_permission_from_certificate(certificate *cert,
                     permission->u.psid_priority_ssp_array.len = per_len;
                     permission->u.psid_priority_ssp_array.buf = malloc(sizeof(psid_priority_ssp)*per_len);
                     if(!permission->u.psid_priority_ssp_array.buf){
-                        wave_error_printf("内存分配失败");
+                        wave_malloc_error();
                         return -1;
                     }
                     for(i = 0; i < per_len; i++){
@@ -507,7 +507,7 @@ int get_permission_from_certificate(certificate *cert,
                             malloc(sizeof(u8)*permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len);
 
                         if(!permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.buf){
-                            wave_error_printf("malloc error!");
+                            wave_malloc_error();
                             return -1;
                         }
 
@@ -536,7 +536,7 @@ int get_permission_from_certificate(certificate *cert,
                     permission->u.psid_priority_array.len = per_len;
                     permission->u.psid_priority_array.buf = malloc(sizeof(psid_priority)*per_len);
                     if(!permission->u.psid_priority_array.buf){
-                        wave_error_printf("内存分配失败");
+                        wave_malloc_error();
                         return -1;
                     }
                     memcpy(permission->u.psid_priority_array.buf, 
@@ -569,7 +569,7 @@ int get_permission_from_certificate(certificate *cert,
                     permission->u.psid_array.len = per_len;
                     permission->u.psid_array.buf = malloc(sizeof(psid)*per_len);
                     if(!permission->u.psid_array.buf){
-                        wave_error_printf("内存分配失败");
+                        wave_malloc_error();
                         return -1;
                     }
                     memcpy(permission->u.psid_array.buf, 
@@ -587,7 +587,7 @@ int get_permission_from_certificate(certificate *cert,
                     permission->u.psid_priority_array.len = per_len;
                     permission->u.psid_array.buf = malloc(sizeof(psid_priority)*per_len);
                     if(!permission->u.psid_array.buf){
-                        wave_error_printf("内存分配失败");
+                        wave_malloc_error();
                         return -1;
                     }
                     memcpy(permission->u.psid_priority_array.buf, 
@@ -634,7 +634,7 @@ int get_region(geographic_region *src, geographic_region *dst, enum holder_type 
         dst->u.rectangular_region.len = reg_len;
         dst->u.rectangular_region.buf = malloc(sizeof(rectangular_region)*reg_len);
         if(!dst->u.rectangular_region.buf){
-            wave_error_printf("内存分配失败");
+            wave_malloc_error();
             return -1;
         }
         memcpy(dst->u.rectangular_region.buf, src->u.rectangular_region.buf,
@@ -646,7 +646,7 @@ int get_region(geographic_region *src, geographic_region *dst, enum holder_type 
         dst->u.polygonal_region.len = reg_len;
         dst->u.polygonal_region.buf = malloc(sizeof(two_d_location)*reg_len);
         if(!dst->u.polygonal_region.buf){
-            wave_error_printf("内存分配失败");
+            wave_malloc_error();
             return -1;
         }
         memcpy(dst->u.polygonal_region.buf, src->u.polygonal_region.buf,
