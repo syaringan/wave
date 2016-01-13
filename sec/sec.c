@@ -541,7 +541,7 @@ static int certificate_verification_point_compress(certificate* cert,bool compre
     }
     else if(cert->version_and_type == 2){
         algorithm = cert->unsigned_certificate.version_and_type.verification_key.algorithm;
-        if(algorithm != ECDSA_NISTP224_WITH_SHA224 || algorithm != ECDSA_NISTP256_WITH_SHA256){
+        if(algorithm != ECDSA_NISTP224_WITH_SHA224 && algorithm != ECDSA_NISTP256_WITH_SHA256){
             wave_error_printf("这里之支持签名点的压缩  %s %d",__FILE__,__LINE__);
             return -1; 
         }
@@ -782,7 +782,6 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         wave_error_printf("string的buf没有清空，肯能存在野指针");
         return FAILURE;
     }
-    
     result res;
     certificate cert;
     struct certificate_chain cert_chain,construct_cert_chain;
@@ -806,6 +805,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     INIT(encoded_tbs);
     INIT(privatekey);
     
+    printf("%s %d psid %04x\n",__FILE__,__LINE__,psid);
     s_data = &sec_data.u.signed_data;
     tbs_encode = &s_data->unsigned_data;
     if( res = find_cert_prikey_by_cmh(sdb,cmh,&cert,&privatekey) ){
@@ -814,43 +814,55 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     cert_chain.certs = &cert;
     cert_chain.len = 1;
     if(  cme_construct_certificate_chain(sdb,ID_CERTIFICATE,NULL,&cert_chain,true,cert_chain_max_len,
-                &construct_cert_chain,&permissions,&regions,NULL,NULL,NULL)  != FOUND){
+                &construct_cert_chain,&permissions,&regions,NULL,NULL,NULL)  != SUCCESS){
         res = NOT_FOUND;
+    printf("%s %d\n",__FILE__,__LINE__);
         goto end;
     }
+    printf("%s %d\n",__FILE__,__LINE__);
     if(certificate_get_start_time(&cert,&start_time) || 
-            certificate_get_expired_time(&cert,&expired_time)){
+            certificate_get_expired_time(sdb,&cert,&expired_time)){
         wave_error_printf("获取证书相关信息不对，这个证书没有这个信息");
         res = FAILURE;
         goto end;
     }
-    if(generation_time->time < start_time){
-        wave_error_printf("生产时期早于了证书的开始有效时间");
+    if(generation_time->time/US_TO_S < start_time){
+        wave_error_printf("生产时期早于了证书的开始有效时间 generetion_time:%us start_time:%us,now:%us",
+                (time32)(generation_time->time/US_TO_S),start_time,time(NULL));
         res = CERTIFICATE_NOT_YET_VALID;
         goto end;
     }
-    if(generation_time->time > expired_time){
-         wave_error_printf("生产日期晚育了证书的结束有效时间");
+    printf("%s %d\n",__FILE__,__LINE__);
+    if(generation_time->time/US_TO_S > expired_time){
+         wave_error_printf("生产日期晚育了证书的结束有效时间 generation_time:%us expired_time:%us,now:%us",
+                 (time32)(generation_time->time/US_TO_S),expired_time,time(NULL));
          res = CERTIFICATE_EXPIRED;
          goto end;
     }
+    printf("%s %d %u\n",__FILE__,__LINE__,expired_time);
     if(set_expiry_time){
-        if(expiry_time < start_time){
-            wave_error_printf("过期时间早育了证书的开始有效时间");
+        if(expiry_time/US_TO_S < start_time){
+            wave_error_printf("过期时间早育了证书的开始有效时间 expiry_time:%us start_time:%us",
+                    expiry_time/US_TO_S,start_time);
             res = EXPIRY_TIME_BEFORE_CERTIFICATE_VALIDITY_PERIOD;
             goto end;
         }
-        if(expiry_time > expired_time){
-            wave_error_printf("过期时间晚育了证书的结束的有效时间");
+    printf("%s %d %u\n",__FILE__,__LINE__,expired_time);
+        if(expiry_time/US_TO_S > expired_time){
+    printf("%s %d %u\n",__FILE__,__LINE__,expired_time);
+            wave_error_printf("过期时间晚育了证书的结束的有效时间 expiry_time:%us expired_time:%us",
+                    (time32)(expiry_time/US_TO_S),expired_time);
             res = EXPIRY_TIME_AFTER_CERTIFICATE_VALIDITY_PERIOD;
             goto end;
         }
     }
+    printf("%s %d\n",__FILE__,__LINE__);
     if( three_d_location_in_region(location,regions.regions) == false){
         wave_error_printf("生产地点不在证书范围内");
         res = OUTSIDE_CERTIFICATE_VALIDITY_REGION;
         goto end;
     }
+    printf("%s %d\n",__FILE__,__LINE__);
     if( cme_permissions_contain_psid_with_ssp(permissions.cme_permissions,psid,ssp) ==false){
         wave_error_printf("证书权限和用户要求的不一致");
         res = INCONSISTENT_PERMISSIONS_IN_CERTIFICATE;
@@ -866,6 +878,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         goto end;
     } 
 
+    printf("%s %d\n",__FILE__,__LINE__);
     switch(type){
         case SIGNED:
             tbs_encode->u.type_signed.psid = psid;
@@ -935,6 +948,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         tbs_encode->flags_content.generation_time.time = generation_time->time;
         tbs_encode->flags_content.generation_time.long_std_dev = generation_time->long_std_dev;
     }
+    printf("%s %d\n",__FILE__,__LINE__);
     if(set_generation_location){
         tbs_encode->tf |= USE_LOCATION;
         tbs_encode->flags_content.generation_location.latitude = location->latitude;
@@ -947,12 +961,14 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         tbs_encode->flags_content.exipir_time = expiry_time; 
     }
 
-    if( tobesigned_data_2_string(&tbs_encode,&encoded_tbs) ){
+    printf("%s %d\n",__FILE__,__LINE__);
+    if( tobesigned_data_2_string(tbs_encode,&encoded_tbs,type) ){
         wave_error_printf("编码失败");
         res = -1;
         goto end;
     }
     
+    printf("%s %d\n",__FILE__,__LINE__);
     switch(cert.version_and_type){
         case 2:
             algorithm = cert.unsigned_certificate.version_and_type.verification_key.algorithm;
@@ -965,8 +981,8 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
             res = FAILURE;
             goto end;
     }
-    if(algorithm != ECDSA_NISTP224_WITH_SHA224 || algorithm != ECDSA_NISTP256_WITH_SHA256){
-        wave_error_printf("这里的协议类型都不等于我们要求的这里有问题,我们这里暂时不支持其他的加密算法");
+    if(algorithm != ECDSA_NISTP224_WITH_SHA224 && algorithm != ECDSA_NISTP256_WITH_SHA256){
+        wave_error_printf("这里的协议类型都不等于我们要求的这里有问题,我们这里暂时不支持其他的签名算法");
         res = -1;
         goto end;
     }
@@ -975,6 +991,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         goto end;        
     }
     
+    printf("%s %d\n",__FILE__,__LINE__);
     if(signer_type == SIGNED_DATA_CERTIFICATE_DIGEST){
         s_data->signer.type = algorithm;
         if( certificate_2_hashedid8(&cert,&s_data->signer.u.digest)){
@@ -993,6 +1010,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
             res = -1;
             goto end;
         }
+    printf("%s %d\n",__FILE__,__LINE__);
         //这里是1嘛？？协议没说，我按照自己的想法家的
         if(len_of_cert_chain != NULL)
                 *len_of_cert_chain = 1;
@@ -1079,6 +1097,8 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     }
      
    
+    sec_data.type = type;
+    sec_data.protocol_version = CURRETN_VERSION; 
     if( sec_data_2_string(&sec_data,signed_data)){
         res = -1;
         goto end;

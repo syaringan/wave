@@ -288,7 +288,9 @@ destructor:
 static void* app_do_request(void *ptr){
     int fd = *((int*)ptr);
     struct sec_db* sdb = &sec_db;
+
     do_client_request(sdb,fd);
+
     return NULL;
 };
 static int app_start(struct sec_db* sdb){

@@ -90,7 +90,7 @@ int string_2_tobe_encrypted(string *data,tobe_encrypted* tbencrypted);
 
 int tobesigned_certificate_2_string(tobesigned_certificate* cert,string* data,u8 verision_and_type);
 int tobesigned_wsa_2_string(tobesigned_wsa* wsa,string* data);
-int tobesigned_data_2_string(tobesigned_data* tbsigneddata,string* data);
+int tobesigned_data_2_string(tobesigned_data* tbsigneddata,string* data,content_type type);
 bool certid10_equal(certid10* a,certid10* b);
 int  certid10_cmp(certid10 *a,certid10* b);
 void certid10_cpy(certid10* dst,certid10* src);

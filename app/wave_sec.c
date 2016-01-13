@@ -590,7 +590,7 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 		ERROR_PRINTF("参数错误");
         return -1;
 	}
-
+    printf("psid: %04x\n",psid);
 	int len = 4 + sizeof(app_tag) + sizeof(int)*14 + sizeof(cmh) + sizeof(psid) + sizeof(time64)*2
 				+ 3 + data_len + exter_len + ssp_len;
 	char* buf = (char*)malloc(len);

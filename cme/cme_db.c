@@ -116,6 +116,7 @@ struct cert_info* cert_info_find(struct cert_info* root,void* value){
         wave_printf(MSG_DEBUG,"cert_info root == NULL  %s %d",__FILE__,__LINE__);
         return NULL;
     }
+    wave_printf(MSG_DEBUG,CERTID10_FORMAT"\n",CERTID10_VALUE(root->certid10));
     rb = rb_find(&root->rb,value);
     if(rb == NULL)
         return NULL;
@@ -167,9 +168,12 @@ struct cmh_key_cert*  ckc_insert(struct cmh_key_cert* root,struct cmh_key_cert* 
 }
 struct cmh_key_cert*  ckc_find(struct cmh_key_cert* root,void* value){
     struct rb_head* rb;
+    printf("%s %d\n",__FILE__,__LINE__);
     if(root == NULL)
         return NULL;
+    printf("%s %d\n",__FILE__,__LINE__);
     rb = rb_find(&root->rb,value);
+    printf("%s %d\n",__FILE__,__LINE__);
     if(rb == NULL)
         return NULL;
     return rb_entry(rb,struct cmh_key_cert,rb);

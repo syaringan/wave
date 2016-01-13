@@ -81,12 +81,12 @@ static void generated_signed_data(cmh cmh,struct string* sdata){
     int type ;
     type = SIGNED;
 
-    int psid ;
+    psid psid ;
     psid = 0x20;
     
     time64 generate_time,expiry_time;
-    generate_time = time(NULL) * 1000 * 1000;
-    expiry_time = generate_time + (long long)1*24*60*60*1000*1000; 
+    generate_time = time(NULL) * 1000 * (time64)1000;
+    expiry_time = generate_time + (time64)1*60*1000*1000; 
 
     unsigned char glsd ;
     glsd = 0x10;
@@ -126,11 +126,12 @@ int main(){
         return-1;
     }
     printf("cmh = %d\n",mcmh);
+    sleep(2);
     if( cme_store_cert_key(mcmh,mcert.buf,mcert.len,mpri.buf,mpri.len)){
         error();
         return -1;
     }
     printf("store cert and key\n");
-    generated_signed_data(mcmh,&signed_data);    
-        
+    sleep(2);
+    generated_signed_data(mcmh,&signed_data);     
 }

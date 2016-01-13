@@ -17,10 +17,34 @@ int certificate_get_start_time(certificate* cert,time32 *start_time){
         wave_error_printf("证书没有过期时间，只有证书持续时间或者都没有，不能推算出开始时间");
         return -1;
     }
+    time32 lifetime;//unit s 
+    printf("%s %d\n",__FILE__,__LINE__);
     if(cert->unsigned_certificate.cf & USE_START_VALIDITY){
         if(cert->unsigned_certificate.cf & LIFETIME_IS_DURATION){
             if(start_time != NULL){
-                *start_time = cert->unsigned_certificate.expiration - cert->unsigned_certificate.flags_content.lifetime;
+                lifetime = cert->unsigned_certificate.flags_content.lifetime;
+                switch(lifetime&0xe000){
+                    case 0x0000:
+                        lifetime = lifetime&0x1fff ;
+                        break;
+                    case 0x2000:
+                        lifetime = (lifetime&0x1fff)*60;
+                        break;
+                    case 0x4000:
+                        lifetime = (lifetime&0x1fff) *3600;
+                        break;
+                    case 0x6000:
+                        lifetime = (lifetime&0x1fff)*3600*60;
+                        break;
+                    case 0x8000:
+                        lifetime = (lifetime&0x1fff) *31556925;
+                        break;
+                    default:
+                        wave_error_printf("lifetime 出现了不肯能的指 %s %d\n",__FILE__,__LINE__);
+                        return -1;
+                }
+                printf("expiry %u lifetime %u\n",cert->unsigned_certificate.expiration,lifetime);
+                *start_time = cert->unsigned_certificate.expiration - lifetime;
             }
             return 0;
         }
@@ -54,7 +78,7 @@ int certificate_get_expired_time(struct sec_db* sdb,certificate* cert,time32 *ex
         return -1;
     }
     if(expired_time != NULL)
-        *expired_time = cinfo->expriry/US_TO_S;
+        *expired_time = (time32)(cinfo->expriry/US_TO_S);
     lock_unlock(&cdb->lock);
     return 0;
 }
@@ -259,11 +283,9 @@ int get_cert_info_by_certid(struct sec_db *sdb,enum identifier_type type,string 
 
     memset(&cert,0,sizeof(cert));
     cdb = &sdb->cme_db;
-    printf("%s %d\n",__FILE__,__LINE__);
     if(cert_info == NULL){
         return 0;
     }
-    printf("%s %d\n",__FILE__,__LINE__);
     if(type == ID_CERTIFICATE){
         cinfo_cmp.type = ID_CERTID10;
         if(string_2_certificate(identifier,&cert) <= 0){
@@ -312,7 +334,6 @@ int get_cert_info_by_certid(struct sec_db *sdb,enum identifier_type type,string 
     }
     *cert_info = mcinfo;
     lock_unlock(&cdb->lock);
-    goto end;
 end:
     certificate_free(&cert);
     return res;

@@ -410,7 +410,6 @@ static int do_cme_store_cert_key(struct sec_db* sdb,int fd)
     int cert_len = *((int*)buf);
     buf += 4;
 
-    printf("-----%s %d\n",__FILE__,__LINE__);
     certificate cert;
     INIT(cert);
     if(buf_2_certificate(buf,cert_len,&cert) < 0){
@@ -421,7 +420,6 @@ static int do_cme_store_cert_key(struct sec_db* sdb,int fd)
     }
     buf += cert_len;
 
-    printf("-----%s %d\n",__FILE__,__LINE__);
     string pri_key;
     INIT(pri_key);
     pri_key.len = *((int*)buf);
@@ -532,6 +530,7 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
 
     psid psid;
     memcpy(&psid,buf,sizeof(psid));
+    printf("psid :%04x\n",psid);
     buf += sizeof(psid);
 
     string ssp;
@@ -598,12 +597,14 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
     INIT(signed_data);
     u32 len_of_cert_chain;
 
+    printf("%s %d\n",__FILE__,__LINE__);
     int res = sec_signed_data(sdb,cmh,type,&data,&exter_data,psid,
                             &ssp,set_geneartion_time,&generation_time,
                             set_generation_location,&location,set_expiry_time,expiry_time,
                             signer_type,cert_chain_len,cert_chain_max_len,fs_type,compressed,
                             
                             &signed_data,&len_of_cert_chain);
+    printf("%s %d\n",__FILE__,__LINE__);
     string_free(&data);
     string_free(&exter_data);
     string_free(&ssp);
@@ -1342,9 +1343,9 @@ int do_client_request(struct sec_db* sdb,int fd){
             if(do_cme_store_cert_key(sdb,fd) < 0){
                 close(fd);
                 return -1;
-            }
+            } 
             break;
-        case SEC_SIGNED_DATA:
+        case SEC_SIGNED_DATA: 
             if(do_sec_signed_data(sdb,fd) < 0){
                 close(fd);
                 return -1;

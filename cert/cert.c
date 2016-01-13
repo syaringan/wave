@@ -104,7 +104,7 @@ static void cert_signed_cert(certificate* issuing,string* pri,certificate* issue
     }
     algorithm = issuing->unsigned_certificate.version_and_type.verification_key.algorithm;
     issued->unsigned_certificate.u.no_root_ca.signature_alg = algorithm;
-    memcpy(issued->unsigned_certificate.u.no_root_ca.signer_id.hashedid8,signer_hashed.buf,8);
+    memcpy(issued->unsigned_certificate.u.no_root_ca.signer_id.hashedid8,signer_hashed.buf+24,8);
     privatekey_signed_cert(algorithm,pri,issued);
 end:
     string_free(&signer_encode);
@@ -349,14 +349,18 @@ static void fill_start_validity(certificate* cert){
     cd = &cert->unsigned_certificate.flags_content.lifetime;
     printf("是否填写start_validity(y/n):");
     scanf("%c",&flag);
+    getchar();
     if(flag == 'y'){
         *cf = *cf | USE_START_VALIDITY;
         printf("是否填写 life_is_duration(y/n)");
         scanf("%c",&flag);
+        getchar();
         if(flag == 'y'){
             *cf = *cf | LIFETIME_IS_DURATION; 
             printf("填写单位（s,m,h,H,y）和时间:");
             scanf("%c %d",&type,&t);
+            getchar();
+            *cd = 0;
             if(type == 's'){
                 *cd = *cd | 0x0000;
             }

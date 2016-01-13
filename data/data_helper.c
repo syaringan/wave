@@ -21,7 +21,9 @@ int sec_data_2_string(sec_data* sec_data,string* data){
 			wave_malloc_error();
 			goto fail;
 		}
+    printf("%s %d\n",__FILE__,__LINE__);
 		res = sec_data_2_buf(sec_data,buf,len);
+    printf("%s %d\n",__FILE__,__LINE__);
 		if(res == -1)
 			goto fail;
 		len *= 2;
@@ -832,7 +834,7 @@ fail:
 		free(buf);
 	return -1;
 }
-int tobesigned_data_2_string(tobesigned_data* tbsigneddata,string* data){
+int tobesigned_data_2_string(tobesigned_data* tbsigneddata,string* data,content_type type){
     if(data == NULL || data->buf != NULL){
 		wave_error_printf("输入参数有误，请检查");
 		return -1;
@@ -850,7 +852,7 @@ int tobesigned_data_2_string(tobesigned_data* tbsigneddata,string* data){
 			wave_malloc_error();
 			goto fail;
 		}
-        res = tobesigned_data_2_buf(tbsigneddata,buf,len);
+        res = tobesigned_data_2_buf(tbsigneddata,buf,len,type);
 		if(res == -1)
 			goto fail;
 		len *= 2;
