@@ -15,6 +15,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <linux/types.h>
+#include <linux/socket.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #define MAX_PAYLOAD 1024
