@@ -908,21 +908,11 @@ result cme_certificate_info_request(struct sec_db* sdb,
         cme_permissions_cpy(permissions, m_permissions);
     if(m_scope->region_type != FROM_ISSUER && scope != NULL)
         geographic_region_cpy(scope, m_scope);
-    //判断进行递归调用的函数参数是否取空，取空代表不需要返回值（1、已经获取到权限。2、不许要获取这些权限）
-    struct cme_permissions *p;
-    geographic_region *s;
-    if(permissions == NULL || m_permissions->type != INHERITED_NOT_FOUND)
-        p = NULL;
-    else
-        p = permissions;
-    
-    if(scope == NULL || m_scope->region_type == FROM_ISSUER)
-        s = NULL;
-    else
-        s = scope;
-    printf("%s %d\n",__FILE__,__LINE__); 
-    if(p==NULL && s=NULL)
+    if(m_permissions->type != INHERITED_NOT_FOUND && m_scope->region_type != FROM_ISSUER)
         goto fail;
+    //判断进行递归调用的函数参数是否取空，取空代表不需要返回值（1、已经获取到权限。2、上层不需要获取这些权限）
+    struct cme_permissions *p = (m_permissions->type!=INHERITED_NOT_FOUND)?NULL:permissions;
+    geographic_region *s = (m_scope->region_type!=FROM_ISSUER)?NULL:scope;
             
     if(trust_anchor){
         ret = CERTIFICATE_BADLY_FORMED;
