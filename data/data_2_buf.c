@@ -1800,6 +1800,7 @@ static u32 signer_identifier_2_buf(const signer_identifier *signer_identifier,u8
 			return encode_len + res;
 		case CERTIFICATE:
 			encode_len = certificate_2_buf(&signer_identifier->u.certificate,mbuf,size);
+           
 			if(encode_len < 0)
 				return encode_len;
 			return encode_len + res;
@@ -2553,7 +2554,7 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 			mbuf += encode_len;
 			size -= encode_len;
 			res += encode_len;
-			
+		   
 			encode_len = varible_len_calculate(tobesigned_data->u.type_signed.data.len);
 			if (size < encode_len + tobesigned_data->u.type_signed.data.len){
 				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
@@ -2570,7 +2571,6 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 			break;
 
 		case SIGNED_PARTIAL_PAYLOAD:
-    printf("%s %d\n",__FILE__,__LINE__);
 			encode_len = psid_encoding(mbuf,&tobesigned_data->u.type_signed_partical.psid);
 			if(encode_len < 0)
 				return encode_len;
@@ -2608,7 +2608,6 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 			break;
 
 		case SIGNED_EXTERNAL_PAYLOAD:
-    printf("%s %d\n",__FILE__,__LINE__);
 			encode_len = psid_encoding(mbuf,&tobesigned_data->u.type_signed_external.psid);
 			if(encode_len < 0)
 				return encode_len;
@@ -2632,7 +2631,6 @@ u32 tobesigned_data_2_buf(const tobesigned_data *tobesigned_data,u8* buf,u32 len
 
 			break;
 		default:
-    printf("%s %d\n",__FILE__,__LINE__);
 			encode_len = varible_len_calculate(tobesigned_data->u.data.len);
 			if (size < encode_len + tobesigned_data->u.data.len){
 				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
@@ -3329,10 +3327,8 @@ u32 sec_data_2_buf(sec_data *sec_data,u8* buf,u32 len){
     mbuf++;
     size--;
     res++;
-    printf("%s %d\n",__FILE__,__LINE__);
     switch(sec_data->type){
         case UNSECURED:
-    printf("%s %d\n",__FILE__,__LINE__);
             encode_len = varible_len_calculate(sec_data->u.data.len);
             if(encode_len + sec_data->u.data.len > size){
 				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
@@ -3351,7 +3347,6 @@ u32 sec_data_2_buf(sec_data *sec_data,u8* buf,u32 len){
         case SIGNED:
         case SIGNED_EXTERNAL_PAYLOAD:
 		case SIGNED_PARTIAL_PAYLOAD:
-    printf("%s %d\n",__FILE__,__LINE__);
             encode_len = signed_data_2_buf(&sec_data->u.signed_data,mbuf,size,sec_data->type);
             if(encode_len < 0)
                 return encode_len;
@@ -3378,7 +3373,6 @@ u32 sec_data_2_buf(sec_data *sec_data,u8* buf,u32 len){
                 return encode_len;
             return encode_len + res;
         default:
-    printf("%s %d\n",__FILE__,__LINE__);
             encode_len = varible_len_calculate(sec_data->u.other_data.len);
             if(encode_len + sec_data->u.other_data.len > size){
 				wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);

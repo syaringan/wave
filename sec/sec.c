@@ -469,7 +469,7 @@ static int elliptic_curve_point_2_compressed(pk_algorithm algorithm,elliptic_cur
     INIT(x);
     INIT(y);
     
-    if(point->type != UNCOMPRESSED){
+    if(point->type == UNCOMPRESSED){
         x.len = point->x.len;
         y.len = point->u.y.len;
         if( (x.buf = (u8*)malloc(x.len)) == NULL || (y.buf = (u8*)malloc(y.len)) == NULL ){
@@ -479,7 +479,6 @@ static int elliptic_curve_point_2_compressed(pk_algorithm algorithm,elliptic_cur
         }
         memcpy(x.buf,point->x.buf,x.len);
         memcpy(y.buf,point->u.y.buf,y.len);
-
 
         if(algorithm == ECDSA_NISTP224_WITH_SHA224){    
             if( crypto_ECDSA_224_uncompress_key_2_compress_key(&x,&y,compress,type)){
@@ -548,7 +547,6 @@ static int certificate_verification_point_compress(certificate* cert,bool compre
 
         point = &cert->unsigned_certificate.version_and_type.verification_key.u.public_key;
     }
-
     if(compressed == true){
         if(point->type == COMPRESSED_LSB_Y_0 || point->type == COMPRESSED_LSB_Y_1)
             goto end;
@@ -557,7 +555,6 @@ static int certificate_verification_point_compress(certificate* cert,bool compre
             res = -1;
             goto end;
         }
-    
         point->x.len = compress.len;
         point->x.buf = (u8*)realloc(point->x.buf,compress.len);
         if(point->x.buf == NULL){
@@ -805,7 +802,6 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     INIT(encoded_tbs);
     INIT(privatekey);
     
-    printf("%s %d psid %04x\n",__FILE__,__LINE__,psid);
     s_data = &sec_data.u.signed_data;
     tbs_encode = &s_data->unsigned_data;
     if( res = find_cert_prikey_by_cmh(sdb,cmh,&cert,&privatekey) ){
@@ -816,10 +812,8 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     if(  cme_construct_certificate_chain(sdb,ID_CERTIFICATE,NULL,&cert_chain,true,cert_chain_max_len,
                 &construct_cert_chain,&permissions,&regions,NULL,NULL,NULL)  != SUCCESS){
         res = NOT_FOUND;
-    printf("%s %d\n",__FILE__,__LINE__);
         goto end;
     }
-    printf("%s %d\n",__FILE__,__LINE__);
     if(certificate_get_start_time(&cert,&start_time) || 
             certificate_get_expired_time(sdb,&cert,&expired_time)){
         wave_error_printf("获取证书相关信息不对，这个证书没有这个信息");
@@ -832,14 +826,12 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         res = CERTIFICATE_NOT_YET_VALID;
         goto end;
     }
-    printf("%s %d\n",__FILE__,__LINE__);
     if(generation_time->time/US_TO_S > expired_time){
          wave_error_printf("生产日期晚育了证书的结束有效时间 generation_time:%us expired_time:%us,now:%us",
                  (time32)(generation_time->time/US_TO_S),expired_time,time(NULL));
          res = CERTIFICATE_EXPIRED;
          goto end;
     }
-    printf("%s %d %u\n",__FILE__,__LINE__,expired_time);
     if(set_expiry_time){
         if(expiry_time/US_TO_S < start_time){
             wave_error_printf("过期时间早育了证书的开始有效时间 expiry_time:%us start_time:%us",
@@ -847,22 +839,18 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
             res = EXPIRY_TIME_BEFORE_CERTIFICATE_VALIDITY_PERIOD;
             goto end;
         }
-    printf("%s %d %u\n",__FILE__,__LINE__,expired_time);
         if(expiry_time/US_TO_S > expired_time){
-    printf("%s %d %u\n",__FILE__,__LINE__,expired_time);
             wave_error_printf("过期时间晚育了证书的结束的有效时间 expiry_time:%us expired_time:%us",
                     (time32)(expiry_time/US_TO_S),expired_time);
             res = EXPIRY_TIME_AFTER_CERTIFICATE_VALIDITY_PERIOD;
             goto end;
         }
     }
-    printf("%s %d\n",__FILE__,__LINE__);
     if( three_d_location_in_region(location,regions.regions) == false){
         wave_error_printf("生产地点不在证书范围内");
         res = OUTSIDE_CERTIFICATE_VALIDITY_REGION;
         goto end;
     }
-    printf("%s %d\n",__FILE__,__LINE__);
     if( cme_permissions_contain_psid_with_ssp(permissions.cme_permissions,psid,ssp) ==false){
         wave_error_printf("证书权限和用户要求的不一致");
         res = INCONSISTENT_PERMISSIONS_IN_CERTIFICATE;
@@ -878,20 +866,19 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         goto end;
     } 
 
-    printf("%s %d\n",__FILE__,__LINE__);
     switch(type){
         case SIGNED:
             tbs_encode->u.type_signed.psid = psid;
             
-            tbs_encode->u.type_signed_partical.data.len = data->len;
-            tbs_encode->u.type_signed_partical.data.buf = 
+            tbs_encode->u.type_signed.data.len = data->len;
+            tbs_encode->u.type_signed.data.buf = 
                     (u8*)malloc(data->len);
-            if(tbs_encode->u.type_signed_partical.data.buf == NULL){
+            if(tbs_encode->u.type_signed.data.buf == NULL){
                 wave_malloc_error();
                 res = -1;
                 goto end;
             }
-            memcpy(tbs_encode->u.type_signed_partical.data.buf,data->buf,data->len);
+            memcpy(tbs_encode->u.type_signed.data.buf,data->buf,data->len);
             break;
         case SIGNED_PARTIAL_PAYLOAD:
             tbs_encode->u.type_signed_partical.psid = psid;
@@ -948,7 +935,6 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         tbs_encode->flags_content.generation_time.time = generation_time->time;
         tbs_encode->flags_content.generation_time.long_std_dev = generation_time->long_std_dev;
     }
-    printf("%s %d\n",__FILE__,__LINE__);
     if(set_generation_location){
         tbs_encode->tf |= USE_LOCATION;
         tbs_encode->flags_content.generation_location.latitude = location->latitude;
@@ -960,15 +946,12 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         tbs_encode->tf |= EXPIRES;
         tbs_encode->flags_content.exipir_time = expiry_time; 
     }
-
-    printf("%s %d\n",__FILE__,__LINE__);
     if( tobesigned_data_2_string(tbs_encode,&encoded_tbs,type) ){
         wave_error_printf("编码失败");
         res = -1;
         goto end;
     }
     
-    printf("%s %d\n",__FILE__,__LINE__);
     switch(cert.version_and_type){
         case 2:
             algorithm = cert.unsigned_certificate.version_and_type.verification_key.algorithm;
@@ -991,7 +974,6 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         goto end;        
     }
     
-    printf("%s %d\n",__FILE__,__LINE__);
     if(signer_type == SIGNED_DATA_CERTIFICATE_DIGEST){
         s_data->signer.type = algorithm;
         if( certificate_2_hashedid8(&cert,&s_data->signer.u.digest)){
@@ -1010,7 +992,6 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
             res = -1;
             goto end;
         }
-    printf("%s %d\n",__FILE__,__LINE__);
         //这里是1嘛？？协议没说，我按照自己的想法家的
         if(len_of_cert_chain != NULL)
                 *len_of_cert_chain = 1;
@@ -1103,6 +1084,26 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         res = -1;
         goto end;
     }
+    /*
+    struct sec_data mmm;
+    int jj;
+    INIT(mmm);
+    for(jj=0;jj<signed_data->len;jj++){
+            printf("%02x ",signed_data->buf[jj]);
+            if((jj+1)%10 == 0)
+                printf("\n");
+        }
+    printf("\n");
+    if(string_2_sec_data(signed_data,&mmm)){
+        printf("string 2 sec data shibai %s %d\n",__FILE__,__LINE__);
+    }
+    else{
+        for(jj=0;jj<signed_data->len;jj++){
+            printf("%02x ",signed_data->buf[jj]);
+        }
+        printf("\n");
+    }
+    */
     res = SUCCESS;
     goto end;
     

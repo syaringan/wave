@@ -31,6 +31,7 @@ static inline void wave_malloc_error(){
 }
 void point_save(void **p);
 void point_show();
+#define DEBUG_MARK printf("%s %d\n",__FILE__,__LINE__);
 #else
 #define wave_printf(args...) do{}while(0)
 #define wave_error_printf(args...) do{}while(0)

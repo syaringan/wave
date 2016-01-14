@@ -73,7 +73,6 @@ static int do_cme_cmh_request(struct sec_db* sdb,int fd)
         free(buf);
         return -1;
     }
-    printf("%d %s\n",__LINE__,__FILE__);    
     free(buf);
     return 0;
 }
@@ -374,7 +373,6 @@ static int do_cme_store_cert_key(struct sec_db* sdb,int fd)
 
     int slen = 0;
     int len_r;
-    printf("-----%s %d\n",__FILE__,__LINE__);
     while(slen != 4){
         len_r = read(fd,buf+slen,4-slen);
         if(len_r <= 0){
@@ -435,7 +433,6 @@ static int do_cme_store_cert_key(struct sec_db* sdb,int fd)
 
     free(buf_beg);
 
-    printf("-----%s %d\n",__FILE__,__LINE__);
     int res = cme_store_cert_key(sdb,cmh,&cert,&pri_key);
     certificate_free(&cert);
     string_free(&pri_key);
@@ -447,7 +444,7 @@ static int do_cme_store_cert_key(struct sec_db* sdb,int fd)
         return -1;
     }
 
-    printf("-----%s %d\n",__FILE__,__LINE__);
+    printf("store key and cert success-----%s %d\n",__FILE__,__LINE__);
     return 0;
 }
 
@@ -530,7 +527,6 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
 
     psid psid;
     memcpy(&psid,buf,sizeof(psid));
-    printf("psid :%04x\n",psid);
     buf += sizeof(psid);
 
     string ssp;
@@ -597,14 +593,12 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
     INIT(signed_data);
     u32 len_of_cert_chain;
 
-    printf("%s %d\n",__FILE__,__LINE__);
     int res = sec_signed_data(sdb,cmh,type,&data,&exter_data,psid,
                             &ssp,set_geneartion_time,&generation_time,
                             set_generation_location,&location,set_expiry_time,expiry_time,
                             signer_type,cert_chain_len,cert_chain_max_len,fs_type,compressed,
                             
                             &signed_data,&len_of_cert_chain);
-    printf("%s %d\n",__FILE__,__LINE__);
     string_free(&data);
     string_free(&exter_data);
     string_free(&ssp);
@@ -616,6 +610,7 @@ static int do_sec_signed_data(struct sec_db* sdb,int fd)
         return -1;
     }
 
+    printf("sec_signed_data success %s %d\n",__FILE__,__LINE__);
     len = sizeof(int)*4 + signed_data.len;
     buf = (char*)malloc(len);
     if(buf == NULL){
@@ -912,6 +907,7 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
     INIT(location);
     INIT(send_cert);
 
+    printf("sec_secure_data begin %s %d\n",__FILE__,__LINE__);
     int res = sec_secure_data_content_extration(sdb,&recieve_data,cmh,
             &type,&inner_type,&data,&signed_data,&psid,&ssp,&set_geneartion_time,
             &generation_time,&set_expiry_time,&expiry_time,&set_generation_location,
@@ -928,6 +924,7 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
         }
         return -1;
     }
+    printf("sec_secure_data success %s %d\n",__FILE__,__LINE__);
     if((set_geneartion_time != 0 && set_geneartion_time != 1) ||
         (set_expiry_time != 0 && set_expiry_time != 1) ||
         (set_generation_location != 0 && set_generation_location != 1)){

@@ -540,13 +540,15 @@ end:
 }
 
 static void cert_2_file(certificate* cert,char* name){
-    string str;
+    string str,temp;
     FILE *fp;
     INIT(str);
+    INIT(temp);
     if(certificate_2_string(cert,&str)){
         error();
         return;
     }
+    printf("\nlen :%d   len %d\n\n",str.len,string_2_certificate(&str,cert));
     fp = fopen(name,"w");
     if(fp == NULL){
         error();

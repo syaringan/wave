@@ -21,9 +21,7 @@ int sec_data_2_string(sec_data* sec_data,string* data){
 			wave_malloc_error();
 			goto fail;
 		}
-    printf("%s %d\n",__FILE__,__LINE__);
 		res = sec_data_2_buf(sec_data,buf,len);
-    printf("%s %d\n",__FILE__,__LINE__);
 		if(res == -1)
 			goto fail;
 		len *= 2;
@@ -52,6 +50,7 @@ int string_2_sec_data(string* data,sec_data* sec_data){
 	}
 	int res;
 	res = buf_2_sec_data(data->buf,data->len,sec_data);
+    printf("res %d %s %d\n",res,__FILE__,__LINE__);
 	return res;
 }
 

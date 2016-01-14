@@ -878,7 +878,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
               }
               break;
         case INHERITED_NOT_FOUND:
-              wave_printf("权限类型为继承");
+              wave_printf(MSG_WARNING,"权限类型为继承");
               break;
         default:
               wave_error_printf("错误的permission type");
@@ -887,7 +887,6 @@ result cme_certificate_info_request(struct sec_db* sdb,
     }
 
 
-    printf("%s %d\n",__FILE__,__LINE__); 
     switch(m_scope->region_type){
         case CIRCLE:
             break;
@@ -937,7 +936,7 @@ fail:
     certificate_free(&cert_decoded);
     string_free(&signer_id);
     cme_permissions_free(m_permissions);
-    geographic_region_free(m_scope)
+    geographic_region_free(m_scope);
     p = NULL;
     s = NULL;
 
@@ -1593,7 +1592,6 @@ construct_chain:
                 &(regions->regions[i]), &(last_crl_times_array->times[i]), &(next_crl_times_array->times[i]), 
                 &trust_anchor, &(verified_array->verified[i]));
     }
-    printf("%s %d res: %d\n",__FILE__,__LINE__,ret);
     if(cert_encoded.buf != NULL){
             certificate = (struct certificate*)malloc( sizeof(struct certificate));
             if(certificate == NULL){

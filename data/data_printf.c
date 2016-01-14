@@ -607,10 +607,7 @@ void tobesigned_certificate_printf(tobesigned_certificate* tbs_cert,int n,char v
     if((tbs_cert->cf & 1<<0)!=0){
         if((tbs_cert->cf & 1<<1)!=0){
             space_print(n);
-            wave_printf(MSG_INFO,"lifetime: ");
-            for(i=0;i<2;i++)
-                wave_printf(MSG_INFO,"%x ",*((char*)&tbs_cert->flags_content.lifetime + i));
-            wave_printf(MSG_INFO,"");
+            wave_printf(MSG_INFO,"lifetime: %04x",tbs_cert->flags_content.lifetime);
         }else{
             space_print(n);
             wave_printf(MSG_INFO,"start_validity: ");
@@ -618,7 +615,9 @@ void tobesigned_certificate_printf(tobesigned_certificate* tbs_cert,int n,char v
             PRINTF32(buf);
         }
 
-        if((tbs_cert->cf & 1<<2)!=0){
+       
+    }
+    if((tbs_cert->cf & 1<<2)!=0){
             space_print(n);
             wave_printf(MSG_INFO,"encryption_key:");
             public_key_printf(&tbs_cert->flags_content.encryption_key,n+N);
@@ -636,7 +635,6 @@ void tobesigned_certificate_printf(tobesigned_certificate* tbs_cert,int n,char v
             }
             wave_printf(MSG_INFO,"");
         }
-    }
     
 }
 

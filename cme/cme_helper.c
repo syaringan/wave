@@ -18,7 +18,6 @@ int certificate_get_start_time(certificate* cert,time32 *start_time){
         return -1;
     }
     time32 lifetime;//unit s 
-    printf("%s %d\n",__FILE__,__LINE__);
     if(cert->unsigned_certificate.cf & USE_START_VALIDITY){
         if(cert->unsigned_certificate.cf & LIFETIME_IS_DURATION){
             if(start_time != NULL){
@@ -43,7 +42,7 @@ int certificate_get_start_time(certificate* cert,time32 *start_time){
                         wave_error_printf("lifetime 出现了不肯能的指 %s %d\n",__FILE__,__LINE__);
                         return -1;
                 }
-                printf("expiry %u lifetime %u\n",cert->unsigned_certificate.expiration,lifetime);
+                //printf("expiry %u lifetime %u\n",cert->unsigned_certificate.expiration,lifetime);
                 *start_time = cert->unsigned_certificate.expiration - lifetime;
             }
             return 0;

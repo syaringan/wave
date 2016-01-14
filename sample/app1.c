@@ -26,11 +26,21 @@ static int fd;
 static void send_to(char*buf,int len){
     int mlen;
     mlen = msendto(fd,buf,len,OPP_PORT);
-    if(mlen != len){
+    if(mlen){
         error();
         return;
     }
     return;
+}
+static void string_printf(char* name,struct string* data){
+    printf("%s len:%d\n\r",name,data->len);
+    int i;
+    for(i=0;i<data->len;i++){
+       printf("%02x ",(unsigned char)(data->buf[i]));
+        if((i+1)%10==0)
+           printf("\n"); 
+    }
+    printf("\n");
 }
 static void getcert_and_key(struct string *cert,struct string *pri){
     FILE *fd;
@@ -70,7 +80,7 @@ static void getcert_and_key(struct string *cert,struct string *pri){
     }
     fclose(fd);
 }
-static void generated_signed_data(cmh cmh,struct string* sdata){
+static int generated_signed_data(cmh cmh,struct string* sdata){
     sdata->len = 400;
     sdata->buf = (char*)malloc(sdata->len);
     if(sdata->buf == NULL){
@@ -107,8 +117,9 @@ static void generated_signed_data(cmh cmh,struct string* sdata){
                 
                 sdata->buf,&sdata->len,NULL)){
         error();
+        return -1;
     }
-
+    return 0;
 }
 int main(){
     cmh mcmh;
@@ -126,12 +137,19 @@ int main(){
         return-1;
     }
     printf("cmh = %d\n",mcmh);
-    sleep(2);
     if( cme_store_cert_key(mcmh,mcert.buf,mcert.len,mpri.buf,mpri.len)){
         error();
         return -1;
     }
+    string_printf("mcert:",&mcert);
     printf("store cert and key\n");
-    sleep(2);
-    generated_signed_data(mcmh,&signed_data);     
+    if(generated_signed_data(mcmh,&signed_data)){
+        error();
+        return -1;
+    }
+    printf("send cert\n");
+    send_to(mcert.buf,mcert.len);
+    printf("send data\n");
+    send_to(signed_data.buf,signed_data.len);
+
 }

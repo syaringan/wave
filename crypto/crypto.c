@@ -209,8 +209,9 @@ int crypto_ECDSA_256_uncompress_key_2_compress_key(string* pubkey_x,string* pubk
     if(ECDSA_256_uncompress_key_2_compress_key(pubkey_x->buf,pubkey_x->len,pubkey_y->buf,pubkey_y->len,
 				compress_key->buf,&compress_key->len,&flag))
         goto fail;
-    if(type != NULL)
+    if(type != NULL){
         *type = flag;
+    }
     return 0;
 fail:
     if(compress_key->buf != NULL)

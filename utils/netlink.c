@@ -9,6 +9,8 @@
 #include "debug.h"
 #include <sys/types.h>
 #include <unistd.h>
+
+#define NETLINK_WAVE 21
 int create_netlink(struct msghdr *msg, struct nlmsghdr *nlh)
 {
     int fd;
