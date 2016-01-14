@@ -1116,15 +1116,17 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     INIT(external_data);
     external_data.len = *((int*)buf);
     buf += 4;
-    external_data.buf = (char*)malloc(external_data.len);
-    if(external_data.buf == NULL){
-        ERROR_PRINTF("内存分配失败");
-        string_free(&signed_data);
-        free(buf_beg);
-        return -1;
+    if(external_data.len != 0){
+        external_data.buf = (char*)malloc(external_data.len);
+        if(external_data.buf == NULL){
+            ERROR_PRINTF("内存分配失败");
+            string_free(&signed_data);
+            free(buf_beg);
+            return -1;
+        }
+        memcpy(external_data.buf,buf,external_data.len);
+        buf += external_data.len;
     }
-    memcpy(external_data.buf,buf,external_data.len);
-    buf += external_data.len;
 
     u32 max_cert_chain_len = *((int*)buf);
     buf += 4;

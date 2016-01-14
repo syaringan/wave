@@ -1195,7 +1195,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 		(check_generation_time != 0 && check_generation_time != 1) ||
 		(check_expiry_time != 0 && check_expiry_time != 1) ||
 		(check_generation_location != 0 && check_generation_location != 1) ||
-		signed_data == NULL || external_data == NULL || elevation == NULL)
+		signed_data == NULL || elevation == NULL)
 	{
 		ERROR_PRINTF("参数错误");
 		return -1;
@@ -1235,8 +1235,10 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 	*((int*)buf) = external_len;
 	buf += 4;
 
-	memcpy(buf,external_data,external_len);
-	buf += external_len;
+    if(external_len != 0){
+        memcpy(buf,external_data,external_len);
+        buf += external_len;
+    }
 
 	*((int*)buf) = max_cert_chain_len;
 	buf += 4;
