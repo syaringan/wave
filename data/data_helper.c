@@ -266,7 +266,7 @@ int hashedid8_2_string(hashedid8* hashed,string* data){
 
 	res = hashedid8_2_buf(hashed,data->buf,8);
 
-	return 0;
+	return res;
 }
 
 int string_2_hashedid8(string* data,hashedid8* hashed){
@@ -688,7 +688,7 @@ int certificate_request_2_string(certificate_request* cert_req,string* data){
 			wave_malloc_error();
 			goto fail;
 		}
-		res = certifica    te_request_2_buf(cert_req,buf,len);
+		res = certificate_request_2_buf(cert_req,buf,len);
 		if(res == -1)
 			goto fail;
 		len *= 2;
