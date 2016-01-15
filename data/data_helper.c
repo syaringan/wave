@@ -35,7 +35,7 @@ int sec_data_2_string(sec_data* sec_data,string* data){
 	data->len = res;
 	memcpy(data->buf,buf,res);
 	free(buf);
-	return res;
+	return 0;
 
 fail:
 	if(buf != NULL)
@@ -85,7 +85,7 @@ int encrypted_data_2_string(encrypted_data* enc_data,string* data){
 	data->len = res;
 	memcpy(data->buf,buf,res);
 	free(buf);
-	return res;
+	return 0;
 
 fail:
 	if(buf != NULL)
@@ -134,7 +134,7 @@ int certificate_2_string(certificate* cert,string* data){
 	data->len = res;
 	memcpy(data->buf,buf,res);
 	free(buf);
-	return res;
+	return 0;
 
 fail:
 	if(buf != NULL)
@@ -183,7 +183,7 @@ int signed_data_2_string(signed_data* s_data,string* data){
 	data->len = res;
 	memcpy(data->buf,buf,res);
 	free(buf);
-	return res;
+	return 0;
 
 fail:
 	if(buf != NULL)
@@ -232,7 +232,7 @@ int crl_2_string(crl* crl,string* data){
 	data->len = res;
 	memcpy(data->buf,buf,res);
 	free(buf);
-	return res;
+	return 0;
 
 fail:
 	if(buf != NULL)
@@ -334,7 +334,7 @@ int tobesigned_crl_2_string(tobesigned_crl* tbs_crl,string* data){
 	data->len = res;
 	memcpy(data->buf,buf,res);
 	free(buf);
-	return res;
+	return 0;
 
 fail:
 	if(buf != NULL)
@@ -568,7 +568,7 @@ int signed_wsa_2_string(signed_wsa* sw,string* data){
 	data->len = res;
 	memcpy(data->buf,buf,res);
 	free(buf);
-	return res;
+	return 0;
 
 fail:
 	if(buf != NULL)
@@ -642,7 +642,7 @@ int tobesigned_certificate_request_2_string(tobesigned_certificate_request* tbs,
 	data->len = res;
 	memcpy(data->buf,buf,res);
 	free(buf);
-	return res;
+	return 0;
 
 fail:
 	if(buf != NULL)
@@ -702,7 +702,7 @@ int certificate_request_2_string(certificate_request* cert_req,string* data){
 	data->len = res;
 	memcpy(data->buf,buf,res);
 	free(buf);
-	return res;
+	return 0;
 
 fail:
 	if(buf != NULL)
@@ -741,7 +741,7 @@ int tobe_encrypted_2_string(tobe_encrypted* tbencrypted,string* data){
 	data->len = res;
 	memcpy(data->buf,buf,res);
 	free(buf);
-	return res;
+	return 0;
 
 fail:
 	if(buf != NULL)
@@ -788,7 +788,7 @@ int tobesigned_certificate_2_string(tobesigned_certificate *cert,string* data,u8
 	data->len = res;
 	memcpy(data->buf,buf,res);
 	free(buf);
-	return res;
+	return 0;
 fail:
 	if(buf != NULL)
 		free(buf);
@@ -826,7 +826,7 @@ int tobesigned_wsa_2_string(tobesigned_wsa* wsa,string* data){
 	data->len = res;
 	memcpy(data->buf,buf,res);
 	free(buf);
-	return res;
+	return 0;
 
 fail:
 	if(buf != NULL)
@@ -865,7 +865,7 @@ int tobesigned_data_2_string(tobesigned_data* tbsigneddata,string* data,content_
 	data->len = res;
 	memcpy(data->buf,buf,res);
 	free(buf);
-	return res;
+	return 0;
 
 fail:
 	if(buf != NULL)

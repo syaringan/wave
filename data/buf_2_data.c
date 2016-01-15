@@ -3418,6 +3418,8 @@ u32 buf_2_signed_wsa(  u8* buf,  u32 len,signed_wsa *signed_wsa){
 u32 buf_2_sec_data(  u8* buf,  u32 len, sec_data* sec_data){
     u8* mbuf = buf;
     u32 size = len;
+    int res = 0;
+
     //检查长度是否满足最低要求
     if(size < 3){
 		wave_error_printf("填充数据不足 %s %d",__FILE__,__LINE__);
@@ -3441,6 +3443,7 @@ u32 buf_2_sec_data(  u8* buf,  u32 len, sec_data* sec_data){
 			//应该先用一字节编码,表明所用数据的字节长度，然后再分配内存
 			sec_data->u.data.len = get8(mbuf);
 			mbuf += 1;
+            size -= 1;
             sec_data->u.data.buf = (u8*)malloc(sizeof(u8)*sec_data->u.data.len);//填充opaque
             if(sec_data->u.data.buf == NULL){
                 return -1;
@@ -3448,39 +3451,52 @@ u32 buf_2_sec_data(  u8* buf,  u32 len, sec_data* sec_data){
 
             sec_data->u.data.buf = mbuf;//单个数据的大小位u8，所以不需要大小端转换函数
             mbuf += sec_data->u.data.len;			//已经结束了，mbuf指针没有必要再移位了
-            return 0;
+            size -= sec_data->u.data.len;
+            return len-size;
         case SIGNED:
         case SIGNED_PARTIAL_PAYLOAD:
         case SIGNED_EXTERNAL_PAYLOAD:
-            if(buf_2_signed_data(mbuf,size,&sec_data->u.signed_data, sec_data->type) < 0)//需要完成signdata函数填充，同样内存结构体内存已经分配好了
+            res = buf_2_signed_data(mbuf,size,&sec_data->u.signed_data, sec_data->type);
+            if(res < 0)//需要完成signdata函数填充，同样内存结构体内存已经分配好了
 				return -1;
-            return 0;
+            size -= res;
+            return len-size;
         case SIGNED_WSA:
-            if(buf_2_signed_wsa(mbuf,size,&sec_data->u.signed_wsa) < 0)//同上
+            res = buf_2_signed_wsa(mbuf,size,&sec_data->u.signed_wsa);
+            if(res < 0)//同上
                 return -1;
-            return 0;
+            size -= res;
+            return len-size;
         case ENCRYPTED:
-            if(buf_2_encrypted_data(mbuf,size,&sec_data->u.encrypted_data) < 0)//
+            res = buf_2_encrypted_data(mbuf,size,&sec_data->u.encrypted_data);
+            if(res < 0)//
 				return -1;
-            return 0;
+            size -= res;
+            return len-size;
         case CONTENT_TYPE_CRL_REQUEST:
-            if(buf_2_crl_request(mbuf,size,&sec_data->u.crl_request) < 0)//
+            res = buf_2_crl_request(mbuf,size,&sec_data->u.crl_request);
+            if(res < 0)//
 				return -1;
-            return 0;
+            size -= res;
+            return len-size;
         case CRL:
-            if(buf_2_crl(mbuf,size,&sec_data->u.crl) < 0)//
+            res = buf_2_crl(mbuf,size,&sec_data->u.crl);
+            if(res < 0)//
 				return -1;
-            return 0;
+            size -= res;
+            return len-size;
         default:
             sec_data->u.other_data.len = get8(mbuf);
 			mbuf++;
+            size--;
 			sec_data->u.other_data.buf = (u8*)malloc(sizeof(u8)*sec_data->u.other_data.len);//
             if(sec_data->u.other_data.buf == NULL){
 				return -1;
 			}
             sec_data->u.other_data.buf = mbuf;
 			mbuf += sec_data->u.other_data.len;
-			return 0;
+            size -= sec_data->u.other_data.len;
+			return len-size;
 	}
 }
 
