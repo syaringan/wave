@@ -362,7 +362,7 @@ struct sec_db* init_sec_db(){
         wave_printf(MSG_WARNING,"没有配置文件，或者配置文件格式部队  这里我们生成一个空的cme_db");
         cme_db_free(&sec_db.cme_db);
         if( cme_db_empty_init(&sec_db.cme_db)){
-            wave_error_printf("pssme_db_empty init 失败  %s %d",__FILE__,__LINE__);
+            wave_error_printf("cme_db_empty init 失败  %s %d",__FILE__,__LINE__);
             return NULL;
         }
     }

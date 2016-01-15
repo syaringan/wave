@@ -35,7 +35,7 @@ int sec_data_2_string(sec_data* sec_data,string* data){
 	data->len = res;
 	memcpy(data->buf,buf,res);
 	free(buf);
-	return res;
+	return 0;
 
 fail:
 	if(buf != NULL)

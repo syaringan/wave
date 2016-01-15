@@ -725,11 +725,13 @@ result cme_store_cert_key(struct sec_db* sdb, cmh cmh, certificate* cert,
     }
     INIT(*key_cert);
 
+    DEBUG_MARK;
     certificate_cpy(mcert,cert);
     if( cert_info_init(sdb,certinfo,mcert)){
         lock_unlock(&cdb->lock);
         goto fail;
     }
+    DEBUG_MARK;
     cdb->certs = cert_info_insert(cdb->certs,certinfo);
     certinfo->key_cert = key_cert;
 
