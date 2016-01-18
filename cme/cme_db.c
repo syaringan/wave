@@ -43,7 +43,7 @@ void cme_lsis_insert(struct cme_db* cmdb,struct cme_alloced_lsis* lsis){
     struct list_head *head;
     struct cme_alloced_lsis *node;
     lock_wrlock(&cmdb->lock);
-    head = &cmdb->cmhs.alloc_cmhs.cmh_init.list;
+    head = &cmdb->lsises.alloced_lsis.list;
     list_for_each_entry(node,head,list){
         if(lsis->lsis < node->lsis){
             break;
@@ -51,6 +51,7 @@ void cme_lsis_insert(struct cme_db* cmdb,struct cme_alloced_lsis* lsis){
     }
     list_add_tail(&lsis->list,&node->list);
     lock_unlock(&cmdb->lock);
+
 }
 /**
  * cmh_init链表按照递增的顺序维护

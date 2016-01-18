@@ -1668,7 +1668,6 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
     }
 
 
-DEBUG_MARK;
     if( s_data.unsigned_data.tf & USE_GENERATION_TIME){
         gen_time.time = s_data.unsigned_data.flags_content.generation_time.time;
         gen_time.long_std_dev = s_data.unsigned_data.flags_content.generation_time.long_std_dev;
@@ -1676,21 +1675,18 @@ DEBUG_MARK;
             if(gen_time.time == generation_time->time){
                 res = SUCCESS;
                 //goto next;
-DEBUG_MARK;
             }
             else{
                 res = INVALID_INPUT;
                 goto next;
             }
 
-DEBUG_MARK;
             if(gen_time.long_std_dev == generation_time->long_std_dev){
                 res = SUCCESS;
                 DEBUG_MARK;
                // goto next;
             }
             else{
-DEBUG_MARK;
                 res = INVALID_INPUT;
                 goto next;
             }
@@ -1702,19 +1698,15 @@ DEBUG_MARK;
         DEBUG_MARK;
     }
 
-DEBUG_MARK;
     if(s_data.unsigned_data.tf & EXPIRES){
         expiry_time = s_data.unsigned_data.flags_content.exipir_time;
-        printf("expiry_time %llu exprity_time %llu\n",expiry_time,exprity_time);
         if(exprity_time != 0){
             if(expiry_time == exprity_time){
                 res = SUCCESS;
-DEBUG_MARK;
                 //goto next;
             }
             else{
                 res = INVALID_INPUT;
-DEBUG_MARK;
                 goto next;
             }
         }
@@ -1723,7 +1715,6 @@ DEBUG_MARK;
         expiry_time = exprity_time;
     }
 
-DEBUG_MARK;
     if(s_data.unsigned_data.tf & USE_LOCATION){
         gen_loc.latitude = s_data.unsigned_data.flags_content.generation_location.latitude;
         gen_loc.longitude = s_data.unsigned_data.flags_content.generation_location.longitude;
@@ -1752,13 +1743,12 @@ DEBUG_MARK;
         gen_loc.longitude = location->longitude;
         gen_loc.latitude = location->latitude;
     }
-DEBUG_MARK;
     if(init_gen_loc == false){
         res = INVALID_INPUT;
         goto next;
     }
-    if(gen_loc.latitude > 900000000 || gen_loc.latitude <-900000000 ||
-            gen_loc.longitude > 1800000000 || gen_loc.longitude < 1800000000){
+    if(gen_loc.latitude > 900000000 || gen_loc.latitude < -900000000 ||
+            gen_loc.longitude > 1800000000 || gen_loc.longitude < -1800000000){
         res = SENDER_LOCATION_UNAVAILABLE;
         goto next;
     }
@@ -1804,11 +1794,39 @@ DEBUG_MARK;
                 wave_malloc_error();
                 goto end;
             }
+            memset(temp_certs_chain.certs,0,sizeof(struct certificate) * s_data.signer.u.certificates.len);
             temp_certs_chain.len = s_data.signer.u.certificates.len;
+            for(i=0;i<temp_certs_chain.len;i++){
+                if(certificate_cpy(temp_certs_chain.certs+i,s_data.signer.u.certificates.buf+i)){
+                    res = FAILURE;
+                    goto end;
+                }
+            }
             if( res = cme_construct_certificate_chain(sdb,ID_CERTIFICATE,NULL,&temp_certs_chain,false,max_cert_chain_len,
                         &certs_chain,&permissions,&geo_scopes,last_recieve_crl_times,next_expected_crl_times,&verifieds) ){
                 goto end;
             }
+            break;
+        case CERTIFICATE:
+            temp_certs_chain.certs = (struct certificate*)malloc(sizeof(struct certificate));
+            if(temp_certs_chain.certs == NULL){
+                res = FAILURE;
+                wave_malloc_error();
+                goto end;
+            }
+            memset(temp_certs_chain.certs,0,sizeof(struct certificate));
+            if( certificate_cpy(temp_certs_chain.certs,&s_data.signer.u.certificate)){
+                res = FAILURE;
+                goto end;
+            }
+            DEBUG_MARK;
+            temp_certs_chain.len = 1;
+            DEBUG_MARK;
+            if( res = cme_construct_certificate_chain(sdb,ID_CERTIFICATE,NULL,&temp_certs_chain,false,max_cert_chain_len,
+                        &certs_chain,&permissions,&geo_scopes,last_recieve_crl_times,next_expected_crl_times,&verifieds) ){
+                goto end;
+            }
+            DEBUG_MARK;
             break;
         default:
             wave_error_printf("出现了不可能的直哦 %s %d",__FILE__,__LINE__);
@@ -1816,6 +1834,7 @@ DEBUG_MARK;
             goto end;
     }
 
+            DEBUG_MARK;
     if( res = sec_check_certificate_chain_consistency(sdb,&certs_chain,&permissions,&geo_scopes)){
         goto end;
     }
@@ -1825,6 +1844,7 @@ DEBUG_MARK;
              wave_printf(MSG_DEBUG,"next_expected_crl :%d  now :%d  overdue_crl_tolerance :%d",
                                 *(times.times+i),now,overdue_crl_tolerance);
             res = OVERDUE_CRL;
+            DEBUG_MARK;
             goto end;
         }
     }
@@ -1854,7 +1874,7 @@ DEBUG_MARK;
             goto end;
          }        
     }
-    if(gen_loc.latitude != 0 && gen_loc.longitude != 0 && geo_scopes.regions != NULL){
+    if(init_gen_loc == true && geo_scopes.regions != NULL){
         if(!two_d_location_in_region(&gen_loc,geo_scopes.regions)){
             res = SIGNATURE_GENERATED_OUTSIDE_CERTIFICATE_VALIDITY_REGION;
             goto end;
@@ -1901,7 +1921,7 @@ DEBUG_MARK;
             res = FAILURE;
             goto end;
     }
-    permission = permissions.cme_permissions; 
+    permission = permissions.cme_permissions;
     switch(permission->type){
         case PSID:
             for(i=0;i<permission->u.psid_array.len;i++){
@@ -1929,6 +1949,16 @@ DEBUG_MARK;
                     break;
             }
             if( i == permission->u.psid_priority_ssp_array.len){
+                res = UNAUTHORIZED_PSID;
+                goto end;
+            }
+            break;
+        case PSID_SSP:
+            for(i=0;i<permission->u.psid_ssp_array.len;i++){
+                if(m_psid == (permission->u.psid_ssp_array.buf+i)->psid)
+                    break;
+            }
+            if(i == permission->u.psid_ssp_array.len){
                 res = UNAUTHORIZED_PSID;
                 goto end;
             }
@@ -1984,8 +2014,10 @@ DEBUG_MARK;
          res = FAILURE;
          goto end;
     }
+DEBUG_MARK;
     if( detect_reply){
         res_temp = cme_reply_detection(sdb,lsis,&string);
+DEBUG_MARK;
         if(res_temp == FAILURE){
             res = FAILURE;
             goto end;
@@ -1994,6 +2026,7 @@ DEBUG_MARK;
             res = REPLAY;
         }
     }
+DEBUG_MARK;
     if(check_geneartion_location){
         get_current_location(&current_location);
         if( distance_with_two_d_location(&gen_loc,&current_location) > validity_distance + 0){//我没的localconf也不准备有
@@ -2007,36 +2040,30 @@ DEBUG_MARK;
             goto end;
     }
     res =  sec_verify_chain_signature(sdb,&certs_chain,&verifieds,&digest,&s_data.signature);
+
     if(res == SUCCESS){
+        /*因为上面一个sec_verify_chain_signature 自己会自动增加证书，所以我这里没有按照协议要求在增加
         for(i=0;i<certs_chain.len;i++){
             cert = certs_chain.certs+i;
             cme_add_certificate(sdb,cert,true);
         }
+        */
         //协议上没说，这个我想应该是这样
         if(send_cert != NULL){
-            certificate_cpy(send_cert,certs_chain.certs+certs_chain.len-1);
+            certificate_cpy(send_cert,certs_chain.certs);
         }
     }
-    
+DEBUG_MARK;
     goto end;
 end:
-DEBUG_MARK;
     certificate_chain_free(&certs_chain);
-DEBUG_MARK;
     certificate_chain_free(&temp_certs_chain);
-DEBUG_MARK;
     cme_permissions_array_free(&permissions);
-DEBUG_MARK;
     geographic_region_array_free(&geo_scopes);
-DEBUG_MARK;
     verified_array_free(&verifieds);
-DEBUG_MARK;
     signed_data_free(&s_data,type);
-DEBUG_MARK;
     string_free(&string);
-DEBUG_MARK;
     string_free(&digest);
-DEBUG_MARK;
     time32_array_free(&times);
     return res;
     
@@ -3397,7 +3424,7 @@ result sec_check_chain_geographic_consistency(struct sec_db* sdb,
     result ret = SUCCESS;
     int i = 0;
     for(i = 0; i < regions->len-1; i++){
-        if(geographic_region_in_geographic_region(regions->regions[i], regions->regions[i+1])){
+        if(geographic_region_in_geographic_region(regions->regions+i, regions->regions+i+1)){
             ret = INCONSISTENT_GEOGRAPHIC_SCOPE;
             return ret;
         }

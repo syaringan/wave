@@ -1267,7 +1267,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 	buf += 4;
 
 	*((int*)buf) = check_expiry_time;
-	buf += 8;
+	buf += 4;
 
     printf("expiry time: %llu %s %d\n",expiry_time,__FILE__,__LINE__);
 	memcpy(buf,&expiry_time,sizeof(time64));
@@ -1282,6 +1282,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 	*((int*)buf) = latitude;
 	buf += 4;
 
+    printf("expiry time: %llu %s %d\n",expiry_time,__FILE__,__LINE__);
 	*((int*)buf) = longtitude;
 	buf += 4;
 
@@ -1319,6 +1320,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
     }
 	buf_beg = buf;
 
+    printf("expiry time: %llu %s %d\n",expiry_time,__FILE__,__LINE__);
 	int len_r;
     while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
@@ -1337,6 +1339,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
         return -1;
     }
 
+    printf("expiry time: %llu %s %d\n",expiry_time,__FILE__,__LINE__);
     slen=0;
 	while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
@@ -1356,6 +1359,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 	slen = 0;
 	buf += 4;
 
+    printf("expiry time: %llu %s %d\n",expiry_time,__FILE__,__LINE__);
 	while(slen != len){
 		len_r = read(fd,buf+slen,len-slen);
 		if(len_r <= 0){
@@ -1367,6 +1371,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 		slen += len_r;
 	}
 
+    printf("expiry time: %llu %s %d\n",expiry_time,__FILE__,__LINE__);
 	slen = *((int*)buf);
 	if(last_len != NULL){
 		if(*last_len < slen){
@@ -1379,10 +1384,12 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 	}
 	buf += 4;
 
+    printf("expiry time: %llu %s %d\n",expiry_time,__FILE__,__LINE__);
 	if(last_recieve_crl_times != NULL && last_len != NULL)
         memcpy(last_recieve_crl_times,buf,sizeof(time32)*(*last_len));
 	buf += sizeof(time32)*(*last_len);
 
+    printf("expiry time: %llu %s %d\n",expiry_time,__FILE__,__LINE__);
 	slen = *((int*)buf);
 	if(next_len != NULL){
 		if(*next_len < slen){
@@ -1395,6 +1402,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 	}
 	buf += 4;
 
+    printf("expiry time: %llu %s %d\n",expiry_time,__FILE__,__LINE__);
 	if(next_expected_crl_times != NULL && next_len != NULL)
         memcpy(next_expected_crl_times,buf,sizeof(time32)*(*next_len));
 	buf += sizeof(time32)*(*next_len);
@@ -1411,12 +1419,14 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
         *cert_len = slen;
     }
 
+    printf("expiry time: %llu %s %d\n",expiry_time,__FILE__,__LINE__);
     if(send_cert != NULL && cert_len != NULL){
         memcpy(send_cert,buf,slen);
     }
 
 	free(buf_beg);
 	close(fd);
+    printf("expiry time: %llu %s %d\n",expiry_time,__FILE__,__LINE__);
     return 0;
 }
 

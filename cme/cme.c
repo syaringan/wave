@@ -58,6 +58,7 @@ void cme_permissions_cpy(struct cme_permissions* dst,struct cme_permissions* src
     }
     int i;
     dst->type = src->type;
+    //printf("dst->type:%d src->type :%d\n",dst->type,src->type);
     switch(dst->type){
         case PSID:
             if(dst->u.psid_array.buf != NULL){
@@ -365,10 +366,8 @@ static int is_certificate_revoked(struct sec_db *sdb,certificate* cert){
     if( certificate_2_certid10(cert,&certid)){
        return -1; 
     }
-    if(cert->unsigned_certificate.holder_type == ROOT_CA){
-        //这里应该怎么处理 是root_ca 我就相信嘛？？？我得找个标准的几个ca来存起来看把。我这里就先简单处理，我相信他
-        
-        wave_printf(MSG_WARNING,"这里该不该相信啊，，我觉得这里外部是可以欺骗我的 %s %d\n",__FILE__,__LINE__);
+    if(cert->unsigned_certificate.holder_type == ROOT_CA){ 
+        wave_printf(MSG_WARNING,"这里作为root_ca，我就无条件的相信的 %s %d\n",__FILE__,__LINE__);
         return false;
     }
     cdb = &sdb->cme_db;
@@ -539,7 +538,7 @@ static result cert_info_init(struct sec_db* sdb,struct cert_info* certinfo,struc
         goto end;
     }
     if(cert->unsigned_certificate.holder_type == ROOT_CA){
-        wave_printf(MSG_DEBUG,"这里无条件相信的ca 所以我把他作为了信任茅");
+        wave_printf(MSG_DEBUG,"这里无条件相信的ca 所以我把他作为了信任茅 %s %d",__FILE__,__LINE__);
         certinfo->trust_anchor = true;
     } 
     else
@@ -1401,7 +1400,7 @@ result cme_reply_detection(struct sec_db* sdb,cme_lsis lsis,string* data){
         }
    }
    if(&ptr->list == head){
-        wave_error_printf("这里尽然没有这个lsis %s %d",__FILE__,__LINE__);
+        wave_error_printf("这里尽然没有这个lsis %d  %s %d",lsis,__FILE__,__LINE__);
         res = FAILURE;
         lock_unlock(&cdb->lock);
         goto end;
@@ -1584,9 +1583,11 @@ construct_chain:
     INIT(cert_encoded);
 
     if(certificate == NULL){
+DEBUG_MARK;
         ret = cme_certificate_info_request(sdb, ID_HASHEDID8, &sign_id, &cert_encoded, &(permissions_array->cme_permissions[i]), 
                 &(regions->regions[i]), &(last_crl_times_array->times[i]), &(next_crl_times_array->times[i]), 
                 &trust_anchor, &(verified_array->verified[i])); 
+DEBUG_MARK;
     }
     else{
         string_free(&temp_string);
