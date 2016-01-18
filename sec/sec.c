@@ -1471,13 +1471,43 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
             s_data = &sdata.u.signed_data;
             switch(type){
                 case SIGNED:
-                    m_psid = s_data->unsigned_data.u.type_signed.psid; 
+                    m_psid = s_data->unsigned_data.u.type_signed.psid;
+                    if(data != NULL){
+                        data->len = s_data->unsigned_data.u.type_signed.data.len;
+                        data->buf = (u8*)malloc(data->len);
+                        if(data->buf == NULL){
+                            wave_malloc_error();
+                            res = FAILURE;
+                            goto end;
+                        }
+                        memcpy(data->buf,s_data->unsigned_data.u.type_signed.data.buf,data->len);
+                    }
                     break;
                 case SIGNED_PARTIAL_PAYLOAD:
                     m_psid = s_data->unsigned_data.u.type_signed_partical.psid;
+                    if(data != NULL){
+                        data->len = s_data->unsigned_data.u.type_signed_partical.data.len;
+                        data->buf = (u8*)malloc(data->len);
+                        if(data->buf == NULL){
+                            wave_malloc_error();
+                            res = FAILURE;
+                            goto end;
+                        }
+                        memcpy(data->buf,s_data->unsigned_data.u.type_signed_partical.data.buf,data->len);
+                    }
                     break;
                 case SIGNED_EXTERNAL_PAYLOAD:
                     m_psid = s_data->unsigned_data.u.type_signed_external.psid;
+                    if(data != NULL){
+                        data->len = s_data->unsigned_data.u.type_signed_external.ext_data.len;
+                        data->buf = (u8*)malloc(data->len);
+                        if(data->buf == NULL){
+                            wave_malloc_error();
+                            res = FAILURE;
+                            goto end;
+                        }
+                        memcpy(data->buf,s_data->unsigned_data.u.type_signed_external.ext_data.buf,data->len);
+                    }
                     break;
             }
             if(signed_data != NULL && signed_data->buf == NULL){
@@ -1526,7 +1556,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
                 if(set_generation_location != NULL)
                     *set_generation_location = false;
             }
-
+            
             signer = &s_data->signer;
             string_free(&temp);
             if(signer->type == CERTIFICATE || signer->type == CERTIFICATE_CHAIN ){
@@ -1538,7 +1568,6 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
                 }
                 res = cme_certificate_info_request(sdb,ID_CERTIFICATE,&temp,NULL,&permissions,NULL,NULL,
                             NULL,NULL,&verified);
-                printf("res :%d %s %d\n",res,__FILE__,__LINE__);
                 if(res == CERTIFICATE_NOT_FOUND){
                     if(signer->type == CERTIFICATE){
                         cme_add_certificate(sdb,&signer->u.certificate,false);
@@ -1657,7 +1686,7 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
     INIT(expiry_time);
     INIT(gen_time);
     INIT(string);
-    INIT(gen_loc);//这个初始化为0恰当不，，，，会有地理位之为0的点嘛？？？？
+    INIT(gen_loc);
     INIT(times);
     INIT(digest);
 
@@ -1683,7 +1712,6 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
 
             if(gen_time.long_std_dev == generation_time->long_std_dev){
                 res = SUCCESS;
-                DEBUG_MARK;
                // goto next;
             }
             else{
@@ -1695,7 +1723,6 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
     else if(generation_time != NULL){
         gen_time.time = generation_time->time;
         gen_time.long_std_dev = generation_time->long_std_dev;
-        DEBUG_MARK;
     }
 
     if(s_data.unsigned_data.tf & EXPIRES){
@@ -1753,12 +1780,10 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
         goto next;
     }
 
-DEBUG_MARK;
 next:
     if(res != SUCCESS){
         goto end;
     }
-DEBUG_MARK;
     if(gen_time.time != 0 && expiry_time != 0){
         if(expiry_time < gen_time.time){
             res = EXPIRTY_TIME_BEFORE_GENERATION_TIME;
@@ -1766,7 +1791,6 @@ DEBUG_MARK;
         }
     }     
 
-DEBUG_MARK;
     switch(s_data.signer.type){
         case CERTIFICATE_DIGEST_WITH_ECDSAP224:
         case CERTIFICATE_DIGEST_WITH_ECDSAP256:
@@ -1819,14 +1843,11 @@ DEBUG_MARK;
                 res = FAILURE;
                 goto end;
             }
-            DEBUG_MARK;
             temp_certs_chain.len = 1;
-            DEBUG_MARK;
             if( res = cme_construct_certificate_chain(sdb,ID_CERTIFICATE,NULL,&temp_certs_chain,false,max_cert_chain_len,
                         &certs_chain,&permissions,&geo_scopes,last_recieve_crl_times,next_expected_crl_times,&verifieds) ){
                 goto end;
             }
-            DEBUG_MARK;
             break;
         default:
             wave_error_printf("出现了不可能的直哦 %s %d",__FILE__,__LINE__);
@@ -1834,7 +1855,6 @@ DEBUG_MARK;
             goto end;
     }
 
-            DEBUG_MARK;
     if( res = sec_check_certificate_chain_consistency(sdb,&certs_chain,&permissions,&geo_scopes)){
         goto end;
     }
@@ -1844,7 +1864,6 @@ DEBUG_MARK;
              wave_printf(MSG_DEBUG,"next_expected_crl :%d  now :%d  overdue_crl_tolerance :%d",
                                 *(times.times+i),now,overdue_crl_tolerance);
             res = OVERDUE_CRL;
-            DEBUG_MARK;
             goto end;
         }
     }
@@ -2014,10 +2033,8 @@ DEBUG_MARK;
          res = FAILURE;
          goto end;
     }
-DEBUG_MARK;
     if( detect_reply){
         res_temp = cme_reply_detection(sdb,lsis,&string);
-DEBUG_MARK;
         if(res_temp == FAILURE){
             res = FAILURE;
             goto end;
@@ -2026,7 +2043,6 @@ DEBUG_MARK;
             res = REPLAY;
         }
     }
-DEBUG_MARK;
     if(check_geneartion_location){
         get_current_location(&current_location);
         if( distance_with_two_d_location(&gen_loc,&current_location) > validity_distance + 0){//我没的localconf也不准备有
@@ -2053,7 +2069,6 @@ DEBUG_MARK;
             certificate_cpy(send_cert,certs_chain.certs);
         }
     }
-DEBUG_MARK;
     goto end;
 end:
     certificate_chain_free(&certs_chain);

@@ -50,7 +50,6 @@ int string_2_sec_data(string* data,sec_data* sec_data){
 	}
 	int res;
 	res = buf_2_sec_data(data->buf,data->len,sec_data);
-    printf("res %d %s %d\n",res,__FILE__,__LINE__);
 	return res;
 }
 
@@ -203,7 +202,6 @@ int string_2_signed_data(string* data,signed_data* s_data,content_type type){
 
 int crl_2_string(crl* crl,string* data){
 	if(data == NULL || data->buf != NULL){
-		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}

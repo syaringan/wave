@@ -907,7 +907,6 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
     INIT(location);
     INIT(send_cert);
 
-    printf("sec_secure_data begin %s %d\n",__FILE__,__LINE__);
     int res = sec_secure_data_content_extration(sdb,&recieve_data,cmh,
             &type,&inner_type,&data,&signed_data,&psid,&ssp,&set_geneartion_time,
             &generation_time,&set_expiry_time,&expiry_time,&set_generation_location,
@@ -935,7 +934,6 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
         return -1;
     }
 
-    printf("sec_secure_data success %s %d\n",__FILE__,__LINE__);
     //将send_cert转换为数据流，并计算数据长度，之后将certificate释放
     int send_cert_len = 1024;
     char* cert_buf;
@@ -1048,6 +1046,7 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
     }
 
     free(buf_beg);
+    printf("sec_secure_data_extration success  %s %d\n",__FILE__,__LINE__);
     return 0;
 }
 
@@ -1199,7 +1198,6 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     INIT(last_recieve_crl_times);
     INIT(next_expected_crl_times);
     INIT(send_cert);
-    printf("exprity %llu %s %d\n",expiry_time,__FILE__,__LINE__);
     int res = sec_signed_data_verification(sdb,lsis,&psid,type,
                     &signed_data,&external_data,max_cert_chain_len,
                     detect_reply,check_generation_time,validity_period,
@@ -1211,7 +1209,6 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
                     &last_recieve_crl_times,&next_expected_crl_times,&send_cert);
     string_free(&signed_data);
     string_free(&external_data);
-  DEBUG_MARK; 
     if(res != 0){
         ERROR_PRINTF("sec_signed_data_verification失败");
         time32_array_free(&last_recieve_crl_times);
@@ -1223,7 +1220,6 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
         return -1;
     }
 
-  DEBUG_MARK; 
     int send_cert_len = 1024;
     char* cert_buf = (char*)malloc(len);
     res = -2;
@@ -1244,7 +1240,6 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     certificate_free(&send_cert);
     send_cert_len = res;
 
-  DEBUG_MARK; 
     len = sizeof(int)*5 + sizeof(time32)*(last_recieve_crl_times.len + next_expected_crl_times.len) + send_cert_len;
     buf = (char*)malloc(len);
     if(buf == NULL){
@@ -1265,7 +1260,6 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     *((int*)buf) = last_recieve_crl_times.len;
     buf += 4;
 
-  DEBUG_MARK; 
     memcpy(buf,last_recieve_crl_times.times,sizeof(time32)*last_recieve_crl_times.len);
     buf += sizeof(time32)*last_recieve_crl_times.len;
 
@@ -1290,8 +1284,8 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
         return -1;
     }
 
-  DEBUG_MARK; 
     free(buf_beg);
+    printf("sec_signed_data_verification success  %s %d\n",__FILE__,__LINE__);
     return 0;
 }
 

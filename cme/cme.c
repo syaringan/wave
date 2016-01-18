@@ -220,7 +220,7 @@ result cme_lsis_request(struct sec_db* sdb,cme_lsis* lsis){
     free(node);
     lock_unlock(&cdb->lock);
     *lsis = mlsis->lsis;
-    wave_printf(MSG_DEBUG,"分配一个lsis ：%d\n",*lsis);
+    wave_printf(MSG_DEBUG,"分配一个lsis ：%d",*lsis);
     return SUCCESS;
 }
 
@@ -245,7 +245,7 @@ result cme_cmh_request(struct sec_db* sdb,cmh* cmh){
     cme_cmh_init_insert(cdb,node);
     lock_unlock(&cdb->lock); 
     *cmh = node->cmh;
-    wave_printf(MSG_DEBUG,"分配的cmh：%d\n",*cmh);
+    wave_printf(MSG_DEBUG,"分配的cmh：%d",*cmh);
     return SUCCESS;
 }
 result cme_generate_keypair(struct sec_db* sdb,  cmh cmh,
@@ -725,13 +725,11 @@ result cme_store_cert_key(struct sec_db* sdb, cmh cmh, certificate* cert,
     }
     INIT(*key_cert);
 
-    DEBUG_MARK;
     certificate_cpy(mcert,cert);
     if( cert_info_init(sdb,certinfo,mcert)){
         lock_unlock(&cdb->lock);
         goto fail;
     }
-    DEBUG_MARK;
     cdb->certs = cert_info_insert(cdb->certs,certinfo);
     certinfo->key_cert = key_cert;
 
@@ -1379,7 +1377,7 @@ result cme_reply_detection(struct sec_db* sdb,cme_lsis lsis,string* data){
    head = &cdb->lsises.alloced_lsis.list;
    list_for_each_entry(ptr,head,list){
         if(ptr->lsis == lsis){
-            if( string_cmp(&ptr->data,data) == 0){
+            if( ptr->data.buf != NULL && string_cmp(&ptr->data,data) == 0){
                 res = REPLAY;
                 lock_unlock(&cdb->lock);
                 goto end;
@@ -1583,11 +1581,9 @@ construct_chain:
     INIT(cert_encoded);
 
     if(certificate == NULL){
-DEBUG_MARK;
         ret = cme_certificate_info_request(sdb, ID_HASHEDID8, &sign_id, &cert_encoded, &(permissions_array->cme_permissions[i]), 
                 &(regions->regions[i]), &(last_crl_times_array->times[i]), &(next_crl_times_array->times[i]), 
                 &trust_anchor, &(verified_array->verified[i])); 
-DEBUG_MARK;
     }
     else{
         string_free(&temp_string);
