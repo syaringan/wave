@@ -55,11 +55,12 @@ int cme_lsis_request(cme_lsis* lsis){
 		}
 		slen += len_r;
 	}
-    if(*((int*)buf) != 0){
+    int res = *((int*)buf);
+    if(res != 0){
         ERROR_PRINTF("B端函数调用失败");
         free(buf_beg);
         close(fd);
-        return -1;
+        return res;
     }
     //读取数据长度
     slen=0;
@@ -127,11 +128,12 @@ int cme_cmh_request(cmh* cmh){
 		}
 		slen += len_r;
 	}
-    if(*((int*)buf) != 0){
+    int res = *((int*)buf);
+    if(res != 0){
         ERROR_PRINTF("B端函数调用失败");
         free(buf_beg);
         close(fd);
-        return -1;
+        return res;
     }
 
     slen = 0;
@@ -240,11 +242,12 @@ int cme_generate_keypair(cmh cmh,int algorithm,
 		}
 		slen += len_r;
 	}
-    if(*((int*)buf) != 0){
+    int res = *((int*)buf);
+    if(res != 0){
         ERROR_PRINTF("B端函数调用失败");
         free(buf_beg);
         close(fd);
-        return -1;
+        return res;
     }
 
     slen=0;
@@ -398,11 +401,12 @@ int cme_store_keypair(cmh cmh,int algorithm,
 		}
 		slen += len_r;
 	}
-    if(*((int*)buf) != 0){
+    int res = *((int*)buf);
+    if(res != 0){
         ERROR_PRINTF("B端函数调用失败");
         free(buf);
         close(fd);
-        return -1;
+        return res;
     }
 
     free(buf);
@@ -475,11 +479,12 @@ int cme_store_cert(cmh cmh,char* cert,int cert_len,
 		}
 		slen += len_r;
 	}
-    if(*((int*)buf) != 0){
+    int res = *((int*)buf);
+    if(res != 0){
         ERROR_PRINTF("B端函数调用失败");
         free(buf);
         close(fd);
-        return -1;
+        return res;
     }
 
     free(buf);
@@ -552,11 +557,12 @@ int cme_store_cert_key(cmh cmh,char* cert,int cert_len,
 		}
 		slen += len_r;
 	}
-    if(*((int*)buf) != 0){
+    int res = *((int*)buf);
+    if(res != 0){
         ERROR_PRINTF("B端函数调用失败");
         free(buf);
         close(fd);
-        return -1;
+        return res;
     }
 
     free(buf);
@@ -709,11 +715,12 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 		}
 		slen += len_r;
 	}
-    if(*((int*)buf) != 0){
+    int res = *((int*)buf);
+    if(res != 0){
         ERROR_PRINTF("B端函数调用失败");
         free(buf_beg);
         close(fd);
-        return -1;
+        return res;
     }
 
     slen=0;
@@ -856,11 +863,12 @@ int sec_encrypted_data(int type,char* data,int data_len,char* certs,int certs_le
 		}
 		slen += len_r;
 	}
-    if(*((int*)buf) != 0){
+    int res = *((int*)buf);
+    if(res != 0){
         ERROR_PRINTF("B端函数调用失败");
         free(buf_beg);
         close(fd);
-        return -1;
+        return res;
     }
 
     slen=0;
@@ -1005,11 +1013,12 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 		}
 		slen += len_r;
 	}
-    if(*((int*)buf) != 0){
+    int res = *((int*)buf);
+    if(res != 0){
         ERROR_PRINTF("B端函数调用失败");
         free(buf_beg);
         close(fd);
-        return -1;
+        return res;
     }
 
     slen=0;
@@ -1328,11 +1337,12 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 		}
 		slen += len_r;
 	}
-    if(*((int*)buf) != 0){
+    int res = *((int*)buf);
+    if(res != 0){
         ERROR_PRINTF("B端函数调用失败");
         free(buf_beg);
         close(fd);
-        return -1;
+        return res;
     }
 
     slen=0;
