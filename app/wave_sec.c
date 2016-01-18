@@ -1267,7 +1267,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 	buf += 4;
 
 	*((int*)buf) = check_expiry_time;
-	buf += 8;
+	buf += 4;
 
     printf("expiry time: %llu %s %d\n",expiry_time,__FILE__,__LINE__);
 	memcpy(buf,&expiry_time,sizeof(time64));
@@ -1377,11 +1377,12 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 		}
 		*last_len = slen;
 	}
+    else slen = 0; //若last_len为空，slen赋为0
 	buf += 4;
 
 	if(last_recieve_crl_times != NULL && last_len != NULL)
-        memcpy(last_recieve_crl_times,buf,sizeof(time32)*(*last_len));
-	buf += sizeof(time32)*(*last_len);
+        memcpy(last_recieve_crl_times,buf,sizeof(time32)*(slen));
+	buf += sizeof(time32)*(slen); //slen为last_len的值
 
 	slen = *((int*)buf);
 	if(next_len != NULL){
@@ -1393,11 +1394,12 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
         }
 		*next_len = slen;
 	}
+    else slen = 0;
 	buf += 4;
 
 	if(next_expected_crl_times != NULL && next_len != NULL)
-        memcpy(next_expected_crl_times,buf,sizeof(time32)*(*next_len));
-	buf += sizeof(time32)*(*next_len);
+        memcpy(next_expected_crl_times,buf,sizeof(time32)*(slen));
+	buf += sizeof(time32)*(slen);
 
     slen = *((int*)buf);
     buf += 4;
