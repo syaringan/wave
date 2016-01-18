@@ -2036,8 +2036,6 @@ next:
             res = DATA_EXPIRED_BASE_ON_EXPIRY_TIME;
             goto end;
         }
-        res = DATA_EXPIRED_BASE_ON_EXPIRY_TIME;
-        goto end;
     }
     string_free(&string);
     if( signed_data_2_string(&s_data,&string,type) ){
