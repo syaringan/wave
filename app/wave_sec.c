@@ -1195,8 +1195,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 		(check_generation_time != 0 && check_generation_time != 1) ||
 		(check_expiry_time != 0 && check_expiry_time != 1) ||
 		(check_generation_location != 0 && check_generation_location != 1) ||
-		signed_data == NULL || elevation == NULL)
-	{
+		signed_data == NULL || elevation == NULL){
 		ERROR_PRINTF("参数错误");
 		return -1;
 	}

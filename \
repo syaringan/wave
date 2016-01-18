@@ -1756,7 +1756,6 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
                 //goto next;
             }
             else{
-                wave_printf(MSG_DEBUG,"location  不相等 %s %d",__FILE__,__LINE__);
                 res = INVALID_INPUT;
                 goto next;
             }
@@ -1782,7 +1781,6 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
     if(gen_loc.latitude > 900000000 || gen_loc.latitude < -900000000 ||
             gen_loc.longitude > 1800000000 || gen_loc.longitude < -1800000000){
         res = SENDER_LOCATION_UNAVAILABLE;
-        wave_printf(MSG_DEBUG,"location 超出范围 %s %d",__FILE__,__LINE__);
         goto next;
     }
 
@@ -1877,7 +1875,6 @@ next:
     cert = certs_chain.certs;
     if( certificate_get_start_time(cert,&start_validity)){
             res = FAILURE;
-            wave_printf(MSG_DEBUG,"获取证书的开始有效时间错误  %s %d",__FILE__,__LINE__);
             goto end;
     }
     if(gen_time.time != 0){ 
@@ -2011,7 +2008,6 @@ next:
             goto end;
         }
         //请核实哈我写对没有
-        time(&now);
         if( normal_distribution_calculate_probability((float)generation_time->time,(float)pow(LOG_STD_DEV_BASE,generation_time->long_std_dev),
                             (float)generation_time->time,(float)(now*US_TO_S) > generation_threshold) > generation_threshold){
             res = DATA_EXPIRED_BASE_ON_EXPIRY_TIME;
@@ -2031,25 +2027,20 @@ next:
             goto end;
         }
         //请核实哈我写对没有,我认为本地的时间的绝对误差为1ms（我乱写的，我都不知道该为多少）
-        time(&now);
         if( normal_distribution_calculate_probability( (float)(now*US_TO_S),(float)(1000),(float)exprity_time,(float)now) > exprity_threshold){
             res = DATA_EXPIRED_BASE_ON_EXPIRY_TIME;
             goto end;
         }
-        res = DATA_EXPIRED_BASE_ON_EXPIRY_TIME;
-        goto end;
     }
     string_free(&string);
     if( signed_data_2_string(&s_data,&string,type) ){
          res = FAILURE;
-         wave_printf(MSG_DEBUG,"signed_data_2_string 失败 %s %d",__FILE__,__LINE__);
          goto end;
     }
     if( detect_reply){
         res_temp = cme_reply_detection(sdb,lsis,&string);
         if(res_temp == FAILURE){
             res = FAILURE;
-            wave_printf(MSG_DEBUG,"cme_reply_detection 失败 %s %d",__FILE__,__LINE__);
             goto end;
         }
         if( REPLAY ==  res_temp ){
@@ -2069,6 +2060,7 @@ next:
             goto end;
     }
     res =  sec_verify_chain_signature(sdb,&certs_chain,&verifieds,&digest,&s_data.signature);
+
     if(res == SUCCESS){
         /*因为上面一个sec_verify_chain_signature 自己会自动增加证书，所以我这里没有按照协议要求在增加
         for(i=0;i<certs_chain.len;i++){
