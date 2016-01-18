@@ -15,15 +15,120 @@
 #define INIT(m) memset(&m, 0, sizeof(m));
 #define RECV_S_HEAD_LEN 15
 #define RECV_V_HEAD_LEN 12 
+#define error() printf("error %s %d\n", __FILE__, __LINE__);
+
 static struct sec_db sec_db;
+
+static void get_cert_and_key(string *cert, string *pri){
+	result ret = FAILURE;
+	FILE *fd;
+	fd = fopen("../cert/issued_cert/wsa1.cert", "r") ;
+	if(fd == NULL){
+		error();
+		return ret;
+	}
+	cert->len = 400;
+	cert->buf = (char*)malloc(cert->len);
+	if(cert->buf == NULL){
+		error();
+		return ret;
+	}
+	cert->len = fread(cert->buf, 1, cert->len, fd);
+	if(cert->len <= 0){
+		error();
+		return ret;
+	}
+	fclose(fd);
+
+	fd = fopen("../cert/issued_cert/wsa1.veri.pri", "r");
+	if(fd == NULL){
+		error();
+		return ret;
+	}
+	pri->len = 100;
+	pri->buf = (char *)malloc(pri->len);
+	if(pri->buf == NULL){
+		error();
+		return ret;
+	}
+	pri->len = fread(pri->buf, 1, pri->len, fd);
+	if(pri->len <= 0){
+		error();
+		return ret;
+	}
+	fclose(fd);
+}
+static result generate_and_store_sign_wsa_cert(){
+	result ret = FAILURE;
+	cmh cmh;
+	pssme_lsis lsis1;
+	pssme_lsis lsis2;
+	struct pssme_lsis_array lsis_array;
+	certificate cert;
+	string cert_encoded;
+	string pri;
+
+	INIT(cmh);
+	INIT(lsis1);
+	INIT(lsis2);
+	INIT(lsis_array);
+	INIT(cert);
+	INIT(cert_encoded);
+	INIT(pri);
+
+	lsis_array.len = 2;
+	lsis_array.lsis = (pssme_lsis*)malloc(sizeof(pssme_lsis)*2);
+	if(!lsis_array.lsis){
+		wave_malloc_error();
+		goto fail;
+	}
+
+	ret = cme_cmh_request(&sec_db, &cmh);
+	if(ret != SUCCESS){
+		wave_error_printf("get cmh failed!\n");
+		goto fail;
+	}
+	lsis1 = 1;
+	lsis2 = 2;
+	lsis_array.lsis[0] = lsis1;
+	lsis_array.lsis[1] = lsis2;
+	ret = pssme_cryptomaterial_handle_storage(&sec_db, cmh, &lsis_array);
+	if(ret != SUCCESS){
+		wave_error_printf("store cmh and lsis array fail\n");
+		goto fail;
+	}
+	get_cert_and_key(&cert_encoded, &pri);
+
+	string_2_certificate(&cert_encoded, &cert);
+	ret = cme_store_cert_key(&sec_db, cmh, &cert, &pri);
+	if(ret != SUCCESS){
+		error();
+		goto fail;
+	}
+fail:
+	certificate_free(&cert);
+	string_free(&cert_encoded);
+	string_free(&pri);
+	lsis_array_free(&lsis_array);
+	return ret;
+}
 static void* wme_loop(void* sdb){
     //启动netlink，
     int i = 0;
     int recv_data_len = 0;//接收到的整个数据报文的长度
     char sbuf[MAX_PAYLOAD];//发送报文缓冲区
     char rbuf[MAX_PAYLOAD];//接收报文缓冲区
-    struct nlmsghdr nlh;
-    struct msghdr msg;
+    struct nlmsghdr *nlh = NULL;
+    struct msghdr *msg = NULL;
+	msg = (struct msghdr *)malloc(sizeof(*msg));
+	nlh = (struct nlmsghdr*)malloc(NLMSG_SPACE(MAX_PAYLOAD));
+	if(!msg || !nlh){
+		wave_malloc_error();
+		return ;
+	}
+	memset(msg, 0, sizeof(*msg));
+	memset(nlh, 0, NLMSG_SPACE(MAX_PAYLOAD));
+
     result ret;
     /*
      * 签名请求需要用到的参数
@@ -54,27 +159,30 @@ static void* wme_loop(void* sdb){
     struct time32_array next_crl_time;
     certificate cert;
 
-    int fd = dot2_init_netlink(&nlh, &msg);
+    int fd = dot2_init_netlink(nlh, msg);
     if(fd < 0){
         wave_error_printf("netlink初始化失败");
         return;
     }
+	wave_printf(MSG_INFO, "dot2 netlink init successful");
     while(1){
-        memset((char*)NLMSG_DATA(&nlh), 0, MAX_PAYLOAD);
+        memset((char*)NLMSG_DATA(nlh), 0, MAX_PAYLOAD);
         memset(rbuf, 0, MAX_PAYLOAD);
 
-        ret = recvmsg(fd, &msg, 0);
+        ret = recvmsg(fd, msg, 0);
         if(ret < 0){
             wave_error_printf("接收netlink消息失败");
-            goto destructor;
+            goto out_fail;
         }
-        recv_data_len = nlh.nlmsg_len;
-        memcpy(rbuf, NLMSG_DATA(&nlh), recv_data_len);
+        recv_data_len = nlh->nlmsg_len;
+        memcpy(rbuf, NLMSG_DATA(nlh), recv_data_len);
+		nlh->nlmsg_pid = getpid();
+		nlh->nlmsg_len = NLMSG_SPACE(MAX_PAYLOAD);
 
         //解析报文
         char *shift = rbuf;
         //0为签名
-        if(*shift = 0){
+        if(*shift = 1){
             INIT(permissions);
             INIT(unsigned_wsa);
             INIT(signed_wsa);
@@ -89,7 +197,7 @@ static void* wme_loop(void* sdb){
             unsigned_wsa.buf = malloc(unsigned_wsa.len);
             if(!unsigned_wsa.buf){
                 wave_malloc_error();
-                goto destructor;
+                goto out_fail;
             }
             memcpy(unsigned_wsa.buf, shift, unsigned_wsa.len);
             shift += unsigned_wsa.len;
@@ -105,13 +213,14 @@ static void* wme_loop(void* sdb){
                 memcpy(&permissions.serviceinfos[permissions.len].max_priority, &per.priority, 1);
 
                 permissions.serviceinfos[permissions.len].psid = psidn2h(shift, per.psid_len);
+				shift += per.psid_len;
 
                 if(per.ssp_len > 0){
                     permissions.serviceinfos[permissions.len].ssp.len = per.ssp_len;
                     permissions.serviceinfos[permissions.len].ssp.buf = malloc(per.ssp_len);
                     if(!permissions.serviceinfos[permissions.len].ssp.buf){
                         wave_malloc_error();
-                        goto destructor;
+                        goto out_fail;
                     }
                     memcpy(permissions.serviceinfos[permissions.len].ssp.buf, shift, per.ssp_len);
                 }
@@ -123,7 +232,7 @@ static void* wme_loop(void* sdb){
                 
                 if(per.pssi_len > 4){
                     wave_error_printf("lsis太长");
-                    goto destructor;
+                    goto out_fail;
                 }
                 permissions.serviceinfos[permissions.len].lsis = 0;
                 for(i = 0; i < per.pssi_len; i++){
@@ -133,10 +242,13 @@ static void* wme_loop(void* sdb){
                 permissions.len++;
                 permission_len = permission_len - per.psid_len - per.ssp_len - per.pssi_len - 4;
             }
+			//generate cert for signing wsa ..test
+			ret = generate_and_store_sign_wsa_cert();
             ret = sec_signed_wsa(&sec_db, &unsigned_wsa, &permissions, life_time, &signed_wsa);
-            memset((char*)NLMSG_DATA(&nlh), 0, MAX_PAYLOAD);
+            memset((char*)NLMSG_DATA(nlh), 0, MAX_PAYLOAD);
             memset(sbuf, 0, MAX_PAYLOAD);
             if(ret == SUCCESS){
+				wave_printf(MSG, "signe wsa successful\n");
                 s_wsa.wsa_len = signed_wsa.len;
                 s_wsa.broadcast = s_head.broadcast;
                 s_wsa.change_count = s_head.change_count;
@@ -145,7 +257,7 @@ static void* wme_loop(void* sdb){
                 memcpy(sbuf, &s_wsa, sizeof(struct signed_wsa));
                 memcpy(sbuf+sizeof(struct signed_wsa), signed_wsa.buf, signed_wsa.len);
 
-                memcpy(NLMSG_DATA(&nlh), sbuf, signed_wsa.len+sizeof(struct signed_wsa));
+                memcpy(NLMSG_DATA(nlh), sbuf, signed_wsa.len+sizeof(struct signed_wsa));
             }
             else{
                 wave_error_printf("签名失败");
@@ -155,15 +267,15 @@ static void* wme_loop(void* sdb){
                 s_wsa.channel = s_head.channel;
                 s_wsa.result_code = DOT2_SIGN_FAILURE;
                 memcpy(sbuf, &s_wsa, sizeof(struct signed_wsa));
-                memcpy(NLMSG_DATA(&nlh), sbuf, signed_wsa.len+sizeof(struct signed_wsa));
+                memcpy(NLMSG_DATA(nlh), sbuf, signed_wsa.len+sizeof(struct signed_wsa));
             }
-            if(sendmsg(fd, &msg, 0) < 0){
+            if(sendmsg(fd, msg, 0) < 0){
                 wave_error_printf("发送消息给内核失败了");
-                goto destructor;
+                goto out_fail;
             }
         }
         //验证
-        else if(*shift == 1){
+        else if(*shift == 2){
             memcpy(&v_head, shift, RECV_V_HEAD_LEN);
             shift += RECV_V_HEAD_LEN;
 
@@ -182,11 +294,11 @@ static void* wme_loop(void* sdb){
             unverified_wsa.buf = malloc(v_head.wsa_len);
             if(!unverified_wsa.buf){
                 wave_malloc_error();
-                goto destructor;
+                goto out_fail;
             }
             memcpy(unverified_wsa.buf, shift, v_head.wsa_len);
 
-            memset((char*)NLMSG_DATA(&nlh), 0, MAX_PAYLOAD);
+            memset((char*)NLMSG_DATA(nlh), 0, MAX_PAYLOAD);
             memset(sbuf, 0, MAX_PAYLOAD);
             ret = sec_signed_wsa_verification(&sec_db, &unverified_wsa, &results, &wsa_data, &ssp_array, &generation_time,
                     &expiry_time, &location, &last_crl_time, &next_crl_time, &cert);
@@ -226,7 +338,7 @@ static void* wme_loop(void* sdb){
                 }
 
                 memcpy(ssp_shift, next_crl_time.times, sizeof(time32)*next_crl_time.len);
-                memcpy(NLMSG_DATA(&nlh), sbuf, sizeof(struct verified_wsa)+v_wsa.wsa_len+v_wsa.ssp_len+v_wsa.next_crl_time_len);
+                memcpy(NLMSG_DATA(nlh), sbuf, sizeof(struct verified_wsa)+v_wsa.wsa_len+v_wsa.ssp_len+v_wsa.next_crl_time_len);
             }
             else if(ret == INVALID_INPUT){
                 v_wsa.pid = getpid();
@@ -241,7 +353,7 @@ static void* wme_loop(void* sdb){
                 v_wsa.next_crl_time_len = 0;
 
                 memcpy(sbuf, &v_wsa, sizeof(struct verified_wsa));
-                memcpy(NLMSG_DATA(&nlh), sbuf, sizeof(struct verified_wsa));
+                memcpy(NLMSG_DATA(nlh), sbuf, sizeof(struct verified_wsa));
             }
             else{
                 v_wsa.pid = getpid();
@@ -263,16 +375,19 @@ static void* wme_loop(void* sdb){
 
                 memcpy(sbuf, &v_wsa, sizeof(struct verified_wsa));
                 memcpy(sbuf+sizeof(struct verified_wsa), wsa_data.buf, wsa_data.len);
-                memcpy(NLMSG_DATA(&nlh), sbuf, sizeof(struct verified_wsa)+v_wsa.wsa_len);
+                memcpy(NLMSG_DATA(nlh), sbuf, sizeof(struct verified_wsa)+v_wsa.wsa_len);
             }
-            if(sendmsg(fd, &msg, 0) < 0){
+            if(sendmsg(fd, msg, 0) < 0){
                 wave_error_printf("发送消息给内核失败了");
-                goto destructor;
+                goto out_fail;
             }
         }
-        else
+		else{
             wave_error_printf("不支持的dot3请求类型");
-destructor:
+			goto out_fail;
+		}
+
+out_fail:
         string_free(&unsigned_wsa);
         string_free(&signed_wsa);
         serviceinfo_array_free(&permissions);

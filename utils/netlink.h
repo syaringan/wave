@@ -32,6 +32,10 @@ enum serv_operation{
     SET_MIB = 1,
 };
 
+typedef enum{
+	SIGN = 1,
+	VERIFY = 2,
+}dot3_req_type;
 
 typedef enum{
 	DOT2_SIGN_SUCCESS,
@@ -52,6 +56,17 @@ typedef enum{
 	DOT2_EXPIRE_DATA_TOO_LATE,
 	DOT2_OTHER_FALURE,
 }dot2_user_avail_result_code;
+
+typedef enum result_code{
+	RES_ACCPTED = 0,
+	RES_RJ_INVAL,
+	RES_RJ_UNSPEC,
+}result_code;
+
+struct confirm_content{
+	unsigned short local_index;
+	result_code result;
+};
 
 struct wme_dot2_pid_request{
     enum serv_type type;
@@ -106,7 +121,7 @@ struct permission{
 }__attribute__((packed));
 
 struct wme_tobe_signed_wsa {
-    u8  dot3_req_type;
+    dot3_req_type type;
 	u32 wsa_len;
 	u32 broadcast;
 	u8  change_count;
@@ -143,7 +158,7 @@ struct dot3_signed_wsa {
  * +--------------------+--------+---------+---------------------+
  */
 struct dot2_tobe_verified_wsa {
-    u8  dot3_req_type;
+    dot3_req_type type;
 	u8  src_mac[6];
 	s8  rcpi;
 	

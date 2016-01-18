@@ -5,3 +5,6 @@ tags
 cscop*
 a.out
 wave_sec
+*.a
+*.o
+*.so

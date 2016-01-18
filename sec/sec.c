@@ -2829,6 +2829,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
     INIT(td_location);
     INIT(sec_data);
 
+	
     if(get_current_location(&td_location)){
         wave_error_printf("获取当前地理位置失败");
         ret = FAILURE;
