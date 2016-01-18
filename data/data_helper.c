@@ -6,7 +6,7 @@
 
 int sec_data_2_string(sec_data* sec_data,string* data){
 	if(data == NULL || data->buf != NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -45,7 +45,7 @@ fail:
 
 int string_2_sec_data(string* data,sec_data* sec_data){
 	if(data->buf == NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -56,7 +56,7 @@ int string_2_sec_data(string* data,sec_data* sec_data){
 
 int encrypted_data_2_string(encrypted_data* enc_data,string* data){
 	if(data == NULL || data->buf != NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -95,7 +95,7 @@ fail:
 
 int string_2_encrypted_data(string* data,encrypted_data* enc_data){
 	if(data->buf == NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -105,7 +105,7 @@ int string_2_encrypted_data(string* data,encrypted_data* enc_data){
 
 int certificate_2_string(certificate* cert,string* data){
 	if(data == NULL || data->buf != NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -144,7 +144,7 @@ fail:
 
 int string_2_certificate(string* data,certificate* cert){
 	if(data->buf == NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -152,9 +152,9 @@ int string_2_certificate(string* data,certificate* cert){
 	return res;
 }
 
-int signed_data_2_string(signed_data* s_data,string* data){
+int signed_data_2_string(signed_data* s_data,string* data,content_type type){
 	if(data == NULL || data->buf != NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 data :%p data->buf :%p %s %d",data,data->buf,__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -169,7 +169,7 @@ int signed_data_2_string(signed_data* s_data,string* data){
 			wave_malloc_error();
 			goto fail;
 		}
-		res = signed_data_2_buf(s_data,buf,len);
+		res = signed_data_2_buf(s_data,buf,len,type);
 		if(res == -1)
 			goto fail;
 		len *= 2;
@@ -191,19 +191,20 @@ fail:
 	return -1;
 }
 
-int string_2_signed_data(string* data,signed_data* s_data){
+int string_2_signed_data(string* data,signed_data* s_data,content_type type){
 	if(data->buf == NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
-	res = buf_2_signed_data(data->buf,data->len,s_data);
+	res = buf_2_signed_data(data->buf,data->len,s_data,type);
 	return res;
 }
 
 int crl_2_string(crl* crl,string* data){
 	if(data == NULL || data->buf != NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -242,7 +243,7 @@ fail:
 
 int string_2_crl(string* data,crl* crl){
 	if(data->buf == NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -252,7 +253,7 @@ int string_2_crl(string* data,crl* crl){
 
 int hashedid8_2_string(hashedid8* hashed,string* data){
 	if(data == NULL || data->buf != NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -271,7 +272,7 @@ int hashedid8_2_string(hashedid8* hashed,string* data){
 
 int string_2_hashedid8(string* data,hashedid8* hashed){
 	if(data->buf == NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -305,7 +306,7 @@ int hashedid8_cmp(hashedid8 *a,hashedid8 *b){
 }
 int tobesigned_crl_2_string(tobesigned_crl* tbs_crl,string* data){
 	if(data == NULL || data->buf != NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -344,7 +345,7 @@ fail:
 
 int string_2_tobesigned_crl(string* data,tobesigned_crl* tbs_crl){
 	if(data->buf == NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -371,10 +372,11 @@ int certificate_cpy(certificate* dst,certificate *src){
 		wave_error_printf("string_2_certificate失败");
         goto end;
 	}
-    goto end;
+    string_free(&data);
+    return 0;
 end:
     string_free(&data);
-    return res;
+    return -1;
 }
 
 /**
@@ -539,7 +541,7 @@ int tobesigned_wsa_cpy(tobesigned_wsa* dst,tobesigned_wsa* src){
 
 int signed_wsa_2_string(signed_wsa* sw,string* data){
 	if(data == NULL || data->buf != NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -578,7 +580,7 @@ fail:
 
 int string_2_signed_wsa(string* data,signed_wsa* sw){
 	if(data->buf == NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -613,7 +615,7 @@ end:
 
 int tobesigned_certificate_request_2_string(tobesigned_certificate_request* tbs,string* data){
 	if(data == NULL || data->buf != NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -653,7 +655,7 @@ fail:
 int string_2_tobe_encrypted_certificate_request_error(string* data,
 		tobe_encrypted_certificate_request_error* cert_requ){
 	if(data->buf == NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -663,7 +665,7 @@ int string_2_tobe_encrypted_certificate_request_error(string* data,
 
 int string_2_tobe_encrypted_certificate_response(string* data,tobe_encrypted_certificate_response* cert_resp){
 	if(data->buf == NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -673,7 +675,7 @@ int string_2_tobe_encrypted_certificate_response(string* data,tobe_encrypted_cer
 
 int certificate_request_2_string(certificate_request* cert_req,string* data){
 	if(data == NULL || data->buf != NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -711,7 +713,7 @@ fail:
 }
 int tobe_encrypted_2_string(tobe_encrypted* tbencrypted,string* data){
     if(data == NULL || data->buf != NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
     
@@ -759,7 +761,7 @@ int string_2_tobe_encrypted(string* data,tobe_encrypted* tbencrypted){
 }
 int tobesigned_certificate_2_string(tobesigned_certificate *cert,string* data,u8 version_and_type){
 	if(data == NULL || data->buf != NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
 	int res;
@@ -796,7 +798,7 @@ fail:
 }
 int tobesigned_wsa_2_string(tobesigned_wsa* wsa,string* data){
     if(data == NULL || data->buf != NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
     
@@ -835,7 +837,7 @@ fail:
 }
 int tobesigned_data_2_string(tobesigned_data* tbsigneddata,string* data,content_type type){
     if(data == NULL || data->buf != NULL){
-		wave_error_printf("输入参数有误，请检查");
+		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
 		return -1;
 	}
     

@@ -994,7 +994,6 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
         return -1;
 	}
 	buf_beg = buf;
-	
 	int len_r;
     while(slen != 4){
 		len_r = read(fd,buf+slen,4-slen);
@@ -1156,6 +1155,7 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 	
 	free(buf_beg);
 	close(fd);
+    printf("sec_secure_extration success %s %d\n",__FILE__,__LINE__);
     return 0;
 }
 
@@ -1269,6 +1269,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 	*((int*)buf) = check_expiry_time;
 	buf += 8;
 
+    printf("expiry time: %llu %s %d\n",expiry_time,__FILE__,__LINE__);
 	memcpy(buf,&expiry_time,sizeof(time64));
 	buf += sizeof(time64);
 

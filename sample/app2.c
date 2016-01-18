@@ -30,7 +30,40 @@ static void string_printf(char* name,string* data){
     }
     printf("\n");
 }
-static void sec_encrpyted_data_parse(string *rec_data){
+static int verification_signed_data(cme_lsis mlsis,string* rec_data,int type,psid psid,time64 generation_time,unsigned char lsd,
+        time64 expiry_time,int generation_latitude,int generation_longtitude,unsigned char* elevation){
+    int max_cert_chain_len = 3;
+    int detect_reply = 1;
+    int check_generation_time =1;
+    time64 validity_time = 1000*1000*60*60*1;
+    float  generation_thresold = 0.5;
+    time64 accepte_time =  (time64)time(NULL)*1000000+1*60*1000000;
+    float accepte_thresold = 0.5;
+    int check_expiry_time = 1;
+    float expiry_threshold = 0.5;
+    int check_generation_location = 1;
+    int latitude = 0;
+    int longtitude = 0;
+    unsigned int validity_distance = 100;
+    time64 overdue_crl_tolerance = 1*60*60*1000000;
+
+    string cert;
+    string_malloc(&cert);
+
+    int res;
+    res = sec_signed_data_verification(mlsis,psid,type,rec_data->buf,rec_data->len,NULL,0,
+            max_cert_chain_len,detect_reply,check_generation_time,validity_time,generation_time,lsd,generation_thresold,
+            accepte_time,accepte_thresold,check_expiry_time,expiry_time,expiry_threshold,check_generation_location,latitude,longtitude,
+            validity_distance,generation_latitude,generation_longtitude,elevation,overdue_crl_tolerance,NULL,NULL,NULL,NULL,
+            cert.buf,&cert.len);
+    if(res){
+        printf("verification fail %s %d\n",__FILE__,__LINE__);
+        return -1;
+    }
+    printf("verification success %s %d\n",__FILE__,__LINE__);
+    return 0;
+}
+static void sec_data_parse(string *rec_data){
     int type,inner_type,res;
     string data,signed_data,ssp,send_cert;
     psid psid;
@@ -83,49 +116,9 @@ static void sec_encrpyted_data_parse(string *rec_data){
     printf("elevation %u %u\n",elevation[0],elevation[1]);
     string_printf("send_cert",&send_cert);
 
-
+    verification_signed_data(1,&signed_data,type,psid,generation_time,generation_long_std_dev,expiry_time,latitude,longtitude,elevation);
 }
-static void verification_signed_data(cme_lsis mlsis,string *rec_data){
-    psid psid = 0x20;
-    int type = SIGNED;
-    int max_cert_chain_len = 3;
-    int detect_reply = 1;
-    int check_generation_time =1;
-    time64 validity_time = 1000*1000*60*60*1;
-    time64 generation_time = (time64)time(NULL)*1000000;
-    unsigned char lsd = 0;
-    float  generation_thresold = 0.5;
-    time64 accepte_time =  (time64)time(NULL)*1000000+1*60*1000000;
-    float accepte_thresold = 0.5;
-    int check_expiry_time = 1;
-    time64 expiry_time = (time64)time(NULL)*1000000+1*60*60*1000000;
-    float expiry_threshold = 0.5;
-    int check_generation_location = 1;
-    int latitude = 0;
-    int longtitude = 0;
-    unsigned int validity_distance = 100;
-    int generation_latitude = 0;
-    int generation_longtitude = 0;
-    unsigned char elevation[2];
-    elevation[0]=0x00;
-    elevation[1]=0x10;
-    time64 overdue_crl_tolerance = 1*60*60*1000000;
 
-    string cert;
-    string_malloc(&cert);
-
-    int res;
-    res = sec_signed_data_verification(mlsis,psid,type,rec_data->buf,rec_data->len,NULL,0,
-            max_cert_chain_len,detect_reply,check_generation_time,validity_time,generation_time,lsd,generation_thresold,
-            accepte_time,accepte_thresold,check_expiry_time,expiry_time,expiry_threshold,check_generation_location,latitude,longtitude,
-            validity_distance,generation_latitude,generation_longtitude,elevation,overdue_crl_tolerance,NULL,NULL,NULL,NULL,
-            cert.buf,&cert.len);
-    if(res){
-        printf("verification fail %s %d\n",__FILE__,__LINE__);
-        return -1;
-    }
-    printf("verification success %s %d\n",__FILE__,__LINE__);
-}
 int main(){
     cmh mcmh;
     cme_lsis mlsis;
@@ -151,9 +144,9 @@ int main(){
     string_malloc(&data);
     ocert.len = mrecvfrom(fd,ocert.buf,ocert.len,OPP_PORT);
     data.len = mrecvfrom(fd,data.buf,data.len,OPP_PORT);
-    //sec_signed_data_parse(&data);
-    verification_signed_data(mlsis,&data);
-    string_printf("ocert",&ocert);
+    sec_data_parse(&data);
+    //verification_signed_data(mlsis,&data);
+//    string_printf("ocert",&ocert);
 
-    string_printf("recieve data",&data);
+  //  string_printf("recieve data",&data);
 }

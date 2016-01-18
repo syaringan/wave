@@ -47,8 +47,8 @@ int string_2_encrypted_data(string* data,encrypted_data* enc_data);
 int certificate_2_string(certificate* cert,string* data);
 int string_2_certificate(string* data,certificate* cert);
 
-int signed_data_2_string(signed_data* s_data,string* data);
-int string_2_signed_data(string* data,signed_data* s_data);
+int signed_data_2_string(signed_data* s_data,string* data,content_type type);
+int string_2_signed_data(string* data,signed_data* s_data,content_type type);
 
 int crl_2_string(crl *crl,string* data);
 int string_2_crl(string* data,crl *crl);

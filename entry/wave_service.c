@@ -924,7 +924,6 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
         }
         return -1;
     }
-    printf("sec_secure_data success %s %d\n",__FILE__,__LINE__);
     if((set_geneartion_time != 0 && set_geneartion_time != 1) ||
         (set_expiry_time != 0 && set_expiry_time != 1) ||
         (set_generation_location != 0 && set_generation_location != 1)){
@@ -936,12 +935,14 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
         return -1;
     }
 
+    printf("sec_secure_data success %s %d\n",__FILE__,__LINE__);
     //将send_cert转换为数据流，并计算数据长度，之后将certificate释放
     int send_cert_len = 1024;
-    char* cert_buf = (char*)malloc(len);
+    char* cert_buf;
+    cert_buf  = (char*)malloc(send_cert_len);
     res = -2;
     while(res == -2){ //分配内存不够
-        res = certificate_2_buf(send_cert,cert_buf,send_cert_len);
+        res = certificate_2_buf(&send_cert,cert_buf,send_cert_len);
         if(res == -1){
             ERROR_PRINTF("certificate_2_buf失败");
             free(cert_buf);
@@ -1025,6 +1026,7 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
     buf += 4;
 
     *((int*)buf) = location.longitude;
+    buf += 4;//这里是不是忘了加4???
 
     memcpy(buf,location.elevation,2);
     buf += 2;
@@ -1197,7 +1199,7 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     INIT(last_recieve_crl_times);
     INIT(next_expected_crl_times);
     INIT(send_cert);
-
+    printf("exprity %llu %s %d\n",expiry_time,__FILE__,__LINE__);
     int res = sec_signed_data_verification(sdb,lsis,&psid,type,
                     &signed_data,&external_data,max_cert_chain_len,
                     detect_reply,check_generation_time,validity_period,

@@ -97,7 +97,7 @@ static int generated_signed_data(cmh cmh,struct string* sdata){
     time64 generate_time,expiry_time;
     generate_time = time(NULL) * 1000 * (time64)1000;
     expiry_time = generate_time + (time64)1*60*1000*1000; 
-
+    printf("expiry_time:%llu\n",expiry_time);
     unsigned char glsd ;
     glsd = 0x10;
 
@@ -112,7 +112,7 @@ static int generated_signed_data(cmh cmh,struct string* sdata){
     int cert_chain_len = 3,max_cert_len = 4;
     int fs_type = NO; 
     
-    if(sec_signed_data(cmh,type,"123",3,NULL,0,psid,NULL,0,1,generate_time,glsd,1,latitude,longtitude,elevation,
+    if(sec_signed_data(cmh,type,"123",3,NULL,0,psid,"ljh",3,1,generate_time,glsd,1,latitude,longtitude,elevation,
                 1,expiry_time,signer_type,cert_chain_len,max_cert_len,fs_type,1,
                 
                 sdata->buf,&sdata->len,NULL)){

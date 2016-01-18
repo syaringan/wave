@@ -83,8 +83,9 @@ static int cert_info_equal(struct rb_head* a,void* value){
     int i;
     ptr = (struct cert_info_cmp*)value;
     certinfoa = rb_entry(a,struct cert_info,rb);
-   // printf(HASHEDID8_FORMAT"\n",HASHEDID8_VALUE(ptr->u.hashedid8));
     if(ptr->type == ID_HASHEDID8){
+       // printf(HASHEDID8_FORMAT,HASHEDID8_VALUE(ptr->u.hashedid8));
+       // wave_printf(MSG_DEBUG,"   "CERTID10_FORMAT,CERTID10_VALUE(certinfoa->certid10));
         for(i=0;i<8;i++){
             //注意高地位是怎么回事>>
            if( certinfoa->certid10.certid10[i+2] < ptr->u.hashedid8.hashedid8[i]) 
@@ -95,6 +96,8 @@ static int cert_info_equal(struct rb_head* a,void* value){
         return 0;
     }
     if(ptr->type == ID_CERTID10){
+     //   wave_printf(MSG_DEBUG,CERTID10_FORMAT,CERTID10_VALUE(ptr->u.certid10));
+       // wave_printf(MSG_DEBUG,"   "CERTID10_FORMAT,CERTID10_VALUE(certinfoa->certid10));
         return certid10_cmp(&certinfoa->certid10,&ptr->u.certid10);
     }
     return -1;
@@ -116,7 +119,7 @@ struct cert_info* cert_info_find(struct cert_info* root,void* value){
         wave_printf(MSG_DEBUG,"cert_info root == NULL  %s %d",__FILE__,__LINE__);
         return NULL;
     }
-    //wave_printf(MSG_DEBUG,CERTID10_FORMAT"\n",CERTID10_VALUE(root->certid10));
+   // wave_printf(MSG_DEBUG,CERTID10_FORMAT,CERTID10_VALUE(root->certid10));
     rb = rb_find(&root->rb,value);
     if(rb == NULL)
         return NULL;

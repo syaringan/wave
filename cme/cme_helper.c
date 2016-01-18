@@ -160,46 +160,97 @@ int find_keypaire_by_cmh(struct sec_db* sdb,cmh cmh,string* pubkey_x,string* pub
     return -1;
 }
 
+
+static void fix_elliptic_curve_point_2_compressed(elliptic_curve_point* point,pk_algorithm algorithm){
+    string compress;
+    
+    INIT(compress);
+    if(elliptic_curve_point_2_compressed(algorithm,point,&compress,&point->type)){
+        wave_error_printf("压缩点失败  %s %d",__FILE__,__LINE__);
+        goto end;
+    }
+    point->x.len = compress.len;
+    point->x.buf = (u8*)realloc(point->x.buf,compress.len);
+    if(point->x.buf == NULL){
+        wave_malloc_error();
+        goto end;
+    }
+    memcpy(point->x.buf,compress.buf,compress.len);
+    if(point->u.y.buf != NULL){
+        point->u.y.len = 0;
+        free(point->u.y.buf);
+        point->u.y.buf = NULL;
+    }
+end:
+   string_free(&compress); 
+}
+static void fix_certificate_2_compressed(certificate* cert){
+    if(cert->version_and_type == 2){
+        if(cert->unsigned_certificate.version_and_type.verification_key.algorithm == ECDSA_NISTP224_WITH_SHA224 ||
+                cert->unsigned_certificate.version_and_type.verification_key.algorithm == ECDSA_NISTP256_WITH_SHA256)
+            fix_elliptic_curve_point_2_compressed(&cert->unsigned_certificate.version_and_type.verification_key.u.public_key,
+                    cert->unsigned_certificate.version_and_type.verification_key.algorithm);
+        else if(cert->unsigned_certificate.version_and_type.verification_key.algorithm == ECIES_NISTP256){
+            fix_elliptic_curve_point_2_compressed(&cert->unsigned_certificate.version_and_type.verification_key
+                        .u.ecies_nistp256.public_key,ECIES_NISTP256);
+        }
+    }
+    else if(cert->version_and_type == 3){
+        fix_elliptic_curve_point_2_compressed(&cert->u.reconstruction_value,cert->unsigned_certificate.u.no_root_ca.signature_alg);    
+    }
+    if(cert->unsigned_certificate.cf & ENCRYPTION_KEY != 0){
+        if(cert->unsigned_certificate.flags_content.encryption_key.algorithm == ECDSA_NISTP224_WITH_SHA224 ||
+                cert->unsigned_certificate.flags_content.encryption_key.algorithm == ECDSA_NISTP256_WITH_SHA256){
+           fix_elliptic_curve_point_2_compressed(&cert->unsigned_certificate.flags_content.encryption_key.u.public_key,
+                   cert->unsigned_certificate.flags_content.encryption_key.algorithm);
+        }
+        else if(cert->unsigned_certificate.flags_content.encryption_key.algorithm == ECIES_NISTP256){
+            fix_elliptic_curve_point_2_compressed(&cert->unsigned_certificate.flags_content.encryption_key.u.ecies_nistp256.public_key,
+                    ECIES_NISTP256);
+        }
+    }
+}
+
 int certificate_2_hash8(struct certificate *cert,string *hash8){
 
     if(hash8 == NULL || hash8->buf != NULL){
         wave_error_printf("参数错误");
     }
-    string c,hashed;
-    INIT(c);
-    INIT(hashed);
-    if( certificate_2_string(cert,&c) ){
-        goto fail;
-    }
-    if( crypto_HASH_256(&c,&hashed) ){
-        goto fail;
-    }
     hash8->buf = (u8*)malloc(8);
     if(hash8->buf == NULL){
         wave_malloc_error();
+        return -1;
+    }
+    
+    hashedid8 hashed8;
+    INIT(hashed8);
+    if(certificate_2_hashedid8(cert,&hashed8)){
         goto fail;
     }
-    //什么是低字节，这个地方是低字节嘛
-    memcpy(hash8->buf,hashed.buf+hashed.len-8,8);
-    wave_printf(MSG_DEBUG,"证书hash出来的低八字杰为：HASHEDID8_FORMAT",hash8->buf[0],hash8->buf[1],hash8->buf[2],hash8->buf[3],
-                hash8->buf[4],hash8->buf[5],hash8->buf[6],hash8->buf[7]);
-    string_free(&c);
-    string_free(&hashed);
+    int i=0;
+    for(i=0;i<8;i++){
+        *(hash8->buf) = hashed8.hashedid8[i];
+    }
     return 0;
 fail:
-    string_free(&c);
-    string_free(&hashed);
     return -1;
 }
-int certificate_2_hashedid8(struct certificate *cert,hashedid8* hash8){
-
+int certificate_2_hashedid8(struct certificate *cert,hashedid8* hash8){ 
     if(hash8 == NULL ){
         wave_error_printf("参数错误");
     }
     string c,hashed;
+    certificate mcert;
     INIT(c);
     INIT(hashed);
-    if( certificate_2_string(cert,&c) ){
+    INIT(mcert);
+
+
+    if(certificate_cpy(&mcert,cert)){
+        goto fail;
+    }
+    fix_certificate_2_compressed(&mcert);
+    if( certificate_2_string(&mcert,&c) ){
         goto fail;
     }
     if( crypto_HASH_256(&c,&hashed) ){
@@ -209,33 +260,48 @@ int certificate_2_hashedid8(struct certificate *cert,hashedid8* hash8){
     memcpy(hash8->hashedid8,hashed.buf+hashed.len-8,8);
     string_free(&c);
     string_free(&hashed);
+    certificate_free(&mcert);
     return 0;
 fail:
     string_free(&c);
     string_free(&hashed);
+    certificate_free(&mcert);
     return -1;
 }
 int certificate_2_certid10(struct certificate *cert,certid10* certid){
     if(certid == NULL ){
         wave_error_printf("参数错误");
+        return -1;
     }
+
+    certificate mcert; 
     string c,hashed;
     INIT(c);
     INIT(hashed);
-    if( certificate_2_string(cert,&c) ){
+    INIT(mcert);
+    
+    if(certificate_cpy(&mcert,cert)){
+        goto fail;
+    }
+    fix_certificate_2_compressed(&mcert);
+
+    if( certificate_2_string(&mcert,&c) ){
         goto fail;
     }
     if( crypto_HASH_256(&c,&hashed) ){
         goto fail;
     }
     //什么是低字节，这个地方是低字节嘛
+    
     memcpy(certid->certid10,hashed.buf+hashed.len-10,10);
     string_free(&c);
     string_free(&hashed);
+    certificate_free(&mcert);
     return 0;
 fail:
     string_free(&c);
     string_free(&hashed);
+    certificate_free(&mcert);
     return -1;
 }
 

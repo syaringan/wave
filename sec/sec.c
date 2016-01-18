@@ -458,7 +458,7 @@ end:
     string_free(&compress);
     return res;
 }
-static int elliptic_curve_point_2_compressed(pk_algorithm algorithm,elliptic_curve_point* point,string* compress,enum ecc_public_keytype *type){
+int elliptic_curve_point_2_compressed(pk_algorithm algorithm,elliptic_curve_point* point,string* compress,enum ecc_public_keytype *type){
     if(point->type == X_COORDINATE_ONLY){
         wave_error_printf("不应该有这个直 %s %d",__FILE__,__LINE__);
         return -1; 
@@ -1334,7 +1334,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     }
     else if(type == SIGNED || type == SIGNED_PARTIAL_PAYLOAD || type == SIGNED_EXTERNAL_PAYLOAD){
         tbencrypted.type = type;
-        if(  string_2_signed_data(data,&tbencrypted.u.signed_data) <=0 ){
+        if(  string_2_signed_data(data,&tbencrypted.u.signed_data,type) <=0 ){
             wave_error_printf("string_2_signed_data 失败 %s %d",__FILE__,__LINE__);
             res = -1;
             goto end;
@@ -1481,7 +1481,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
                     break;
             }
             if(signed_data != NULL && signed_data->buf == NULL){
-                if(signed_data_2_string(s_data,&signed_data)){
+                if(signed_data_2_string(s_data,signed_data,type)){
                     res = FAILURE;
                     wave_error_printf("编码失败 %s %d",__FILE__,__LINE__);
                     goto end;
@@ -1534,10 +1534,11 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
                     certificate_2_string(&signer->u.certificate,&temp);
                 }
                 else if(signer->type == CERTIFICATE_CHAIN){
-                    certificate_2_string(signer->u.certificates.buf+signer->u.certificates.len-1,&temp);
+                    certificate_2_string(signer->u.certificates.buf,&temp);
                 }
-                res = cme_certificate_info_request(sdb,ID_CERTIFICATE,&temp, NULL,&permissions,NULL,NULL,
+                res = cme_certificate_info_request(sdb,ID_CERTIFICATE,&temp,NULL,&permissions,NULL,NULL,
                             NULL,NULL,&verified);
+                printf("res :%d %s %d\n",res,__FILE__,__LINE__);
                 if(res == CERTIFICATE_NOT_FOUND){
                     if(signer->type == CERTIFICATE){
                         cme_add_certificate(sdb,&signer->u.certificate,false);
@@ -1547,7 +1548,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
                     }
                     res = FOUND;
                 }
-                if(res != NOT_FOUND){
+                if(res != FOUND){
                     res = UNKNOWN_CERTIFICATE;
                     goto end;
                 }
@@ -1556,7 +1557,8 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
                         certificate_cpy(send_cert,&signer->u.certificate);
                     }
                     else{
-                        certificate_cpy(send_cert,&signer->u.certificates.buf+signer->u.certificates.len-1);
+                       // certificate_cpy(send_cert,&signer->u.certificates.buf+signer->u.certificates.len-1);
+                        certificate_cpy(send_cert,&signer->u.certificates.buf);
                     }
                 }
             }
@@ -1572,11 +1574,13 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
             for(i=0;i<permissions.u.psid_ssp_array.len;i++){
                 if( (permissions.u.psid_ssp_array.buf+i)->psid == m_psid){
                     ssp->len = (permissions.u.psid_ssp_array.buf+i)->service_specific_permissions.len;
-                    if( ssp->buf = (u8*)malloc(  ssp->len) ){
+                    ssp->buf = (u8*)malloc(ssp->len);
+                    if( ssp->buf == NULL){
                         wave_malloc_error();
                         res = FAILURE;
                         goto end;
                     }
+                    
                     memcpy(ssp->buf,(permissions.u.psid_ssp_array.buf+i)->service_specific_permissions.buf,ssp->len);
                     break;
                 }
@@ -1606,7 +1610,6 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
         }
     }
     res = SUCCESS;
-    goto end;
 end:
     sec_data_free(&sdata);
     string_free(&temp);
@@ -1644,7 +1647,7 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
     certificate* cert;
     struct cme_permissions* permission;
     psid m_psid;
-
+    bool init_gen_loc = false;
     INIT(certs_chain);
     INIT(temp_certs_chain);
     INIT(permissions);
@@ -1658,31 +1661,36 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
     INIT(times);
     INIT(digest);
 
-    if( string_2_signed_data(signed_data, &s_data) <=0 ){
+    if( string_2_signed_data(signed_data, &s_data,type) <=0 ){
         wave_error_printf("signed_data解码失败 %s %d",__FILE__,__LINE__);
         res = INVALID_INPUT;
         goto end;
     }
 
 
+DEBUG_MARK;
     if( s_data.unsigned_data.tf & USE_GENERATION_TIME){
         gen_time.time = s_data.unsigned_data.flags_content.generation_time.time;
         gen_time.long_std_dev = s_data.unsigned_data.flags_content.generation_time.long_std_dev;
         if(generation_time != NULL){
             if(gen_time.time == generation_time->time){
                 res = SUCCESS;
-                goto next;
+                //goto next;
+DEBUG_MARK;
             }
             else{
                 res = INVALID_INPUT;
                 goto next;
             }
 
+DEBUG_MARK;
             if(gen_time.long_std_dev == generation_time->long_std_dev){
                 res = SUCCESS;
-                goto next;
+                DEBUG_MARK;
+               // goto next;
             }
             else{
+DEBUG_MARK;
                 res = INVALID_INPUT;
                 goto next;
             }
@@ -1691,17 +1699,22 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
     else if(generation_time != NULL){
         gen_time.time = generation_time->time;
         gen_time.long_std_dev = generation_time->long_std_dev;
+        DEBUG_MARK;
     }
 
+DEBUG_MARK;
     if(s_data.unsigned_data.tf & EXPIRES){
         expiry_time = s_data.unsigned_data.flags_content.exipir_time;
+        printf("expiry_time %llu exprity_time %llu\n",expiry_time,exprity_time);
         if(exprity_time != 0){
             if(expiry_time == exprity_time){
                 res = SUCCESS;
-                goto next;
+DEBUG_MARK;
+                //goto next;
             }
             else{
                 res = INVALID_INPUT;
+DEBUG_MARK;
                 goto next;
             }
         }
@@ -1710,13 +1723,15 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
         expiry_time = exprity_time;
     }
 
+DEBUG_MARK;
     if(s_data.unsigned_data.tf & USE_LOCATION){
         gen_loc.latitude = s_data.unsigned_data.flags_content.generation_location.latitude;
         gen_loc.longitude = s_data.unsigned_data.flags_content.generation_location.longitude;
+        init_gen_loc = true;
         if(location != NULL){
             if(gen_loc.latitude == location->latitude){
                 res = SUCCESS;
-                goto next;
+                //goto next;
             }
             else{
                 res = INVALID_INPUT;
@@ -1724,7 +1739,7 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
             }
             if(gen_loc.longitude == location->longitude){
                 res = SUCCESS;
-                goto next;
+                //goto next;
             }
             else{
                 res = INVALID_INPUT;
@@ -1733,22 +1748,27 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
         }
     }
     else if(location != NULL){
+        init_gen_loc = true;
         gen_loc.longitude = location->longitude;
         gen_loc.latitude = location->latitude;
     }
-    if(gen_loc.latitude == 0 && gen_loc.longitude == 0){
+DEBUG_MARK;
+    if(init_gen_loc == false){
         res = INVALID_INPUT;
         goto next;
     }
-    if(gen_loc.latitude == 900000001 && gen_loc.longitude == 1800000001){
+    if(gen_loc.latitude > 900000000 || gen_loc.latitude <-900000000 ||
+            gen_loc.longitude > 1800000000 || gen_loc.longitude < 1800000000){
         res = SENDER_LOCATION_UNAVAILABLE;
         goto next;
     }
-    goto next;
+
+DEBUG_MARK;
 next:
     if(res != SUCCESS){
         goto end;
     }
+DEBUG_MARK;
     if(gen_time.time != 0 && expiry_time != 0){
         if(expiry_time < gen_time.time){
             res = EXPIRTY_TIME_BEFORE_GENERATION_TIME;
@@ -1756,6 +1776,7 @@ next:
         }
     }     
 
+DEBUG_MARK;
     switch(s_data.signer.type){
         case CERTIFICATE_DIGEST_WITH_ECDSAP224:
         case CERTIFICATE_DIGEST_WITH_ECDSAP256:
@@ -1788,6 +1809,7 @@ next:
                         &certs_chain,&permissions,&geo_scopes,last_recieve_crl_times,next_expected_crl_times,&verifieds) ){
                 goto end;
             }
+            break;
         default:
             wave_error_printf("出现了不可能的直哦 %s %d",__FILE__,__LINE__);
             res = FAILURE;
@@ -1958,7 +1980,7 @@ next:
         }
     }
     string_free(&string);
-    if( signed_data_2_string(&s_data,&string) ){
+    if( signed_data_2_string(&s_data,&string,type) ){
          res = FAILURE;
          goto end;
     }
@@ -1998,14 +2020,23 @@ next:
     
     goto end;
 end:
+DEBUG_MARK;
     certificate_chain_free(&certs_chain);
+DEBUG_MARK;
     certificate_chain_free(&temp_certs_chain);
+DEBUG_MARK;
     cme_permissions_array_free(&permissions);
+DEBUG_MARK;
     geographic_region_array_free(&geo_scopes);
+DEBUG_MARK;
     verified_array_free(&verifieds);
-    signed_data_free(&s_data);
+DEBUG_MARK;
+    signed_data_free(&s_data,type);
+DEBUG_MARK;
     string_free(&string);
+DEBUG_MARK;
     string_free(&digest);
+DEBUG_MARK;
     time32_array_free(&times);
     return res;
     

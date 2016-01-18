@@ -101,8 +101,9 @@ void cme_permissions_cpy(struct cme_permissions* dst,struct cme_permissions* src
                     (dst->u.psid_ssp_array.buf+i)->service_specific_permissions.buf = NULL;
                     continue;
                 }
-                if( ( (dst->u.psid_ssp_array.buf+i)->service_specific_permissions.buf = 
-                            (u8*)malloc((src->u.psid_ssp_array.buf+i)->service_specific_permissions.len  ))){
+                (dst->u.psid_ssp_array.buf+i)->service_specific_permissions.buf = 
+                            (u8*)malloc( (src->u.psid_ssp_array.buf+i)->service_specific_permissions.len  );
+                if( (dst->u.psid_ssp_array.buf+i)->service_specific_permissions.buf == NULL){
                     wave_malloc_error();
                     goto fail;
                 }

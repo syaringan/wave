@@ -6,6 +6,8 @@
 #include <string.h>
 #include <time.h>
 #include <stdio.h>
+#include <entry/wave.h>
+#include <sec/sec.h>
 #define INIT(n) memset(&n,0,sizeof(n))
 
 #define MAIN_DIR "/home/ljh/ljh-wave-1609.2/cert/"
@@ -14,6 +16,7 @@
 #define CA_PRIVATE_NAME "ca.pri"
 #define error() wave_error_printf("在这个代码地方发生了错误  %s %d",__FILE__,__LINE__)
 
+struct region_type_array certificate_request_support_region_types;
 static void privatekey_signed_cert(pk_algorithm algorithm,string* pri,certificate* issued){
     ecdsa_signature* signature;
     string encode,hashed;
@@ -81,34 +84,19 @@ static void cert_signed_self(certificate* cert,string* pri){
     privatekey_signed_cert(algorithm,pri,cert);
 }
 static void cert_signed_cert(certificate* issuing,string* pri,certificate* issued){
-    string signer_encode;
-    string signer_hashed;
+    hashedid8 hashed;
     pk_algorithm algorithm;
 
-    INIT(signer_encode);
-    INIT(signer_hashed);
+    INIT(hashed);
     
-    
+    if(certificate_2_hashedid8(issuing,&hashed)){
+        return;
+    } 
     //这个地方签发证书，我们选取的tobesigned_certificate  而签发者我们选取的certificate 这个整体
-    if(certificate_2_string(issuing,&signer_encode)){
-        error();
-        goto end;
-    }
-    if(crypto_HASH_256(&signer_encode,&signer_hashed)){
-        error();
-        goto end;
-    }
-    if(signer_hashed.len != 32){
-        error();
-        goto end;
-    }
     algorithm = issuing->unsigned_certificate.version_and_type.verification_key.algorithm;
     issued->unsigned_certificate.u.no_root_ca.signature_alg = algorithm;
-    memcpy(issued->unsigned_certificate.u.no_root_ca.signer_id.hashedid8,signer_hashed.buf+24,8);
+    memcpy(issued->unsigned_certificate.u.no_root_ca.signer_id.hashedid8,hashed.hashedid8,8);
     privatekey_signed_cert(algorithm,pri,issued);
-end:
-    string_free(&signer_encode);
-    string_free(&signer_hashed);
 }
 static void get_verification_key(pk_algorithm algorithm,string* pubkey_x,string* pubkey_y,string* pri){
     if(algorithm == ECDSA_NISTP224_WITH_SHA224){
@@ -198,6 +186,15 @@ static void fill_psid_priority_array(psid_priority_array* ppa){
     ppa->u.permissions_list.buf[1].psid = 0x23;
     ppa->u.permissions_list.buf[1].max_priority = 0x1f;
 }
+static void fill_ssp(u8** buf,int len){
+    *buf = (u8*)malloc(3);
+    if(*buf == NULL){
+        error();
+    }
+    (*buf)[0] = 'l';
+    (*buf)[1] = 'j';
+    (*buf)[2] = 'h';
+}
 static void fill_psid_ssp_array(psid_ssp_array* psa){
     psa->type = ARRAY_TYPE_SPECIFIED;
 
@@ -208,10 +205,12 @@ static void fill_psid_ssp_array(psid_ssp_array* psa){
         return;
     }
     psa->u.permissions_list.buf[0].psid = 0x20;
-    psa->u.permissions_list.buf[0].service_specific_permissions.len = 0;
+    psa->u.permissions_list.buf[0].service_specific_permissions.len = 3;
+    fill_ssp(&psa->u.permissions_list.buf[0].service_specific_permissions.buf,3);
 
     psa->u.permissions_list.buf[1].psid = 0x23;
-    psa->u.permissions_list.buf[1].service_specific_permissions.len= 0;
+    psa->u.permissions_list.buf[1].service_specific_permissions.len= 3;
+    fill_ssp(&psa->u.permissions_list.buf[1].service_specific_permissions.buf,3);
 }
 static void fill_psid_priority_ssp_array(psid_priority_ssp_array* ppsa){
     ppsa->type = ARRAY_TYPE_SPECIFIED;
@@ -223,12 +222,13 @@ static void fill_psid_priority_ssp_array(psid_priority_ssp_array* ppsa){
     }
     ppsa->u.permissions_list.buf[0].psid = 0x20;
     ppsa->u.permissions_list.buf[0].max_priority = 0x1f;
-    ppsa->u.permissions_list.buf[0].service_specific_permissions.len = 0;
+    ppsa->u.permissions_list.buf[0].service_specific_permissions.len = 3;
+    fill_ssp(&ppsa->u.permissions_list.buf[0].service_specific_permissions.buf,3);
 
     ppsa->u.permissions_list.buf[1].psid = 0x23;
     ppsa->u.permissions_list.buf[1].max_priority = 0x1f;
-    ppsa->u.permissions_list.buf[1].service_specific_permissions.len = 0;
-
+    ppsa->u.permissions_list.buf[1].service_specific_permissions.len = 3;
+    fill_ssp(&ppsa->u.permissions_list.buf[1].service_specific_permissions.buf,3);
 }
 static void fill_root_ca(certificate* cert){
     root_ca_scope* scope;
