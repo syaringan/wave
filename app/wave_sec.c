@@ -1384,7 +1384,6 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 		}
 		*last_len = slen;
 	}
-    else slen = 0; //若last_len为空，slen赋为0
 	buf += 4;
 
 	if(last_recieve_crl_times != NULL && last_len != NULL)
@@ -1401,7 +1400,6 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
         }
 		*next_len = slen;
 	}
-    else slen = 0;
 	buf += 4;
 
 	if(next_expected_crl_times != NULL && next_len != NULL)

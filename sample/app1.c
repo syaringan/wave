@@ -109,7 +109,7 @@ static int generated_signed_data(cmh cmh,struct string* sdata){
     elevation[1] = 0xf0;
 
     int signer_type = SIGNED_DATA_CERTIFICATE;
-    int cert_chain_len = 1,max_cert_len = 4;
+    int cert_chain_len = 2,max_cert_len = 4;
     int fs_type = YES_UNCOMPRESSED; 
     
     if(sec_signed_data(cmh,type,"123",3,NULL,0,psid,"ljh",3,1,generate_time,glsd,1,latitude,longtitude,elevation,

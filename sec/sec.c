@@ -2024,7 +2024,6 @@ next:
         if(  threshold > generation_threshold ){
             printf("threshold  :%f   generation threshold  %f\n",threshold,generation_threshold);
             res = DATA_EXPIRED_BASE_ON_EXPIRY_TIME;
-            DEBUG_MARK;
             goto end;
         }
         //请核实下我写对没有
@@ -2033,7 +2032,6 @@ next:
         if( threshold > accepte_threshold){
             res = FUTURE_DATA;
             printf("threshold  :%f accepte threshold  %f\n",threshold,accepte_threshold);
-            DEBUG_MARK;
             goto end;
         }
     }
@@ -2048,7 +2046,6 @@ next:
         float threshold = normal_distribution_calculate_probability( (float)(now*US_TO_S),(float)(1000),(float)exprity_time,(float)(now*US_TO_S));
         if( threshold > exprity_threshold){
             res = DATA_EXPIRED_BASE_ON_EXPIRY_TIME;
-            DEBUG_MARK;
             printf("threshold :%f exprity threshold  %f\n",threshold,exprity_threshold);
             goto end;
         }
@@ -2083,7 +2080,6 @@ next:
             goto end;
     }
     res =  sec_verify_chain_signature(sdb,&certs_chain,&verifieds,&digest,&s_data.signature);
-    DEBUG_MARK;
     if(res == SUCCESS){
         /*因为上面一个sec_verify_chain_signature 自己会自动增加证书，所以我这里没有按照协议要求在增加
         for(i=0;i<certs_chain.len;i++){
@@ -2093,7 +2089,6 @@ next:
         */
         //协议上没说，这个我想应该是这样
         if(send_cert != NULL){
-    DEBUG_MARK;
             certificate_cpy(send_cert,certs_chain.certs);
         }
     }
@@ -3741,7 +3736,6 @@ result sec_verify_chain_signature(struct sec_db* sdb,
     INIT(hashed);
 
     int len = cert_chain->len; 
-    printf("cert chain len:%d %s %d\n",len,__FILE__,__LINE__); 
     int i = 0;
     for(i = 0; i < len; i++){
         if(verified_array->verified[i] == false && cert_chain->certs[i].version_and_type == 2){

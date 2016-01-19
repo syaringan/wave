@@ -956,10 +956,20 @@ static int file_2_cme_alloced_lsis(struct cme_alloced_lsis* alloced_lsis,FILE *f
         wave_error_printf("读取文件有错误 %s %d",__FILE__,__LINE__);
         return -1;
     }
-    if (fread(&alloced_lsis->data.len,sizeof(alloced_lsis->data.len),1,fp) != 1||
-            fread(alloced_lsis->data.buf,1,alloced_lsis->data.len,fp) != alloced_lsis->data.len){
+    if (fread(&alloced_lsis->data.len,sizeof(alloced_lsis->data.len),1,fp) != 1){
         wave_error_printf("读取文件错误 %s %d",__FILE__,__LINE__);
         return -1;
+    }
+    if(alloced_lsis->data.len != 0){
+        alloced_lsis->data.buf = (u8*)malloc(alloced_lsis->data.len);
+        if(alloced_lsis->data.buf == NULL){
+            wave_malloc_error();
+            return -1;
+        }
+        if(fread(alloced_lsis->data.buf,1,alloced_lsis->data.len,fp) != alloced_lsis->data.len){
+        wave_error_printf("读取文件错误 %s %d",__FILE__,__LINE__);
+            return -1;
+        }
     }
     return 0;
 }
@@ -976,6 +986,7 @@ static int file_2_lsises(struct cme_db* cdb,FILE *fp){
             wave_malloc_error();
             return -1;
         }
+        memset(alloced_temp,0,sizeof(struct cme_alloced_lsis));
         if( file_2_cme_alloced_lsis(alloced_temp,fp)) {
             free(alloced_temp);
             return -1;
@@ -992,6 +1003,7 @@ static int file_2_lsises(struct cme_db* cdb,FILE *fp){
             wave_malloc_error();
             return -1;
         }
+        memset(lsis_temp,0,sizeof(struct cme_lsis_chain));
         if( file_2_cme_lsis_chain(lsis_temp,fp)) {
             free(lsis_temp);
             return -1;
