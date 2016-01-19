@@ -1,5 +1,9 @@
+#include<stdlib.h>
+#include<stdio.h>
 #include "normal_distribution.h"
 #define MAX 40
+
+
 static float stander_normal_distribution_excle[MAX][10]={
     {0.5000,0.5040,0.5080,0.5120,0.5160,0.5199,0.5239,0.5279,0.5319,0.5359},
     {0.5398,0.5438,0.5478,0.5517,0.5557,0.5596,0.5636,0.5675,0.5714,0.5753},
@@ -45,7 +49,7 @@ static float stander_normal_distribution_excle[MAX][10]={
 float normal_distribution_calculate_probability(float u,float stander_dev,float start,float end){
     float stander_nd_start = (start-u)/stander_dev;
     float stander_nd_end = (end-u)/stander_dev;
-
+    double res =0;
     int start_row,start_col,end_row,end_col;
     start_row = (int)(stander_nd_start*10);
     start_col = (int)((stander_nd_start - (float)start_row/10)/0.01);
@@ -57,6 +61,10 @@ float normal_distribution_calculate_probability(float u,float stander_dev,float 
     if(start_row >= MAX){
         start_row = MAX-1;
     }
-    return stander_normal_distribution_excle[end_row][end_col] - 
+    res = stander_normal_distribution_excle[end_row][end_col] - 
                 stander_normal_distribution_excle[start_row][start_col];
+    res = res <0?-res:res;
+
+    return res;
 }
+

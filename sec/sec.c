@@ -12,6 +12,7 @@
 #include <time.h>
 #include <math.h>
 #include "../crypto/crypto.h"
+#include "./utils/normal_distribution.h"
 #define INIT(m) memset(&m,0,sizeof(m))
 #define LOG_STD_DEV_BASE 1.134666
 
@@ -975,7 +976,10 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
     }
     
     if(signer_type == SIGNED_DATA_CERTIFICATE_DIGEST){
-        s_data->signer.type = algorithm;
+        if(algorithm == ECDSA_NISTP256_WITH_SHA256)
+            s_data->signer.type = CERTIFICATE_DIGEST_WITH_ECDSAP256;
+        else if(algorithm == ECDSA_NISTP224_WITH_SHA224)
+           s_data->signer.type = CERTIFICATE_DIGEST_WITH_ECDSAP224; 
         if( certificate_2_hashedid8(&cert,&s_data->signer.u.digest)){
             res = -1;
             goto end;
@@ -1677,6 +1681,8 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
     struct cme_permissions* permission;
     psid m_psid;
     bool init_gen_loc = false;
+
+
     INIT(certs_chain);
     INIT(temp_certs_chain);
     INIT(permissions);
@@ -1806,16 +1812,7 @@ next:
                          &certs_chain,&permissions,&geo_scopes,last_recieve_crl_times,&times,&verifieds) ){
                 goto end;
             }
-            if(next_expected_crl_times != NULL){
-                next_expected_crl_times->times = (time32*)malloc(sizeof(time32) * times.len);
-                if(next_expected_crl_times->times == NULL){
-                    res = FAILURE;
-                    wave_malloc_error();
-                    goto end;
-                }
-                next_expected_crl_times->len = times.len;
-                memcpy(next_expected_crl_times->times,times.times,sizeof(time32) * times.len);
-            }
+            
             break;
         case CERTIFICATE_CHAIN:
             temp_certs_chain.certs = (certificate*)malloc(sizeof(certificate) * s_data.signer.u.certificates.len);
@@ -1833,7 +1830,7 @@ next:
                 }
             }
             if( res = cme_construct_certificate_chain(sdb,ID_CERTIFICATE,NULL,&temp_certs_chain,false,max_cert_chain_len,
-                        &certs_chain,&permissions,&geo_scopes,last_recieve_crl_times,next_expected_crl_times,&verifieds) ){
+                        &certs_chain,&permissions,&geo_scopes,last_recieve_crl_times,&times,&verifieds) ){
                 goto end;
             }
             break;
@@ -1851,7 +1848,7 @@ next:
             }
             temp_certs_chain.len = 1;
             if( res = cme_construct_certificate_chain(sdb,ID_CERTIFICATE,NULL,&temp_certs_chain,false,max_cert_chain_len,
-                        &certs_chain,&permissions,&geo_scopes,last_recieve_crl_times,next_expected_crl_times,&verifieds) ){
+                        &certs_chain,&permissions,&geo_scopes,last_recieve_crl_times,&times,&verifieds) ){
                 goto end;
             }
             break;
@@ -1864,16 +1861,26 @@ next:
     if( res = sec_check_certificate_chain_consistency(sdb,&certs_chain,&permissions,&geo_scopes)){
         goto end;
     }
+    
+    if(next_expected_crl_times != NULL){
+        next_expected_crl_times->times = (time32*)malloc(sizeof(time32) * times.len);
+        if(next_expected_crl_times->times == NULL){
+            res = FAILURE;
+            wave_malloc_error();
+            goto end;
+        }
+        next_expected_crl_times->len = times.len;
+        memcpy(next_expected_crl_times->times,times.times,sizeof(time32) * times.len);
+    }
     time(&now);
     for(i=0;i<times.len;i++){
-        if ( *(times.times+i) < now-overdue_crl_tolerance ){
-             wave_printf(MSG_DEBUG,"next_expected_crl :%d  now :%d  overdue_crl_tolerance :%d",
-                                *(times.times+i),now,overdue_crl_tolerance);
+        if ( *(times.times+i) < now-overdue_crl_tolerance/US_TO_S ){
+             wave_printf(MSG_DEBUG,"next_expected_crl :%us  now :%us  overdue_crl_tolerance :%llus",
+                                *(times.times+i),now,overdue_crl_tolerance/US_TO_S);
             res = OVERDUE_CRL;
             goto end;
         }
-    }
-    
+    } 
     cert = certs_chain.certs;
     if( certificate_get_start_time(cert,&start_validity)){
             res = FAILURE;
@@ -2012,15 +2019,21 @@ next:
         }
         //请核实哈我写对没有
         time(&now);
-        if( normal_distribution_calculate_probability((float)generation_time->time,(float)pow(LOG_STD_DEV_BASE,generation_time->long_std_dev),
-                            (float)generation_time->time,(float)(now*US_TO_S) > generation_threshold) > generation_threshold){
+        float threshold = normal_distribution_calculate_probability(  (float)generation_time->time, (float)pow(LOG_STD_DEV_BASE,generation_time->long_std_dev),
+                            (float)generation_time->time, (float)(now*US_TO_S) );
+        if(  threshold > generation_threshold ){
+            printf("threshold  :%f   generation threshold  %f\n",threshold,generation_threshold);
             res = DATA_EXPIRED_BASE_ON_EXPIRY_TIME;
+            DEBUG_MARK;
             goto end;
         }
         //请核实下我写对没有
-        if( normal_distribution_calculate_probability( (float)generation_time->time,(float)pow(LOG_STD_DEV_BASE,generation_time->long_std_dev),
-                    (float)(now*US_TO_S),(float)generation_time->time+accepte_time) > accepte_threshold){
+        threshold = (float)normal_distribution_calculate_probability( (float)generation_time->time,(float)pow(LOG_STD_DEV_BASE,generation_time->long_std_dev),
+                            (float)(now*US_TO_S),(float)generation_time->time+accepte_time);
+        if( threshold > accepte_threshold){
             res = FUTURE_DATA;
+            printf("threshold  :%f accepte threshold  %f\n",threshold,accepte_threshold);
+            DEBUG_MARK;
             goto end;
         }
     }
@@ -2032,8 +2045,11 @@ next:
         }
         //请核实哈我写对没有,我认为本地的时间的绝对误差为1ms（我乱写的，我都不知道该为多少）
         time(&now);
-        if( normal_distribution_calculate_probability( (float)(now*US_TO_S),(float)(1000),(float)exprity_time,(float)now) > exprity_threshold){
+        float threshold = normal_distribution_calculate_probability( (float)(now*US_TO_S),(float)(1000),(float)exprity_time,(float)(now*US_TO_S));
+        if( threshold > exprity_threshold){
             res = DATA_EXPIRED_BASE_ON_EXPIRY_TIME;
+            DEBUG_MARK;
+            printf("threshold :%f exprity threshold  %f\n",threshold,exprity_threshold);
             goto end;
         }
     }
@@ -2067,6 +2083,7 @@ next:
             goto end;
     }
     res =  sec_verify_chain_signature(sdb,&certs_chain,&verifieds,&digest,&s_data.signature);
+    DEBUG_MARK;
     if(res == SUCCESS){
         /*因为上面一个sec_verify_chain_signature 自己会自动增加证书，所以我这里没有按照协议要求在增加
         for(i=0;i<certs_chain.len;i++){
@@ -2076,10 +2093,10 @@ next:
         */
         //协议上没说，这个我想应该是这样
         if(send_cert != NULL){
+    DEBUG_MARK;
             certificate_cpy(send_cert,certs_chain.certs);
         }
     }
-    goto end;
 end:
     certificate_chain_free(&certs_chain);
     certificate_chain_free(&temp_certs_chain);
@@ -2209,7 +2226,8 @@ result sec_crl_verification(struct sec_db* sdb,string* crl,time32 overdue_crl_to
     for(i=0;i<times.len;i++){
         if(*(times.times+i) < now - overdue_crl_tolerance){
             res = OVERDUE_CRL;
-            wave_printf(MSG_WARNING,"time : %d  now :%d overdue %d %s %d",*(times.times+i),now,overdue_crl_tolerance);
+            wave_printf(MSG_WARNING,"time : %u  now :%u overdue %u %s %d",
+                    *(times.times+i),now,overdue_crl_tolerance,__FILE__,__LINE__);
             goto end;
         }
     }    
@@ -3600,6 +3618,7 @@ bool static verify_signature(pk_algorithm algorithm,signature* sig,string *pubke
             goto end;
         }
         memcpy(r.buf,point->x.buf,r.len);
+        printf("r.len :%d algorithm :%d  %s %d\n",r.len,algorithm,__FILE__,__LINE__);
         res = verify_signature_no_fast(algorithm,pubkey_x,pubkey_y,&r,&s,mess);
         goto end;
     }
@@ -3635,7 +3654,7 @@ end:
     string_free(&s);
     return res;
 }
-int static implicit_certificate_get_pubkey(struct sec_db* sdb,certificate* cert,string* pubkey_x,string* pubkey_y){
+int static implicit_certificate_get_pubkey(struct sec_db* sdb,certificate* cert,string* pubkey_x,string* pubkey_y,pk_algorithm *algorithm){
     int res = 0;
     certificate ca_cert;
     string ca_x,ca_y;
@@ -3664,12 +3683,14 @@ int static implicit_certificate_get_pubkey(struct sec_db* sdb,certificate* cert,
         res = -1;
         goto end;
     }
+    if(algorithm != NULL)
+        *algorithm = ca_cert.unsigned_certificate.version_and_type.verification_key.algorithm;
+
     if(elliptic_curve_point_2_uncompressed(ca_cert.unsigned_certificate.version_and_type.verification_key.algorithm,
                         &ca_cert.unsigned_certificate.version_and_type.verification_key.u.public_key,&ca_x,&ca_y)){
         res = -1;
         goto end;
-    }
-        
+    } 
     if(elliptic_curve_point_2_uncompressed(cert->unsigned_certificate.u.no_root_ca.signature_alg,
                         &cert->u.reconstruction_value,&pu_x,&pu_y)){
         res = -1;
@@ -3719,7 +3740,8 @@ result sec_verify_chain_signature(struct sec_db* sdb,
     INIT(pubkey_y);
     INIT(hashed);
 
-    int len = cert_chain->len;  
+    int len = cert_chain->len; 
+    printf("cert chain len:%d %s %d\n",len,__FILE__,__LINE__); 
     int i = 0;
     for(i = 0; i < len; i++){
         if(verified_array->verified[i] == false && cert_chain->certs[i].version_and_type == 2){
@@ -3786,18 +3808,18 @@ result sec_verify_chain_signature(struct sec_db* sdb,
                         &cert->unsigned_certificate.version_and_type.verification_key.u.public_key,&pubkey_x,&pubkey_y)){
             res = FAILURE;
             goto end;
-        }  
+        }
+       algorithm = cert->unsigned_certificate.version_and_type.verification_key.algorithm; 
     }
 
     else if(cert_chain->certs[0].version_and_type == 3){
-       if(implicit_certificate_get_pubkey(sdb,cert_chain->certs,&pubkey_x,&pubkey_y)){
+       if(implicit_certificate_get_pubkey(sdb,cert_chain->certs,&pubkey_x,&pubkey_y,&algorithm)){
             res = FAILURE;
             goto end;
        } 
     }
 
-    if( verify_signature(cert->unsigned_certificate.u.no_root_ca.signature_alg,signature,&pubkey_x,&pubkey_y,
-                        digest) == false){
+    if( verify_signature(algorithm,signature,&pubkey_x,&pubkey_y,digest) == false){
             res = VERIFICATION_FAILURE;
             goto end;
     }

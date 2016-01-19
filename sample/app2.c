@@ -36,16 +36,16 @@ static int verification_signed_data(cme_lsis mlsis,string* rec_data,int type,psi
     int detect_reply = 1;
     int check_generation_time =1;
     time64 validity_time = 1000*1000*60*60*1;
-    float  generation_thresold = 0.5;
+    float  generation_thresold = 0.9;
     time64 accepte_time =  (time64)time(NULL)*1000000+1*60*1000000;
-    float accepte_thresold = 0.5;
+    float accepte_thresold = 0.9;
     int check_expiry_time = 1;
-    float expiry_threshold = 0.5;
+    float expiry_threshold = 0.9;
     int check_generation_location = 1;
     int latitude = 0;
     int longtitude = 0;
     unsigned int validity_distance = 100;
-    time64 overdue_crl_tolerance = 1*60*60*1000000;
+    time64 overdue_crl_tolerance = (time64)1*60*60*1000000;
 
     string cert;
     string_malloc(&cert);
@@ -93,7 +93,8 @@ static void sec_data_parse(string *rec_data){
     int i;
     printf("type:%d  inner type : %d (0=UNSECURE,1=SIGNED,2=ENCRYPTED,9,10 = SIGNED_...)\n",type,inner_type);
     string_printf("data",&data);
-    string_printf("signed_data",&signed_data);
+   // string_printf("signed_data",&signed_data);
+   printf("signed data len :%d\n",signed_data.len);
     printf("psid:%d\n",psid);
     string_printf("spp",&ssp);
     if(set_generation_time == 1){

@@ -1208,7 +1208,6 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
 		ERROR_PRINTF("参数错误");
 		return -1;
 	}
-
 	int len = 4 + sizeof(app_tag) + sizeof(int)*13 + sizeof(float)*3 + sizeof(psid) + sizeof(time64)*5
 				+ 3 + sizeof(lsis) + signed_len + external_len;
 	char* buf = (char*)malloc(len);
@@ -1422,6 +1421,7 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
     }
 
     if(send_cert != NULL && cert_len != NULL){
+        printf("slen:%d\n",slen);
         memcpy(send_cert,buf,slen);
     }
 

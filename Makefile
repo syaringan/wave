@@ -1,6 +1,7 @@
 
 SUBDIRS = $(shell ls -d */)
 CFLAGS += -g -rdynamic
+CC = gcc
 #libs = $(foreach n,$(SUBDIRS),-L./$(n) -l$(subst /,,$(n)))
 libs = -L./entry/ -lentry -L./pssme -lpssme  -L./sec -lsec -L./cme -lcme  -L./utils -lutils -L./data/ -ldata -L./crypto -lcrypto -L./crypto/cryptopp -lcryptopp -L./app -lapp -L./cmp -lcmp 
 wave_sec:

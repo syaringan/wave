@@ -1207,8 +1207,10 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
                     &generation_location,overdue_crl_tolerance,
                     
                     &last_recieve_crl_times,&next_expected_crl_times,&send_cert);
+    DEBUG_MARK;
     string_free(&signed_data);
     string_free(&external_data);
+    DEBUG_MARK;
     if(res != 0){
         ERROR_PRINTF("sec_signed_data_verification失败");
         time32_array_free(&last_recieve_crl_times);
@@ -1220,11 +1222,14 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
         return -1;
     }
 
+    DEBUG_MARK;
     int send_cert_len = 1024;
-    char* cert_buf = (char*)malloc(len);
+    char* cert_buf = (char*)malloc(send_cert_len);
+    printf("len :%d %p %p\n",len,cert_buf,cert_buf+len);
     res = -2;
     while(res == -2){ //分配内存不够
         res = certificate_2_buf(&send_cert,cert_buf,send_cert_len);
+        printf("send_cert len :%d\n",res);
         if(res == -1){
             ERROR_PRINTF("certificate_2_buf失败");
             time32_array_free(&last_recieve_crl_times);
@@ -1233,15 +1238,21 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
             return -1;
         }
         else if(res == -2){
+            printf("send_cert_len:%d\n",send_cert_len);
             send_cert_len *= 2;
             cert_buf = (char*)realloc(cert_buf,send_cert_len);
         }
     }
+    DEBUG_MARK;
     certificate_free(&send_cert);
+    DEBUG_MARK;
     send_cert_len = res;
 
+    DEBUG_MARK;
     len = sizeof(int)*5 + sizeof(time32)*(last_recieve_crl_times.len + next_expected_crl_times.len) + send_cert_len;
+    DEBUG_MARK;
     buf = (char*)malloc(len);
+    DEBUG_MARK;
     if(buf == NULL){
         ERROR_PRINTF("内存分配失败");
         time32_array_free(&last_recieve_crl_times);
@@ -1249,8 +1260,10 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
         free(cert_buf);
         return -1;
     }
+    DEBUG_MARK;
     buf_beg = buf;
 
+    DEBUG_MARK;
     *((int*)buf) = 0;
     buf += 4;
 
@@ -1260,6 +1273,7 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     *((int*)buf) = last_recieve_crl_times.len;
     buf += 4;
 
+    DEBUG_MARK;
     memcpy(buf,last_recieve_crl_times.times,sizeof(time32)*last_recieve_crl_times.len);
     buf += sizeof(time32)*last_recieve_crl_times.len;
 
@@ -1269,12 +1283,16 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
     memcpy(buf,next_expected_crl_times.times,sizeof(time32)*next_expected_crl_times.len);
     buf += sizeof(time32)*next_expected_crl_times.len;
 
+    DEBUG_MARK;
     *((int*)buf) = send_cert_len;
     buf += 4;
 
+    DEBUG_MARK;
     memcpy(buf,cert_buf,send_cert_len);
 
+    DEBUG_MARK;
     free(cert_buf);
+    DEBUG_MARK;
     time32_array_free(&last_recieve_crl_times);
     time32_array_free(&next_expected_crl_times);
 
@@ -1284,6 +1302,7 @@ static int do_sec_signed_data_verification(struct sec_db* sdb,int fd)
         return -1;
     }
 
+    DEBUG_MARK;
     free(buf_beg);
     printf("sec_signed_data_verification success  %s %d\n",__FILE__,__LINE__);
     return 0;

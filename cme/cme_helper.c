@@ -198,7 +198,7 @@ static void fix_certificate_2_compressed(certificate* cert){
     else if(cert->version_and_type == 3){
         fix_elliptic_curve_point_2_compressed(&cert->u.reconstruction_value,cert->unsigned_certificate.u.no_root_ca.signature_alg);    
     }
-    if(cert->unsigned_certificate.cf & ENCRYPTION_KEY != 0){
+    if((cert->unsigned_certificate.cf & ENCRYPTION_KEY )!= 0){
         if(cert->unsigned_certificate.flags_content.encryption_key.algorithm == ECDSA_NISTP224_WITH_SHA224 ||
                 cert->unsigned_certificate.flags_content.encryption_key.algorithm == ECDSA_NISTP256_WITH_SHA256){
            fix_elliptic_curve_point_2_compressed(&cert->unsigned_certificate.flags_content.encryption_key.u.public_key,
@@ -238,9 +238,10 @@ fail:
 int certificate_2_hashedid8(struct certificate *cert,hashedid8* hash8){ 
     if(hash8 == NULL ){
         wave_error_printf("参数错误");
+        return -1;
     }
     string c,hashed;
-    certificate mcert;
+    struct certificate mcert;
     INIT(c);
     INIT(hashed);
     INIT(mcert);
