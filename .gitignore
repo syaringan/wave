@@ -9,3 +9,5 @@ wave_sec
 *.a
 *.so
 *.wsp
+*.config
+*.txt
