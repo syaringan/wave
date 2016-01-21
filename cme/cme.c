@@ -58,6 +58,7 @@ void cme_permissions_cpy(struct cme_permissions* dst,struct cme_permissions* src
     }
     int i;
     dst->type = src->type;
+    //printf("dst->type:%d src->type :%d\n",dst->type,src->type);
     switch(dst->type){
         case PSID:
             if(dst->u.psid_array.buf != NULL){
@@ -128,7 +129,7 @@ void cme_permissions_cpy(struct cme_permissions* dst,struct cme_permissions* src
                 (dst->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.len = 
                                     (src->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.len;
                 if( ( (dst->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.buf = 
-                                (u8*)malloc( (src->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.len  ))){
+                                (u8*)malloc( (src->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.len  ))==NULL){
                     wave_malloc_error();
                     goto fail;
                 }
@@ -219,7 +220,7 @@ result cme_lsis_request(struct sec_db* sdb,cme_lsis* lsis){
     free(node);
     lock_unlock(&cdb->lock);
     *lsis = mlsis->lsis;
-    wave_printf(MSG_DEBUG,"分配一个lsis ：%d\n",*lsis);
+    wave_printf(MSG_DEBUG,"分配一个lsis ：%d",*lsis);
     return SUCCESS;
 }
 
@@ -244,7 +245,7 @@ result cme_cmh_request(struct sec_db* sdb,cmh* cmh){
     cme_cmh_init_insert(cdb,node);
     lock_unlock(&cdb->lock); 
     *cmh = node->cmh;
-    wave_printf(MSG_DEBUG,"分配的cmh：%d\n",*cmh);
+    wave_printf(MSG_DEBUG,"分配的cmh：%d",*cmh);
     return SUCCESS;
 }
 result cme_generate_keypair(struct sec_db* sdb,  cmh cmh,
@@ -365,10 +366,8 @@ static int is_certificate_revoked(struct sec_db *sdb,certificate* cert){
     if( certificate_2_certid10(cert,&certid)){
        return -1; 
     }
-    if(cert->unsigned_certificate.holder_type == ROOT_CA){
-        //这里应该怎么处理 是root_ca 我就相信嘛？？？我得找个标准的几个ca来存起来看把。我这里就先简单处理，我相信他
-        
-        wave_printf(MSG_WARNING,"这里该不该相信啊，，我觉得这里外部是可以欺骗我的 %s %d\n",__FILE__,__LINE__);
+    if(cert->unsigned_certificate.holder_type == ROOT_CA){ 
+        wave_printf(MSG_WARNING,"这里作为root_ca，我就无条件的相信的 %s %d\n",__FILE__,__LINE__);
         return false;
     }
     cdb = &sdb->cme_db;
@@ -525,6 +524,7 @@ static result cert_info_init(struct sec_db* sdb,struct cert_info* certinfo,struc
     cert_info_init_rb(certinfo);
     if(certificate_2_certid10(cert,&certinfo->certid10)){
         res = FAILURE;
+		DEBUG_MARK;
         goto end;
     }
     certinfo->revoked = is_certificate_revoked(sdb,cert);
@@ -539,7 +539,7 @@ static result cert_info_init(struct sec_db* sdb,struct cert_info* certinfo,struc
         goto end;
     }
     if(cert->unsigned_certificate.holder_type == ROOT_CA){
-        wave_printf(MSG_DEBUG,"这里无条件相信的ca 所以我把他作为了信任茅");
+        wave_printf(MSG_DEBUG,"这里无条件相信的ca 所以我把他作为了信任茅 %s %d",__FILE__,__LINE__);
         certinfo->trust_anchor = true;
     } 
     else
@@ -726,13 +726,11 @@ result cme_store_cert_key(struct sec_db* sdb, cmh cmh, certificate* cert,
     }
     INIT(*key_cert);
 
-    DEBUG_MARK;
     certificate_cpy(mcert,cert);
     if( cert_info_init(sdb,certinfo,mcert)){
         lock_unlock(&cdb->lock);
         goto fail;
     }
-    DEBUG_MARK;
     cdb->certs = cert_info_insert(cdb->certs,certinfo);
     certinfo->key_cert = key_cert;
 
@@ -852,6 +850,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
         ret = FAILURE;
         goto fail;
     }
+
     if(trust_anchor != NULL){
         *trust_anchor = cert_info->trust_anchor;
     }
@@ -1380,7 +1379,7 @@ result cme_reply_detection(struct sec_db* sdb,cme_lsis lsis,string* data){
    head = &cdb->lsises.alloced_lsis.list;
    list_for_each_entry(ptr,head,list){
         if(ptr->lsis == lsis){
-            if( string_cmp(&ptr->data,data) == 0){
+            if( ptr->data.buf != NULL && string_cmp(&ptr->data,data) == 0){
                 res = REPLAY;
                 lock_unlock(&cdb->lock);
                 goto end;
@@ -1401,7 +1400,7 @@ result cme_reply_detection(struct sec_db* sdb,cme_lsis lsis,string* data){
         }
    }
    if(&ptr->list == head){
-        wave_error_printf("这里尽然没有这个lsis %s %d",__FILE__,__LINE__);
+        wave_error_printf("这里尽然没有这个lsis %d  %s %d",lsis,__FILE__,__LINE__);
         res = FAILURE;
         lock_unlock(&cdb->lock);
         goto end;

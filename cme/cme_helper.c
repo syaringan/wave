@@ -90,6 +90,7 @@ int find_cert_by_cmh(struct sec_db *sdb, cmh cmh, struct certificate *cert){
         lock_rdlock(&sdb->cme_db.lock);
         p = ckc_find(sdb->cme_db.cmhs.alloc_cmhs.cmh_key_cert ,&cmh);
         if(!p){
+			DEBUG_MARK;
             lock_unlock(&sdb->cme_db.lock);
             return -1;
         }
@@ -165,6 +166,7 @@ static void fix_elliptic_curve_point_2_compressed(elliptic_curve_point* point,pk
     string compress;
     
     INIT(compress);
+	int i;
     if(elliptic_curve_point_2_compressed(algorithm,point,&compress,&point->type)){
         wave_error_printf("压缩点失败  %s %d",__FILE__,__LINE__);
         goto end;
@@ -187,9 +189,11 @@ end:
 static void fix_certificate_2_compressed(certificate* cert){
     if(cert->version_and_type == 2){
         if(cert->unsigned_certificate.version_and_type.verification_key.algorithm == ECDSA_NISTP224_WITH_SHA224 ||
-                cert->unsigned_certificate.version_and_type.verification_key.algorithm == ECDSA_NISTP256_WITH_SHA256)
+                cert->unsigned_certificate.version_and_type.verification_key.algorithm == ECDSA_NISTP256_WITH_SHA256){
+
             fix_elliptic_curve_point_2_compressed(&cert->unsigned_certificate.version_and_type.verification_key.u.public_key,
                     cert->unsigned_certificate.version_and_type.verification_key.algorithm);
+		}
         else if(cert->unsigned_certificate.version_and_type.verification_key.algorithm == ECIES_NISTP256){
             fix_elliptic_curve_point_2_compressed(&cert->unsigned_certificate.version_and_type.verification_key
                         .u.ecies_nistp256.public_key,ECIES_NISTP256);
@@ -198,7 +202,7 @@ static void fix_certificate_2_compressed(certificate* cert){
     else if(cert->version_and_type == 3){
         fix_elliptic_curve_point_2_compressed(&cert->u.reconstruction_value,cert->unsigned_certificate.u.no_root_ca.signature_alg);    
     }
-    if(cert->unsigned_certificate.cf & ENCRYPTION_KEY != 0){
+    if( (cert->unsigned_certificate.cf & ENCRYPTION_KEY)  != 0){
         if(cert->unsigned_certificate.flags_content.encryption_key.algorithm == ECDSA_NISTP224_WITH_SHA224 ||
                 cert->unsigned_certificate.flags_content.encryption_key.algorithm == ECDSA_NISTP256_WITH_SHA256){
            fix_elliptic_curve_point_2_compressed(&cert->unsigned_certificate.flags_content.encryption_key.u.public_key,
@@ -586,8 +590,9 @@ int get_permission_from_certificate(certificate *cert,
                         permission->u.psid_priority_ssp_array.buf[i].max_priority = 
                             cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].max_priority;
                     
-                        permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len = 
-                            cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.len;
+                        permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len = cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.len;
+						DEBUG_MARK;
+						printf("cert ssp len:%d\n", cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.len);
 
                         permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.buf = 
                             malloc(sizeof(u8)*permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len);

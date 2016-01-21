@@ -25,11 +25,13 @@
 #define TYPE_UNSECURED 0
 #define TYPE_SIGNED_WSA 11
 enum serv_type{
+	DOT2_WSA = 12,
     DOT2_PID = 14,
 };
 
 enum serv_operation{
     SET_MIB = 1,
+	GET_ATTR = 2,
 };
 
 typedef enum{
@@ -68,19 +70,6 @@ struct confirm_content{
 	result_code result;
 };
 
-struct wme_dot2_pid_request{
-    enum serv_type type;
-    enum serv_operation operat;
-
-    u32 pid;
-};
-
-struct wme_generic_service_request{
-    enum serv_type type;
-    enum serv_operation operat;
-
-    char pad[1020];
-};
 
 /*
  * Used to get wsa message version and type from 
@@ -216,6 +205,32 @@ struct unsecured_wsa {
 	u32 wsa_len;
 }__attribute__((packed));
 
+struct wme_dot2_pid_request{
+    enum serv_type type;
+    enum serv_operation operat;
+
+    u32 pid;
+};
+
+struct wme_signed_wsa_request{
+	enum serv_type type;
+	enum serv_operation operat;
+
+	struct dot3_signed_wsa swsa;
+};
+
+struct wme_verified_wsa_request{
+	enum serv_type type;
+	enum serv_operation operat;
+
+	struct verified_wsa rwsa;
+};
+struct wme_generic_service_request{
+    enum serv_type type;
+    enum serv_operation operat;
+
+    char pad[1020];
+};
 
 int dot2_init_netlink(struct nlmsghdr *nlh, struct msghdr *msg);
 int create_netlink(struct msghdr *msg, struct nlmsghdr *nlh);

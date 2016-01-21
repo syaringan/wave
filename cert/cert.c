@@ -187,13 +187,14 @@ static void fill_psid_priority_array(psid_priority_array* ppa){
     ppa->u.permissions_list.buf[1].max_priority = 0x1f;
 }
 static void fill_ssp(u8** buf,int len){
-    *buf = (u8*)malloc(3);
+    *buf = (u8*)malloc(4);
     if(*buf == NULL){
         error();
     }
     (*buf)[0] = 'l';
     (*buf)[1] = 'j';
     (*buf)[2] = 'h';
+	(*buf)[3] = '\0';
 }
 static void fill_psid_ssp_array(psid_ssp_array* psa){
     psa->type = ARRAY_TYPE_SPECIFIED;
@@ -205,12 +206,12 @@ static void fill_psid_ssp_array(psid_ssp_array* psa){
         return;
     }
     psa->u.permissions_list.buf[0].psid = 0x20;
-    psa->u.permissions_list.buf[0].service_specific_permissions.len = 3;
-    fill_ssp(&psa->u.permissions_list.buf[0].service_specific_permissions.buf,3);
+    psa->u.permissions_list.buf[0].service_specific_permissions.len = 4;
+    fill_ssp(&psa->u.permissions_list.buf[0].service_specific_permissions.buf,4);
 
     psa->u.permissions_list.buf[1].psid = 0x23;
-    psa->u.permissions_list.buf[1].service_specific_permissions.len= 3;
-    fill_ssp(&psa->u.permissions_list.buf[1].service_specific_permissions.buf,3);
+    psa->u.permissions_list.buf[1].service_specific_permissions.len= 4;
+    fill_ssp(&psa->u.permissions_list.buf[1].service_specific_permissions.buf,4);
 }
 static void fill_psid_priority_ssp_array(psid_priority_ssp_array* ppsa){
     ppsa->type = ARRAY_TYPE_SPECIFIED;
@@ -222,13 +223,13 @@ static void fill_psid_priority_ssp_array(psid_priority_ssp_array* ppsa){
     }
     ppsa->u.permissions_list.buf[0].psid = 0x20;
     ppsa->u.permissions_list.buf[0].max_priority = 0x1f;
-    ppsa->u.permissions_list.buf[0].service_specific_permissions.len = 3;
-    fill_ssp(&ppsa->u.permissions_list.buf[0].service_specific_permissions.buf,3);
+    ppsa->u.permissions_list.buf[0].service_specific_permissions.len = 4;
+    fill_ssp(&ppsa->u.permissions_list.buf[0].service_specific_permissions.buf,4);
 
     ppsa->u.permissions_list.buf[1].psid = 0x23;
     ppsa->u.permissions_list.buf[1].max_priority = 0x1f;
-    ppsa->u.permissions_list.buf[1].service_specific_permissions.len = 3;
-    fill_ssp(&ppsa->u.permissions_list.buf[1].service_specific_permissions.buf,3);
+    ppsa->u.permissions_list.buf[1].service_specific_permissions.len = 4;
+    fill_ssp(&ppsa->u.permissions_list.buf[1].service_specific_permissions.buf,4);
 }
 static void fill_root_ca(certificate* cert){
     root_ca_scope* scope;

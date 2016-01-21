@@ -57,10 +57,11 @@ static int verification_signed_data(cme_lsis mlsis,string* rec_data,int type,psi
             validity_distance,generation_latitude,generation_longtitude,elevation,overdue_crl_tolerance,NULL,NULL,NULL,NULL,
             cert.buf,&cert.len);
     if(res){
-        printf("verification fail %s %d\n",__FILE__,__LINE__);
+        printf("verification fail res :%d %s %d\n",res,__FILE__,__LINE__);
         return -1;
     }
     printf("verification success %s %d\n",__FILE__,__LINE__);
+    string_printf("signed cert:",&cert);
     return 0;
 }
 static void sec_data_parse(string *rec_data){

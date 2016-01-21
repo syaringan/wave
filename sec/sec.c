@@ -1471,13 +1471,43 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
             s_data = &sdata.u.signed_data;
             switch(type){
                 case SIGNED:
-                    m_psid = s_data->unsigned_data.u.type_signed.psid; 
+                    m_psid = s_data->unsigned_data.u.type_signed.psid;
+                    if(data != NULL){
+                        data->len = s_data->unsigned_data.u.type_signed.data.len;
+                        data->buf = (u8*)malloc(data->len);
+                        if(data->buf == NULL){
+                            wave_malloc_error();
+                            res = FAILURE;
+                            goto end;
+                        }
+                        memcpy(data->buf,s_data->unsigned_data.u.type_signed.data.buf,data->len);
+                    }
                     break;
                 case SIGNED_PARTIAL_PAYLOAD:
                     m_psid = s_data->unsigned_data.u.type_signed_partical.psid;
+                    if(data != NULL){
+                        data->len = s_data->unsigned_data.u.type_signed_partical.data.len;
+                        data->buf = (u8*)malloc(data->len);
+                        if(data->buf == NULL){
+                            wave_malloc_error();
+                            res = FAILURE;
+                            goto end;
+                        }
+                        memcpy(data->buf,s_data->unsigned_data.u.type_signed_partical.data.buf,data->len);
+                    }
                     break;
                 case SIGNED_EXTERNAL_PAYLOAD:
                     m_psid = s_data->unsigned_data.u.type_signed_external.psid;
+                    if(data != NULL){
+                        data->len = s_data->unsigned_data.u.type_signed_external.ext_data.len;
+                        data->buf = (u8*)malloc(data->len);
+                        if(data->buf == NULL){
+                            wave_malloc_error();
+                            res = FAILURE;
+                            goto end;
+                        }
+                        memcpy(data->buf,s_data->unsigned_data.u.type_signed_external.ext_data.buf,data->len);
+                    }
                     break;
             }
             if(signed_data != NULL && signed_data->buf == NULL){
@@ -1526,7 +1556,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
                 if(set_generation_location != NULL)
                     *set_generation_location = false;
             }
-
+            
             signer = &s_data->signer;
             string_free(&temp);
             if(signer->type == CERTIFICATE || signer->type == CERTIFICATE_CHAIN ){
@@ -1538,7 +1568,6 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
                 }
                 res = cme_certificate_info_request(sdb,ID_CERTIFICATE,&temp,NULL,&permissions,NULL,NULL,
                             NULL,NULL,&verified);
-                printf("res :%d %s %d\n",res,__FILE__,__LINE__);
                 if(res == CERTIFICATE_NOT_FOUND){
                     if(signer->type == CERTIFICATE){
                         cme_add_certificate(sdb,&signer->u.certificate,false);
@@ -1657,7 +1686,7 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
     INIT(expiry_time);
     INIT(gen_time);
     INIT(string);
-    INIT(gen_loc);//这个初始化为0恰当不，，，，会有地理位之为0的点嘛？？？？
+    INIT(gen_loc);
     INIT(times);
     INIT(digest);
 
@@ -1668,7 +1697,6 @@ result sec_signed_data_verification(struct sec_db* sdb, cme_lsis lsis,psid* inpu
     }
 
 
-DEBUG_MARK;
     if( s_data.unsigned_data.tf & USE_GENERATION_TIME){
         gen_time.time = s_data.unsigned_data.flags_content.generation_time.time;
         gen_time.long_std_dev = s_data.unsigned_data.flags_content.generation_time.long_std_dev;
@@ -1676,22 +1704,21 @@ DEBUG_MARK;
             if(gen_time.time == generation_time->time){
                 res = SUCCESS;
                 //goto next;
-DEBUG_MARK;
             }
             else{
+                wave_printf(MSG_DEBUG,"generation_time 不相等  gen_time: %llu  generation_time:%llu",gen_time.time,generation_time->time);
                 res = INVALID_INPUT;
                 goto next;
             }
 
-DEBUG_MARK;
             if(gen_time.long_std_dev == generation_time->long_std_dev){
                 res = SUCCESS;
-                DEBUG_MARK;
                // goto next;
             }
             else{
-DEBUG_MARK;
                 res = INVALID_INPUT;
+                wave_printf(MSG_DEBUG,"generation_time long std dev 不相等 gen_time.long_std_dev:%02x  geneartion_time->long_std_dev:%02x",gen_time.long_std_dev,
+                        generation_time->long_std_dev);
                 goto next;
             }
         }
@@ -1699,22 +1726,18 @@ DEBUG_MARK;
     else if(generation_time != NULL){
         gen_time.time = generation_time->time;
         gen_time.long_std_dev = generation_time->long_std_dev;
-        DEBUG_MARK;
     }
 
-DEBUG_MARK;
     if(s_data.unsigned_data.tf & EXPIRES){
         expiry_time = s_data.unsigned_data.flags_content.exipir_time;
-        printf("expiry_time %llu exprity_time %llu\n",expiry_time,exprity_time);
         if(exprity_time != 0){
             if(expiry_time == exprity_time){
                 res = SUCCESS;
-DEBUG_MARK;
                 //goto next;
             }
             else{
+                wave_printf(MSG_DEBUG,"expiry time 不相等 %s %d",__FILE__,__LINE__);
                 res = INVALID_INPUT;
-DEBUG_MARK;
                 goto next;
             }
         }
@@ -1723,7 +1746,6 @@ DEBUG_MARK;
         expiry_time = exprity_time;
     }
 
-DEBUG_MARK;
     if(s_data.unsigned_data.tf & USE_LOCATION){
         gen_loc.latitude = s_data.unsigned_data.flags_content.generation_location.latitude;
         gen_loc.longitude = s_data.unsigned_data.flags_content.generation_location.longitude;
@@ -1734,6 +1756,7 @@ DEBUG_MARK;
                 //goto next;
             }
             else{
+                wave_printf(MSG_DEBUG,"location  不相等 %s %d",__FILE__,__LINE__);
                 res = INVALID_INPUT;
                 goto next;
             }
@@ -1752,23 +1775,21 @@ DEBUG_MARK;
         gen_loc.longitude = location->longitude;
         gen_loc.latitude = location->latitude;
     }
-DEBUG_MARK;
     if(init_gen_loc == false){
         res = INVALID_INPUT;
         goto next;
     }
-    if(gen_loc.latitude > 900000000 || gen_loc.latitude <-900000000 ||
-            gen_loc.longitude > 1800000000 || gen_loc.longitude < 1800000000){
+    if(gen_loc.latitude > 900000000 || gen_loc.latitude < -900000000 ||
+            gen_loc.longitude > 1800000000 || gen_loc.longitude < -1800000000){
         res = SENDER_LOCATION_UNAVAILABLE;
+        wave_printf(MSG_DEBUG,"location 超出范围 %s %d",__FILE__,__LINE__);
         goto next;
     }
 
-DEBUG_MARK;
 next:
     if(res != SUCCESS){
         goto end;
     }
-DEBUG_MARK;
     if(gen_time.time != 0 && expiry_time != 0){
         if(expiry_time < gen_time.time){
             res = EXPIRTY_TIME_BEFORE_GENERATION_TIME;
@@ -1776,7 +1797,6 @@ DEBUG_MARK;
         }
     }     
 
-DEBUG_MARK;
     switch(s_data.signer.type){
         case CERTIFICATE_DIGEST_WITH_ECDSAP224:
         case CERTIFICATE_DIGEST_WITH_ECDSAP256:
@@ -1804,7 +1824,32 @@ DEBUG_MARK;
                 wave_malloc_error();
                 goto end;
             }
+            memset(temp_certs_chain.certs,0,sizeof(struct certificate) * s_data.signer.u.certificates.len);
             temp_certs_chain.len = s_data.signer.u.certificates.len;
+            for(i=0;i<temp_certs_chain.len;i++){
+                if(certificate_cpy(temp_certs_chain.certs+i,s_data.signer.u.certificates.buf+i)){
+                    res = FAILURE;
+                    goto end;
+                }
+            }
+            if( res = cme_construct_certificate_chain(sdb,ID_CERTIFICATE,NULL,&temp_certs_chain,false,max_cert_chain_len,
+                        &certs_chain,&permissions,&geo_scopes,last_recieve_crl_times,next_expected_crl_times,&verifieds) ){
+                goto end;
+            }
+            break;
+        case CERTIFICATE:
+            temp_certs_chain.certs = (struct certificate*)malloc(sizeof(struct certificate));
+            if(temp_certs_chain.certs == NULL){
+                res = FAILURE;
+                wave_malloc_error();
+                goto end;
+            }
+            memset(temp_certs_chain.certs,0,sizeof(struct certificate));
+            if( certificate_cpy(temp_certs_chain.certs,&s_data.signer.u.certificate)){
+                res = FAILURE;
+                goto end;
+            }
+            temp_certs_chain.len = 1;
             if( res = cme_construct_certificate_chain(sdb,ID_CERTIFICATE,NULL,&temp_certs_chain,false,max_cert_chain_len,
                         &certs_chain,&permissions,&geo_scopes,last_recieve_crl_times,next_expected_crl_times,&verifieds) ){
                 goto end;
@@ -1832,6 +1877,7 @@ DEBUG_MARK;
     cert = certs_chain.certs;
     if( certificate_get_start_time(cert,&start_validity)){
             res = FAILURE;
+            wave_printf(MSG_DEBUG,"获取证书的开始有效时间错误  %s %d",__FILE__,__LINE__);
             goto end;
     }
     if(gen_time.time != 0){ 
@@ -1854,7 +1900,7 @@ DEBUG_MARK;
             goto end;
          }        
     }
-    if(gen_loc.latitude != 0 && gen_loc.longitude != 0 && geo_scopes.regions != NULL){
+    if(init_gen_loc == true && geo_scopes.regions != NULL){
         if(!two_d_location_in_region(&gen_loc,geo_scopes.regions)){
             res = SIGNATURE_GENERATED_OUTSIDE_CERTIFICATE_VALIDITY_REGION;
             goto end;
@@ -1901,7 +1947,7 @@ DEBUG_MARK;
             res = FAILURE;
             goto end;
     }
-    permission = permissions.cme_permissions; 
+    permission = permissions.cme_permissions;
     switch(permission->type){
         case PSID:
             for(i=0;i<permission->u.psid_array.len;i++){
@@ -1933,6 +1979,16 @@ DEBUG_MARK;
                 goto end;
             }
             break;
+        case PSID_SSP:
+            for(i=0;i<permission->u.psid_ssp_array.len;i++){
+                if(m_psid == (permission->u.psid_ssp_array.buf+i)->psid)
+                    break;
+            }
+            if(i == permission->u.psid_ssp_array.len){
+                res = UNAUTHORIZED_PSID;
+                goto end;
+            }
+            break;
         default:
             wave_error_printf("出现了不可能出现的直 %s %d ",__FILE__,__LINE__);
             res = FAILURE;
@@ -1955,6 +2011,7 @@ DEBUG_MARK;
             goto end;
         }
         //请核实哈我写对没有
+        time(&now);
         if( normal_distribution_calculate_probability((float)generation_time->time,(float)pow(LOG_STD_DEV_BASE,generation_time->long_std_dev),
                             (float)generation_time->time,(float)(now*US_TO_S) > generation_threshold) > generation_threshold){
             res = DATA_EXPIRED_BASE_ON_EXPIRY_TIME;
@@ -1974,20 +2031,25 @@ DEBUG_MARK;
             goto end;
         }
         //请核实哈我写对没有,我认为本地的时间的绝对误差为1ms（我乱写的，我都不知道该为多少）
+        time(&now);
         if( normal_distribution_calculate_probability( (float)(now*US_TO_S),(float)(1000),(float)exprity_time,(float)now) > exprity_threshold){
             res = DATA_EXPIRED_BASE_ON_EXPIRY_TIME;
             goto end;
         }
+        res = DATA_EXPIRED_BASE_ON_EXPIRY_TIME;
+        goto end;
     }
     string_free(&string);
     if( signed_data_2_string(&s_data,&string,type) ){
          res = FAILURE;
+         wave_printf(MSG_DEBUG,"signed_data_2_string 失败 %s %d",__FILE__,__LINE__);
          goto end;
     }
     if( detect_reply){
         res_temp = cme_reply_detection(sdb,lsis,&string);
         if(res_temp == FAILURE){
             res = FAILURE;
+            wave_printf(MSG_DEBUG,"cme_reply_detection 失败 %s %d",__FILE__,__LINE__);
             goto end;
         }
         if( REPLAY ==  res_temp ){
@@ -2008,35 +2070,27 @@ DEBUG_MARK;
     }
     res =  sec_verify_chain_signature(sdb,&certs_chain,&verifieds,&digest,&s_data.signature);
     if(res == SUCCESS){
+        /*因为上面一个sec_verify_chain_signature 自己会自动增加证书，所以我这里没有按照协议要求在增加
         for(i=0;i<certs_chain.len;i++){
             cert = certs_chain.certs+i;
             cme_add_certificate(sdb,cert,true);
         }
+        */
         //协议上没说，这个我想应该是这样
         if(send_cert != NULL){
-            certificate_cpy(send_cert,certs_chain.certs+certs_chain.len-1);
+            certificate_cpy(send_cert,certs_chain.certs);
         }
     }
-    
     goto end;
 end:
-DEBUG_MARK;
     certificate_chain_free(&certs_chain);
-DEBUG_MARK;
     certificate_chain_free(&temp_certs_chain);
-DEBUG_MARK;
     cme_permissions_array_free(&permissions);
-DEBUG_MARK;
     geographic_region_array_free(&geo_scopes);
-DEBUG_MARK;
     verified_array_free(&verifieds);
-DEBUG_MARK;
     signed_data_free(&s_data,type);
-DEBUG_MARK;
     string_free(&string);
-DEBUG_MARK;
     string_free(&digest);
-DEBUG_MARK;
     time32_array_free(&times);
     return res;
     
@@ -2801,6 +2855,7 @@ end:
 }
 //未测
 result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permissions,time32 life_time,string* signed_wsa){
+	DEBUG_MARK;
     if(!signed_wsa){
         wave_error_printf("返回指针为空，没有内容可以填充");
         return FAILURE;
@@ -2836,10 +2891,13 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         goto fail;
     }
 
+	DEBUG_MARK;
     ret = pssme_cryptomaterial_handle(sdb, permissions, &td_location, &permission_indices, &cmh, &chain);
+	DEBUG_MARK;
     if(ret != SUCCESS)
         goto fail;
 
+	DEBUG_MARK;
     //填充tobesigned_wsa中的permission_indices
     sec_data.u.signed_wsa.unsigned_wsa.permission_indices.len = permission_indices.len;
     sec_data.u.signed_wsa.unsigned_wsa.permission_indices.buf = malloc(sizeof(u8)*permission_indices.len);
@@ -2849,10 +2907,13 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         goto fail;
     }
     memcpy(sec_data.u.signed_wsa.unsigned_wsa.permission_indices.buf, permission_indices.buf, permission_indices.len*sizeof(u8));
+	DEBUG_MARK;
     
     //设置use_location和use_generation_time flag
+	DEBUG_MARK;
     sec_data.u.signed_wsa.unsigned_wsa.tf = sec_data.u.signed_wsa.unsigned_wsa.tf & USE_GENERATION_TIME & USE_LOCATION;
 
+	DEBUG_MARK;
     //填充data
     sec_data.u.signed_wsa.unsigned_wsa.data.len = data->len;
     sec_data.u.signed_wsa.unsigned_wsa.data.buf = malloc(sizeof(u8)*data->len);
@@ -2863,6 +2924,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
     }
     memcpy(sec_data.u.signed_wsa.unsigned_wsa.data.buf, data->buf, data->len*sizeof(u8));
 
+	DEBUG_MARK;
     sec_data.u.signed_wsa.unsigned_wsa.generation_time.time = time(NULL);
     sec_data.u.signed_wsa.unsigned_wsa.generation_time.long_std_dev = 0xff;
 
@@ -2874,6 +2936,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
     sec_data.u.signed_wsa.unsigned_wsa.expire_time = life_time;
     sec_data.u.signed_wsa.unsigned_wsa.tf = sec_data.u.signed_wsa.unsigned_wsa.tf & EXPIRES;
 
+	DEBUG_MARK;
 
     //填充signature
     if(tobesigned_wsa_2_string(&sec_data.u.signed_wsa.unsigned_wsa, &encoded_tbs)){
@@ -2886,6 +2949,8 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         goto fail;
     }
     
+	DEBUG_MARK;
+	printf("version_and_type:%d\n", cert.version_and_type);
     switch(cert.version_and_type){
         case 2:
             algorithm = cert.unsigned_certificate.version_and_type.verification_key.algorithm;
@@ -2898,7 +2963,8 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
             ret = FAILURE;
             goto fail;
     }
-    if(algorithm != ECDSA_NISTP224_WITH_SHA224 || algorithm != ECDSA_NISTP256_WITH_SHA256){
+	printf("algorithm:%d\n", algorithm);
+    if(algorithm != ECDSA_NISTP224_WITH_SHA224 && algorithm != ECDSA_NISTP256_WITH_SHA256){
         wave_error_printf("这里的协议类型都不等于我们要求的这里有问题,我们这里暂时不支持其他的加密算法");
         ret = -1;
         goto fail;
@@ -2907,6 +2973,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         ret = -1;
         goto fail;        
     }
+	DEBUG_MARK;
     //create and encode a signedwsa
     sec_data.u.signed_wsa.signer.type = CERTIFICATE_CHAIN;
     sec_data.u.signed_wsa.signer.u.certificates.len = chain.len;
@@ -2916,6 +2983,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         ret = FAILURE;
         goto fail;
     }
+	DEBUG_MARK;
     int i = 0;
     for(i = 0; i < chain.len; i++)
         certificate_cpy(&sec_data.u.signed_wsa.signer.u.certificates.buf[i], &chain.certs[i]);
@@ -2928,6 +2996,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         goto fail;
     }
     memcpy(sec_data.u.signed_wsa.signature.u.ecdsa_signature.s.buf, signed_tbs.buf, signed_tbs.len);
+	DEBUG_MARK;
 
     //填充1609dot2结构体
     sec_data.protocol_version = 2;                                  
@@ -2937,6 +3006,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         ret = FAILURE;                                  
         goto fail;                                  
     }                                  
+	DEBUG_MARK;
     ret = SUCCESS;
 fail:                                  
     certificate_chain_free(&chain);                                  
@@ -2946,6 +3016,7 @@ fail:
     string_free(&encoded_tbs);
     string_free(&hashed_tbs);
     string_free(&signed_tbs);
+	DEBUG_MARK;
     return ret;
 }
 
@@ -3398,7 +3469,7 @@ result sec_check_chain_geographic_consistency(struct sec_db* sdb,
     result ret = SUCCESS;
     int i = 0;
     for(i = 0; i < regions->len-1; i++){
-        if(geographic_region_in_geographic_region(regions->regions[i], regions->regions[i+1])){
+        if(geographic_region_in_geographic_region(regions->regions+i, regions->regions+i+1)){
             ret = INCONSISTENT_GEOGRAPHIC_SCOPE;
             return ret;
         }

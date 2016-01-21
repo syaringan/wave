@@ -1859,7 +1859,6 @@ static u32 buf_2_signer_identifier(u8* buf, u32 len,signer_identifier* signer_id
 
 		case CERTIFICATE:
 			certificate_length=buf_2_certificate(mbuf,size,&signer_identifier->u.certificate);
-            printf("start %02x %02x   end %02x %02x %d\n",mbuf[0],mbuf[1],mbuf[certificate_length],mbuf[certificate_length+1] ,certificate_length);
 			if(0>certificate_length)
 				return -1;
 			mbuf+=certificate_length;
@@ -2612,7 +2611,6 @@ static u32 buf_2_tobesigned_data(  u8* buf,   u32 len, tobesigned_data* tobesign
 	}
 
 	tobesigned_data->tf = get8(mbuf);
-    printf("%d %s %d\n",tobesigned_data->tf,__FILE__,__LINE__);
 	mbuf++;
 	size--;
   
@@ -2778,7 +2776,6 @@ static u32 buf_2_tobesigned_data(  u8* buf,   u32 len, tobesigned_data* tobesign
 	   tobesigned_data->flags_content.extensions.len = i;
 	   size -= data_length;
 	}
-    printf("tf : %02x\n",tobesigned_data->tf);
 	if((tobesigned_data->tf & 0xf0)!=0){
 		bitnum=head_bit_num(mbuf);
 		tobesigned_data->flags_content.other_data.len=variablelength_data_num(mbuf,bitnum);
