@@ -792,6 +792,7 @@ DEBUG_MARK;
     count = 0;  //实际数据长度
 
     *((int*)buf) = 0;
+    buf += 4;
     count += 4;
 
     buf += 4;

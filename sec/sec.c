@@ -1172,11 +1172,6 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     time32 next_crl_time;
     time_t now;
     
-    printf("content_type :%d\n",type);
-    printf("data->len:%d  data->buf:%s\n",data->len,data->buf);
-    printf("certs:len %d \n",certs->len);
-    certificate_printf(certs->certs);
-    printf("overdue_crl_tolerance:%llu\n",overdue_crl_tolerance);
     INIT(enc_certs);
     INIT(symm_key);
     INIT(cert_string);
@@ -1195,6 +1190,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     INIT(tbencrypted);
     
     sdata.type = ENCRYPTED;
+    sdata.protocol_version = CURRETN_VERSION;
     failed_certs->len = 0;
     for(i=0;i<certs->len;i++){
         string_free(&cert_string);
@@ -1213,10 +1209,8 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
             }
         }
         else{
-            DEBUG_MARK;
             time(&now);
             if(next_crl_time < now - overdue_crl_tolerance/US_TO_S){
-            DEBUG_MARK;
                 wave_printf(MSG_WARNING,"crl没有获得，crl_next_time:%d  now:%d  over:%lld\n",
                         next_crl_time,now,overdue_crl_tolerance/US_TO_S);
                 res = FAIL_ON_SOME_CERTIFICATES;
@@ -1226,9 +1220,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
                 }
             }
             else{
-            DEBUG_MARK;
                 if((temp_cert->unsigned_certificate.cf & ENCRYPTION_KEY) == 0){
-            DEBUG_MARK;
                     res = FAIL_ON_SOME_CERTIFICATES;
                     if(certificate_chain_add_cert(failed_certs,temp_cert)){
                         res = -1;
@@ -1238,7 +1230,6 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
                 else{
                     current_symm_alg = temp_cert->unsigned_certificate.flags_content.encryption_key.u.ecies_nistp256.supported_symm_alg;
                     if(current_symm_alg != AES_128_CCM){
-            DEBUG_MARK;
                         wave_error_printf("我们目前支持的加密算法只有AES_128_CCM %s %d",__FILE__,__LINE__);
                         res = FAIL_ON_SOME_CERTIFICATES;
                         if(certificate_chain_add_cert(failed_certs,temp_cert)){
@@ -1247,7 +1238,6 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
                         }
                     }
                     else{
-            DEBUG_MARK;
                         //这个地方我不知道我理解对没有，，请后来的人在核实一下，我是按照我的逻辑和想法猜测的
                         if( symm_alg != SYMM_ALGORITHM_NOT_SET && symm_alg != current_symm_alg){
                             res = FAIL_ON_SOME_CERTIFICATES;
@@ -1257,10 +1247,8 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
                             }
                         }
                         else{
-            DEBUG_MARK;
                             symm_alg = current_symm_alg;
                             if(certificate_chain_add_cert(&enc_certs,temp_cert)){
-            DEBUG_MARK;
                                 res = -1;
                                 goto end;
                             }
@@ -1270,22 +1258,18 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
             }
         }
     }
-            DEBUG_MARK;
     if(enc_certs.len == 0){
         res = FAIL_ON_ALL_CERTIFICATES;
         goto end;
     }
-            DEBUG_MARK;
     sdata.u.encrypted_data.recipients.buf = (recipient_info*)malloc(sizeof(recipient_info) * enc_certs.len);
     if(sdata.u.encrypted_data.recipients.buf == NULL){
         wave_malloc_error();
         res = -1;
         goto end;
     }
-            DEBUG_MARK;
     sdata.u.encrypted_data.recipients.len = enc_certs.len;
 
-            DEBUG_MARK;
     if(crypto_AES_128_CCM_Get_Key_and_Nonce(&ok,&nonce)){
         res = -1;
         goto end;
@@ -1423,14 +1407,12 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
             wave_error_printf("sec_data 编码失败了  %s %d",__FILE__,__LINE__);
             res = -1;
             goto end;
-        }  
+        }
+       
     }
     res = SUCCESS;
-            DEBUG_MARK;
-    printf("res :%d\n",res);
     goto end;
 end:
-            DEBUG_MARK;
     string_free(&symm_key);
     certificate_chain_free(&enc_certs);
     string_free(&cert_string);
@@ -1447,7 +1429,6 @@ end:
     string_free(&plaintext);
     string_free(&ciphertext);
     tobe_encrypted_free(&tbencrypted);
-            DEBUG_MARK;
     return res;
 }
 
@@ -1477,6 +1458,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
     INIT(temp);
     INIT(permissions);
 
+    
     if(  string_2_sec_data(recieve_data,&sdata) <= 0){
         wave_error_printf("不能将受到的数据变为sdata %s %d",__FILE__,__LINE__);
         res = INVALID_INPUT;

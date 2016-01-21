@@ -29,7 +29,7 @@ void wave_error_printf(const char*fmt,...);
 #define wave_malloc_error() printf("内存分配失败  %s %d\n",__FILE__,__LINE__)
 void point_save(void **p);
 void point_show();
-#define DEBUG_MARK printf("%s %d\n",__FILE__,__LINE__);
+#define DEBUG_MARK printf("%s %d\n",__FILE__,__LINE__)
 #else
 #define wave_printf(args...) do{}while(0)
 #define wave_error_printf(args...) do{}while(0)

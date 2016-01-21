@@ -8,6 +8,7 @@
 #define BUF_LEN 1024
 #define error() printf("error %s %d\n",__FILE__,__LINE__);
 #define INIT(n) memset(&n,0,sizeof(n))
+int fd;
 typedef struct string{
     unsigned char* buf;
     int len;
@@ -151,11 +152,16 @@ static void encrypted_data(string* cert){
     }
     else
          printf("sec_encrypted_data success\n");
+    int len = msendto(fd,encrypted_data.buf,encrypted_data.len,OPP_PORT);
+    if(len != encrypted_data.len){
+        error();
+        return;
+    }
+
 }
 int main(){
     cmh mcmh;
     cme_lsis mlsis;
-    int fd;
     fd = getsocket(MY_PORT);
     if(fd <0 ){
         error();

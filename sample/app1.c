@@ -121,6 +121,69 @@ static int generated_signed_data(cmh cmh,struct string* sdata){
     }
     return 0;
 }
+static void string_malloc(struct string* data){
+    data->len = 1024;
+    data->buf = (char*)malloc(data->len);
+    if(data->buf == NULL){
+        printf("wave malloc fail %s %d\n",__FILE__,__LINE__);
+        return;
+    }
+}
+static void sec_data_parse(struct string *rec_data,cmh mcmh){
+    int type,inner_type,res;
+    struct string data,signed_data,ssp,send_cert;
+    psid psid;
+    int set_generation_time,set_expiry_time,set_generation_location;
+    time64 generation_time,expiry_time;
+    unsigned char generation_long_std_dev;
+    int latitude,longtitude;
+    unsigned char elevation[2];
+
+
+
+    string_malloc(&data);
+    string_malloc(&signed_data);
+    string_malloc(&ssp);
+    string_malloc(&send_cert);
+    
+    res = sec_secure_data_content_extration(rec_data->buf,rec_data->len,mcmh,
+                    &type,&inner_type,data.buf,&data.len,signed_data.buf,&signed_data.len,
+                    &psid,ssp.buf,&ssp.len,&set_generation_time,&generation_time,
+                    &generation_long_std_dev,&set_expiry_time,&expiry_time,&set_generation_location,
+                    &latitude,&longtitude,elevation,send_cert.buf,&send_cert.len);
+    if(res){
+        printf("sec_secure_data_content_extration 失败\n");
+        return;
+    }
+    int i;
+    printf("type:%d  inner type : %d (0=UNSECURE,1=SIGNED,2=ENCRYPTED,9,10 = SIGNED_...)\n",type,inner_type);
+    string_printf("data",&data);
+   // string_printf("signed_data",&signed_data);
+   printf("signed data len :%d\n",signed_data.len);
+    printf("psid:%d\n",psid);
+    string_printf("spp",&ssp);
+    if(set_generation_time == 1){
+        printf("generation time:%lluus\n",generation_time);
+    }
+    else
+        printf("set_generation_time:%d\n",set_generation_time);
+
+    printf("generation_long_std_dev:%d\n",generation_long_std_dev);
+     if(set_expiry_time == 1){
+        printf("expiry time:%lluus\n",expiry_time);
+    }
+    else
+        printf("expiry_time:%d\n",set_expiry_time);
+     if(set_generation_location == 1){
+        printf("latitude:%d longtitude %d\n",latitude,longtitude);
+    }
+    else
+        printf("set_generation_location:%d\n",set_generation_location);
+
+    printf("elevation %u %u\n",elevation[0],elevation[1]);
+    string_printf("send_cert",&send_cert);
+
+}
 int main(){
     cmh mcmh;
     struct string mcert,mpri;
@@ -151,5 +214,18 @@ int main(){
     send_to(mcert.buf,mcert.len);
     printf("send data\n");
     send_to(signed_data.buf,signed_data.len);
+    
+    struct string encrypteddata;
+    encrypteddata.len = 0;
+    encrypteddata.buf = 0;
+    encrypteddata.len = 1024;
+    encrypteddata.buf = (char*)malloc(encrypteddata.len);
+    if(encrypteddata.buf == NULL){
+        error();
+        return;
+    }
+    encrypteddata.len = mrecvfrom(fd,encrypteddata.buf,encrypteddata.len,OPP_PORT);
+    string_printf("encryptd data",&encrypteddata);
+    sec_data_parse(&encrypteddata,mcmh);    
 
 }
