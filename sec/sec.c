@@ -1122,13 +1122,26 @@ end:
     return res;
 }
 static inline int certificate_chain_add_cert(struct certificate_chain* certs,certificate* cert){
-    certs->certs = (certificate*)realloc(certs->certs, sizeof(certificate)*certs->len+1);
-    if(certs->certs == NULL){
-        wave_malloc_error();
-        return -1;
+            DEBUG_MARK;
+    printf("certs->len %d certs->certs:%p %s %d\n",certs->len,certs->certs,__FILE__,__LINE__);
+    if(certs->len == 0){
+        certs->certs = (struct certificate*)malloc(sizeof(struct certificate));
+        if(certs->certs == NULL){
+            wave_malloc_error();
+            return -1;
+        }
+    }
+    else{
+        certs->certs = (struct certificate*)realloc(certs->certs, sizeof(struct certificate)*certs->len+1);
+        if(certs->certs == NULL){
+            wave_malloc_error();
+            return -1;
+        }
     }
     certs->len++;
+            DEBUG_MARK;
     certificate_cpy(certs->certs+certs->len-1,cert);
+            DEBUG_MARK;
     return 0;
 }
 
@@ -1158,7 +1171,12 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     elliptic_curve_point *point;
     time32 next_crl_time;
     time_t now;
-
+    
+    printf("content_type :%d\n",type);
+    printf("data->len:%d  data->buf:%s\n",data->len,data->buf);
+    printf("certs:len %d \n",certs->len);
+    certificate_printf(certs->certs);
+    printf("overdue_crl_tolerance:%llu\n",overdue_crl_tolerance);
     INIT(enc_certs);
     INIT(symm_key);
     INIT(cert_string);
@@ -1176,6 +1194,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
     INIT(ciphertext);
     INIT(tbencrypted);
     
+    sdata.type = ENCRYPTED;
     failed_certs->len = 0;
     for(i=0;i<certs->len;i++){
         string_free(&cert_string);
@@ -1194,10 +1213,12 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
             }
         }
         else{
+            DEBUG_MARK;
             time(&now);
-            if(next_crl_time < now - overdue_crl_tolerance){
+            if(next_crl_time < now - overdue_crl_tolerance/US_TO_S){
+            DEBUG_MARK;
                 wave_printf(MSG_WARNING,"crl没有获得，crl_next_time:%d  now:%d  over:%lld\n",
-                        next_crl_time,now,overdue_crl_tolerance);
+                        next_crl_time,now,overdue_crl_tolerance/US_TO_S);
                 res = FAIL_ON_SOME_CERTIFICATES;
                 if(certificate_chain_add_cert(failed_certs,temp_cert)){
                     res = -1;
@@ -1205,7 +1226,9 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
                 }
             }
             else{
-                if(temp_cert->unsigned_certificate.cf & ENCRYPTION_KEY == 0){
+            DEBUG_MARK;
+                if((temp_cert->unsigned_certificate.cf & ENCRYPTION_KEY) == 0){
+            DEBUG_MARK;
                     res = FAIL_ON_SOME_CERTIFICATES;
                     if(certificate_chain_add_cert(failed_certs,temp_cert)){
                         res = -1;
@@ -1215,6 +1238,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
                 else{
                     current_symm_alg = temp_cert->unsigned_certificate.flags_content.encryption_key.u.ecies_nistp256.supported_symm_alg;
                     if(current_symm_alg != AES_128_CCM){
+            DEBUG_MARK;
                         wave_error_printf("我们目前支持的加密算法只有AES_128_CCM %s %d",__FILE__,__LINE__);
                         res = FAIL_ON_SOME_CERTIFICATES;
                         if(certificate_chain_add_cert(failed_certs,temp_cert)){
@@ -1223,6 +1247,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
                         }
                     }
                     else{
+            DEBUG_MARK;
                         //这个地方我不知道我理解对没有，，请后来的人在核实一下，我是按照我的逻辑和想法猜测的
                         if( symm_alg != SYMM_ALGORITHM_NOT_SET && symm_alg != current_symm_alg){
                             res = FAIL_ON_SOME_CERTIFICATES;
@@ -1232,8 +1257,10 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
                             }
                         }
                         else{
+            DEBUG_MARK;
                             symm_alg = current_symm_alg;
                             if(certificate_chain_add_cert(&enc_certs,temp_cert)){
+            DEBUG_MARK;
                                 res = -1;
                                 goto end;
                             }
@@ -1243,43 +1270,53 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
             }
         }
     }
+            DEBUG_MARK;
     if(enc_certs.len == 0){
         res = FAIL_ON_ALL_CERTIFICATES;
         goto end;
     }
+            DEBUG_MARK;
     sdata.u.encrypted_data.recipients.buf = (recipient_info*)malloc(sizeof(recipient_info) * enc_certs.len);
     if(sdata.u.encrypted_data.recipients.buf == NULL){
         wave_malloc_error();
         res = -1;
         goto end;
     }
+            DEBUG_MARK;
     sdata.u.encrypted_data.recipients.len = enc_certs.len;
 
+            DEBUG_MARK;
     if(crypto_AES_128_CCM_Get_Key_and_Nonce(&ok,&nonce)){
         res = -1;
         goto end;
     }
 
+            DEBUG_MARK;
     for(i=0;i<enc_certs.len;i++){
         rec_info = sdata.u.encrypted_data.recipients.buf+i;
 
+            DEBUG_MARK;
         if(certificate_2_hashedid8(enc_certs.certs+i,&rec_info->cert_id)){
             res = -1;
             goto end;
         }
 
+            DEBUG_MARK;
         point = &( (enc_certs.certs+i)->unsigned_certificate.flags_content.encryption_key.u.ecies_nistp256.public_key);
         if( elliptic_curve_point_2_uncompressed(ECIES_NISTP256,point,&x,&y)){
                 res = -1;
                 goto end;
         }
 
+            DEBUG_MARK;
         if(crypto_ECIES_encrypto_message(&ok,&x,&y, &ephe_x,&ephe_y, &encrypted_mess,&tag)){
             res = -1;
             goto end;
         }
         
+            DEBUG_MARK;
         if(compressed == true){
+            DEBUG_MARK;
             if(crypto_ECIES_uncompress_key_2_compress_key(&ephe_x,&ephe_y,&compress_point,&rec_info->u.enc_key.v.type)){
                 res = -1;
                 goto end;
@@ -1293,6 +1330,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
             memcpy(rec_info->u.enc_key.v.x.buf,compress_point.buf,compress_point.len);
         }
         else{
+            DEBUG_MARK;
             rec_info->u.enc_key.v.x.len = ephe_x.len;
             rec_info->u.enc_key.v.u.y.len = ephe_y.len;
 
@@ -1308,6 +1346,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
             memcpy(rec_info->u.enc_key.v.x.buf,ephe_x.buf,ephe_x.len);
             memcpy(rec_info->u.enc_key.v.u.y.buf,ephe_y.buf,ephe_y.len);
         }
+            DEBUG_MARK;
         rec_info->u.enc_key.c.len = encrypted_mess.len;
         rec_info->u.enc_key.c.buf = (u8*)malloc(rec_info->u.enc_key.c.len);
         if(rec_info->u.enc_key.c.buf == NULL){
@@ -1315,6 +1354,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
             wave_malloc_error();
             goto end;
         }
+            DEBUG_MARK;
         memcpy(rec_info->u.enc_key.c.buf,encrypted_mess.buf,encrypted_mess.len);
         memcpy(rec_info->u.enc_key.t,tag.buf,tag.len);
         
@@ -1334,6 +1374,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
             res = -1;
             goto end;
         }
+            DEBUG_MARK;
         memcpy(tbencrypted.u.plain_text.buf,data->buf,data->len);
     }
     else if(type == SIGNED || type == SIGNED_PARTIAL_PAYLOAD || type == SIGNED_EXTERNAL_PAYLOAD){
@@ -1355,21 +1396,28 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
         res = -1;
         goto end;
     }
+            DEBUG_MARK;
     if(crypto_AES_128_CCM_encrypto_message(&plaintext,&ok,&nonce,&ciphertext)){
         res = -1;
         wave_error_printf("对成加密失败  %s %d",__FILE__,__LINE__);
         goto end;
     }
+            DEBUG_MARK;
     memcpy(sdata.u.encrypted_data.u.ciphertext.nonce,nonce.buf,nonce.len);
+            DEBUG_MARK;
     sdata.u.encrypted_data.u.ciphertext.ccm_ciphertext.len = ciphertext.len;
+            DEBUG_MARK;
     sdata.u.encrypted_data.u.ciphertext.ccm_ciphertext.buf = (u8*)malloc(ciphertext.len);
+            DEBUG_MARK;
     if(sdata.u.encrypted_data.u.ciphertext.ccm_ciphertext.buf == NULL){
         wave_malloc_error();
         res = -1;
         goto end;
     }
+            DEBUG_MARK;
     memcpy(sdata.u.encrypted_data.u.ciphertext.ccm_ciphertext.buf,ciphertext.buf,ciphertext.len);
 
+            DEBUG_MARK;
     if(encrypted_data != NULL){
         if(sec_data_2_string(&sdata,encrypted_data)){
             wave_error_printf("sec_data 编码失败了  %s %d",__FILE__,__LINE__);
@@ -1377,8 +1425,12 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
             goto end;
         }  
     }
+    res = SUCCESS;
+            DEBUG_MARK;
+    printf("res :%d\n",res);
     goto end;
 end:
+            DEBUG_MARK;
     string_free(&symm_key);
     certificate_chain_free(&enc_certs);
     string_free(&cert_string);
@@ -1395,6 +1447,7 @@ end:
     string_free(&plaintext);
     string_free(&ciphertext);
     tobe_encrypted_free(&tbencrypted);
+            DEBUG_MARK;
     return res;
 }
 

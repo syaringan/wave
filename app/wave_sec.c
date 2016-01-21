@@ -781,6 +781,8 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 
 /**
  * @compressed:这能为0或者1
+ * certs_len:代表有几个证书，
+ * certs_data_len:代表这个几个证书的总得长度，注意证书之间不要有空隙,
  */
 int sec_encrypted_data(int type,char* data,int data_len,char* certs,int certs_len,int certs_data_len,int compressed,time64 time,
 		        
@@ -793,7 +795,7 @@ int sec_encrypted_data(int type,char* data,int data_len,char* certs,int certs_le
 		ERROR_PRINTF("参数错误");
         return -1;
 	}
-
+    printf("certs_len %d,certs_data_len :%d\n",certs_len,certs_data_len);
 	int len = 4 + sizeof(app_tag) + sizeof(int)*5 + sizeof(time64) + data_len + certs_data_len;
     app_tag tag = SEC_ENCRYPTED_DATA;
 	char* buf = (char*)malloc(len);
@@ -903,6 +905,7 @@ int sec_encrypted_data(int type,char* data,int data_len,char* certs,int certs_le
 
 	slen = *((int*)buf);
 	if(encrypted_len != NULL){
+        printf("slen:%d %s %d\n",slen,__FILE__,__LINE__);
 		if(*encrypted_len < slen){
 			ERROR_PRINTF("分配空间不足");
 			free(buf_beg);

@@ -120,7 +120,38 @@ static void sec_data_parse(string *rec_data){
 
     verification_signed_data(1,&signed_data,type,psid,generation_time,generation_long_std_dev,expiry_time,latitude,longtitude,elevation);
 }
+static void encrypted_data(string* cert){
+    string data;
+    data.len = 4;
+    data.buf = (char*)malloc(data.len);
+    if(data.buf == NULL){
+        error();
+        return;
+    }
+    data.buf[0] = 'l';
+    data.buf[1] = 'j';
+    data.buf[2] = 'h';
+    data.buf[3] = '\0';
+    int type = UNSECURED;
+    int compressed = 0;
+    time64 overdue_crl_tolerance =(time64)3600*1000000;
 
+    string encrypted_data;
+    encrypted_data.len = 2048;
+    encrypted_data.buf = (char*)malloc(encrypted_data.len);
+    if(encrypted_data.buf == NULL){
+        error();
+        return;
+    }
+    int res = sec_encrypted_data(type,data.buf,data.len,cert->buf,1,cert->len,compressed,overdue_crl_tolerance,
+            
+            encrypted_data.buf,&encrypted_data.len,NULL,NULL,NULL);
+    if(res != 0){
+        printf("sec_encrypted_data fail: res:%d\n",res);
+    }
+    else
+         printf("sec_encrypted_data success\n");
+}
 int main(){
     cmh mcmh;
     cme_lsis mlsis;
@@ -147,8 +178,9 @@ int main(){
     ocert.len = mrecvfrom(fd,ocert.buf,ocert.len,OPP_PORT);
     data.len = mrecvfrom(fd,data.buf,data.len,OPP_PORT);
     sec_data_parse(&data);
+    string_printf("ocert",&ocert);
+    encrypted_data(&ocert);
     //verification_signed_data(mlsis,&data);
-//    string_printf("ocert",&ocert);
 
   //  string_printf("recieve data",&data);
 }

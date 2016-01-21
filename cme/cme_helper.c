@@ -247,7 +247,9 @@ int certificate_2_hashedid8(struct certificate *cert,hashedid8* hash8){
     INIT(mcert);
 
 
+            DEBUG_MARK;
     if(certificate_cpy(&mcert,cert)){
+            DEBUG_MARK;
         goto fail;
     }
     fix_certificate_2_compressed(&mcert);

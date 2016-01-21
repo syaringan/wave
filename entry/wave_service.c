@@ -676,6 +676,7 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
     slen = 0;
     buf += 4;
 
+DEBUG_MARK;
     while(slen != len){
         len_r = read(fd,buf+slen,len-slen);
         if(len_r <= 0){
@@ -689,6 +690,7 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
     content_type type = *((int*)buf);
     buf += 4;
 
+DEBUG_MARK;
     string data;
     INIT(data);
     data.len = *((int*)buf);
@@ -706,15 +708,36 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
     INIT(certs);
     certs.len = *((int*)buf);
     buf += 4;
-
+    
+    certs.certs = (certificate*)malloc(sizeof(struct certificate) * certs.len);
+    if(certs.certs == NULL){
+        wave_malloc_error();
+        string_free(&data);
+        free(buf_beg);
+        return -1;
+    }
+    memset(certs.certs,0,sizeof(struct certificate)*certs.len);   
+DEBUG_MARK;
     int certs_data_len = *((int*)buf);
     buf += 4;
 
     int i,j;
     int cert_len;
     int count = 0;
+DEBUG_MARK;
     for(i=0;i<certs.len;i++){
+DEBUG_MARK;
+        printf("len : %d\n",certs_data_len-count);
+        int j;
+        for(j=0;j<certs_data_len;j++){
+            printf("%02x ",*(unsigned char*)(buf+j));
+            if((j+1)%10==0)
+               printf("\n"); 
+        }
+        printf("\n");
         cert_len = buf_2_certificate(buf,certs_data_len-count,certs.certs+i);
+       // certificate_printf(certs.certs+i);
+        printf("cert_len :%d %s %d\n",cert_len,__FILE__,__LINE__);
         if(cert_len < 0){
             ERROR_PRINTF("buf_2_certificate失败");
             certs.len = i + 1;          //实际已填充的证书个数
@@ -727,20 +750,24 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
         count += cert_len;
     }
     
+DEBUG_MARK;
     bool compressed = *((int*)buf);
     buf += 4;
 
     time64 time = *((time64*)buf);
 
     free(buf_beg);
-
+DEBUG_MARK;
     string encrypted_data;
     struct certificate_chain failed_certs;
     INIT(encrypted_data);
     INIT(failed_certs);
 
+    printf("sec_encrypted_data begin %s %d\n",__FILE__,__LINE__);
+        //certificate_printf(certs.certs);
     int res = sec_encrypted_data(sdb,type,&data,&certs,compressed,time,
                                 &encrypted_data,&failed_certs);
+    printf("sec_encrypted_data over encrypted_data.len %d  %s %d\n",encrypted_data.len,__FILE__,__LINE__);
     certificate_chain_free(&certs);
     string_free(&data);
     if(res != 0){
