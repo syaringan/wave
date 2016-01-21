@@ -32,6 +32,16 @@ static inline void string_cpy(string* dst,string* src){
     }
     memcpy(dst->buf,src->buf,dst->len);
 }
+static inline void string_printf(u8* name,string* ptr){
+    printf("%s:%d\n",name,ptr->len);
+    int i;
+    for(i=0;i<ptr->len;i++){
+        printf("%02x ",*(ptr->buf+i));
+        if((i+1)%10 == 0)
+            printf("\n");
+    }
+    printf("\n");
+}
 /**
  *
  * 如果前部分都相同，断的更小

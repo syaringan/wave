@@ -336,6 +336,9 @@ int crypto_ECIES_get_key(string *prikey,string *pubkey_x,string* pubkey_y){
 
     if(ECIES_get_key(prikey->buf,&prikey->len,pubkey_x->buf,&pubkey_x->len,pubkey_y->buf,&pubkey_y->len))
         goto fail;
+    string_printf("1 x",pubkey_x);
+    string_printf("1 y",pubkey_y);
+    string_printf("1 pri",prikey);
     return 0;
 fail:
     if(prikey->buf != NULL)
@@ -424,6 +427,8 @@ int crypto_ECIES_encrypto_message(string* mess,string* pubkey_x,string* pubkey_y
     if( ECIES_encrypto_message(mess->buf,mess->len,pubkey_x->buf,pubkey_x->len,pubkey_y->buf,pubkey_y->len,
                         ephe_pubkey_x->buf,&ephe_pubkey_x->len,ephe_pubkey_y->buf,&ephe_pubkey_y->len,encrypted_mess->buf,&encrypted_mess->len,
                         tag->buf,&tag->len)){
+
+
         goto fail;
     }
     return 0;
@@ -449,7 +454,6 @@ int crypto_ECIES_decrypto_message(string* encrypted_mess,string* ephe_pubkey_x,s
         wave_malloc_error();
         goto fail;
     }
-
     if( ECIES_decrypto_message(encrypted_mess->buf,encrypted_mess->len,ephe_pubkey_x->buf,ephe_pubkey_x->len,
 						ephe_pubkey_y->buf,ephe_pubkey_y->len,
                         tag->buf,tag->len,prikey->buf,prikey->len, mess->buf,&mess->len)){
@@ -457,8 +461,9 @@ int crypto_ECIES_decrypto_message(string* encrypted_mess,string* ephe_pubkey_x,s
     }
     return 0;
 fail:
-    if(mess->buf != NULL)
+    if(mess->buf != NULL){
         string_free(mess);
+    }
     return -1;
 }
 

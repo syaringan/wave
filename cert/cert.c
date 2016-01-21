@@ -10,7 +10,7 @@
 #include <sec/sec.h>
 #define INIT(n) memset(&n,0,sizeof(n))
 
-#define MAIN_DIR "/home/chen/ljh-wave-1609.2/cert/"
+#define MAIN_DIR "/home/ljh/ljh-wave-1609.2/cert/"
 #define VERI_PRIKEY_POSTFIX ".veri.pri"
 #define ENRY_PRIKEY_POSTFIX ".enry.pri"
 #define CA_PRIVATE_NAME "ca.pri"
@@ -432,6 +432,42 @@ end:
     string_free(&x);
     string_free(&y);
 }
+
+static void test_encrypted(string* x,string* y,string *pri){
+    string mess,messb,encrypted_mess,xx,yy,tag;
+    INIT(mess);
+    INIT(messb);
+    INIT(encrypted_mess);
+    INIT(xx);
+    INIT(yy);
+    INIT(tag);
+
+    mess.len = 10;
+    mess.buf = (u8*)malloc(10);
+    mess.buf[0] = 'h';
+    mess.buf[1] = 'e';
+    mess.buf[2] = 'l';
+    mess.buf[3] = 'l';
+    mess.buf[4] = 'o';
+    mess.buf[5] = 'w';
+    mess.buf[6] = 'o';
+    mess.buf[7] = 'r';
+    mess.buf[8] = 'd';
+    mess.buf[9] = '\0';
+    int res;
+    printf("%s %d\n",__FILE__,__LINE__);
+    res = crypto_ECIES_encrypto_message(&mess,x,y,&xx,&yy,&encrypted_mess,&tag);
+    string_printf("xx",&xx);
+    string_printf("yy",&yy);
+    string_printf("encryptd_mess",&encrypted_mess);
+    string_printf("tag",&tag);
+    if(res != 0){
+        error();
+        return;
+    }
+    res = crypto_ECIES_decrypto_message(&encrypted_mess,&xx,&yy,&tag,pri,&messb);
+    printf("res :%d\n",res);
+}
 static void fill_encrypted_publickey(certificate* cert,string* pri){
     elliptic_curve_point* point;
     string x,y;
@@ -448,6 +484,21 @@ static void fill_encrypted_publickey(certificate* cert,string* pri){
     point = &cert->unsigned_certificate.flags_content.encryption_key.u.ecies_nistp256.public_key;
 
     get_enrypted_key(algorithm,&x,&y,pri);
+    /********/
+    FILE *fd;
+    fd = fopen("./x","w");
+    fwrite(x.buf,1,x.len,fd);
+    fd = fopen("./y","w");
+    fwrite(y.buf,1,y.len,fd);
+    fd = fopen("./p","w");
+    fwrite(pri->buf,1,pri->len,fd);
+
+
+    string_printf("pub x",&x);
+    string_printf("pub y",&y);
+    string_printf("pri ",pri);
+    test_encrypted(&x,&y,pri);
+    /********/
     point->type = UNCOMPRESSED;
     point->x.len = x.len;
     point->u.y.len = y.len;
@@ -469,7 +520,9 @@ static void verify_pri_2_file(char *name,string* pri){
     strcpy(pwd,name);
     strcat(pwd,VERI_PRIKEY_POSTFIX); 
     fp = fopen(pwd,"w");
+    printf("%s\n",pwd);
     if(fp == NULL){
+        perror("verify_pri_2_file");
         error();
         return;
     }
@@ -620,8 +673,8 @@ static void generate_no_ca_cert(certificate *cert,char* name){
     strcat(pwd,name);
     fill_version_and_type(cert);
     fill_tobesigned_certificate(cert,pwd,&pri);
-    file_2_verify_pri("/home/chen/ljh-wave-1609.2/cert/ca_cert/ca.veri.pri",&ca_pri);
-    file_2_cert(&ca_cert,"/home/chen/ljh-wave-1609.2/cert/ca_cert/ca.cert");
+    file_2_verify_pri("/home/ljh/ljh-wave-1609.2/cert/ca_cert/ca.veri.pri",&ca_pri);
+    file_2_cert(&ca_cert,"/home/ljh/ljh-wave-1609.2/cert/ca_cert/ca.cert");
     certificate_printf(&ca_cert);
     cert_signed_cert(&ca_cert,&ca_pri,cert);
 
@@ -640,7 +693,7 @@ void generate_cert(){
     scanf("%c",&type);
     if(type == 'y'){
         generate_ca_cert(&cert);
-        strcpy(pwd,"/home/chen/ljh-wave-1609.2/cert/ca_cert/ca.cert");
+        strcpy(pwd,"/home/ljh/ljh-wave-1609.2/cert/ca_cert/ca.cert");
         cert_2_file(&cert,pwd);
         certificate_printf(&cert);
     }
@@ -648,7 +701,7 @@ void generate_cert(){
         printf("输入证书名字:");
         scanf("%s",name);
         generate_no_ca_cert(&cert,name);
-        strcpy(pwd,"/home/chen/ljh-wave-1609.2/cert/issued_cert/");
+        strcpy(pwd,"/home/ljh/ljh-wave-1609.2/cert/issued_cert/");
         strcat(pwd,name);
         strcat(pwd,".cert");
         cert_2_file(&cert,pwd);

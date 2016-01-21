@@ -2,7 +2,7 @@
 TARGET = lib$(notdir $(shell pwd)).a
 
 CFLAGS += -I..
-TARGET : crypto.o crypto_interface.o
+TARGET : crypto.o crypto_interface.o crypto.c
 	$(MAKE) -C ./cryptopp/;
 	$(AR) -ru $(TARGET) crypto.o crypto_interface.o  
 

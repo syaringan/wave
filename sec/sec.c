@@ -406,6 +406,7 @@ static int elliptic_curve_point_2_uncompressed(pk_algorithm algorithm,elliptic_c
     INIT(compress);
 
     if(point->type == UNCOMPRESSED){
+DEBUG_MARK;
         x->len = point->x.len;
         y->len = point->u.y.len;
         x->buf = (u8*)malloc(x->len);
@@ -440,6 +441,8 @@ static int elliptic_curve_point_2_uncompressed(pk_algorithm algorithm,elliptic_c
         }
     }
     else if(algorithm == ECIES_NISTP256){
+DEBUG_MARK;
+        printf("compress len :%d point->type:%d  x.len :%d y.len:%d\n",compress.len,point->type,x->len,y->len);
         if(crypto_ECIES_compress_key_2_uncompress(&compress,point->type,x,y)){
             res = -1;
             goto end;
@@ -450,6 +453,7 @@ static int elliptic_curve_point_2_uncompressed(pk_algorithm algorithm,elliptic_c
         res = -1;
         goto end;
     }
+DEBUG_MARK;
     goto end;
 end:
     if(res != 0){
@@ -1291,12 +1295,29 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
                 res = -1;
                 goto end;
         }
-
+        printf("point->type:%d  %s %d\n",point->type,__FILE__,__LINE__);
             DEBUG_MARK;
         if(crypto_ECIES_encrypto_message(&ok,&x,&y, &ephe_x,&ephe_y, &encrypted_mess,&tag)){
+           
             res = -1;
             goto end;
         }
+        /**************/
+        string prikey,ddddd_mess;
+        INIT(ddddd_mess);
+        prikey.len = 40;
+        prikey.buf = (u8*)malloc(prikey.len);
+        if(prikey.buf == NULL){
+            wave_malloc_error();
+            goto end;
+        }
+        FILE* fd;
+        fd = fopen("./cert/issued_cert/sde1.enry.pri","r");
+        prikey.len = fread(prikey.buf,1,prikey.len,fd);
+        printf("tag.len :%d prikey.len :%d\n",tag.len,prikey.len);
+        int mmmres = crypto_ECIES_decrypto_message(&encrypted_mess,&ephe_x,&ephe_y,&tag,&prikey,&ddddd_mess);
+        printf("mmmmres :%d\n",mmmres);
+        /**************/
         
             DEBUG_MARK;
         if(compressed == true){
@@ -1305,6 +1326,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
                 res = -1;
                 goto end;
             }
+            printf("enc_key.v.type:%d\n",rec_info->u.enc_key.v.type);
             rec_info->u.enc_key.v.x.len = compress_point.len;
             rec_info->u.enc_key.v.x.buf = (u8*)malloc(compress_point.len);
             if(rec_info->u.enc_key.v.x.buf == NULL){
@@ -1327,6 +1349,7 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
                 res = -1;
                 goto end;
             }
+            rec_info->u.enc_key.v.type = UNCOMPRESSED;
             memcpy(rec_info->u.enc_key.v.x.buf,ephe_x.buf,ephe_x.len);
             memcpy(rec_info->u.enc_key.v.u.y.buf,ephe_y.buf,ephe_y.len);
         }
@@ -1475,14 +1498,19 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
     }
     switch(type){
         case ENCRYPTED:
+            DEBUG_MARK;
             enc_data = &sdata.u.encrypted_data;
             if( encrypted_data_2_string(enc_data,&temp)){
                 wave_error_printf("转化失败 %s %d",__FILE__,__LINE__);
                 res = FAILURE;
+            DEBUG_MARK;
                 goto end;
             }
+            DEBUG_MARK;
             //这里我觉得逻辑有错，我并没有按照协议的走，，如果出现bug请核对哈
             res = sec_decrypt_data(sdb,&temp,cmh, inner_type,data);
+            DEBUG_MARK;
+            printf("sec_decrypt_data,res :%d\n",res);
             if(res != SUCCESS){
                 goto end;
             }
@@ -3911,17 +3939,20 @@ result sec_decrypt_data(struct sec_db* sdb,string* encrypted_data,cmh cmh,
         res = -1;
         goto end;
     }
+DEBUG_MARK;
     if( find_cert_prikey_by_cmh(sdb,cmh,&cert,&prikey)){
-        wave_error_printf("查找失败 这里按照协议我应该查找\
-cmh存储的是证书和cmh存储的一对钥匙 但是我只做了前者的茶学%s %d",__FILE__,__LINE__);
+        wave_error_printf("查找失败 %s %d",__FILE__,__LINE__);
+DEBUG_MARK;
         res = -1;
         goto end;
     }
     if(certificate_2_hashedid8(&cert,&hashed)){
         res = -1;
+DEBUG_MARK;
         goto end;
     }
     for(i=0;i<encrypteddata.recipients.len;i++){
+DEBUG_MARK;
         recinfo = encrypteddata.recipients.buf+i;
         if(hashedid8_cmp(&recinfo->cert_id,&hashed) == 0){
             if(cert.unsigned_certificate.cf & ENCRYPTION_KEY){
@@ -3941,12 +3972,15 @@ cmh存储的是证书和cmh存储的一对钥匙 但是我只做了前者的茶�
         res = -1;
         goto end;
     }
+DEBUG_MARK;
     encrypted_key.len = recinfo->u.enc_key.c.len;
     tag.len = 20;
+DEBUG_MARK;
     if( elliptic_curve_point_2_uncompressed(ECIES_NISTP256,&recinfo->u.enc_key.v,&ephe_x,&ephe_y)){
         res = -1;
         goto end;
     }
+DEBUG_MARK;
     encrypted_key.buf = (u8*)malloc(encrypted_key.len);
     tag.buf = (u8*)malloc(tag.len);
     if(encrypted_key.buf == NULL || tag.buf == NULL){
@@ -3954,18 +3988,22 @@ cmh存储的是证书和cmh存储的一对钥匙 但是我只做了前者的茶�
         wave_malloc_error();
         goto end;
     }
+DEBUG_MARK;
     memcpy(encrypted_key.buf,recinfo->u.enc_key.c.buf,encrypted_key.len);
     memcpy(tag.buf,recinfo->u.enc_key.t,tag.len);
 
     if( crypto_ECIES_decrypto_message(&encrypted_key,&ephe_x,&ephe_y,&tag,&prikey,&decrypted_key)){
+DEBUG_MARK;
         res = -1;
         goto end;
     }
+DEBUG_MARK;
     if(encrypteddata.symm_algorithm != AES_128_CCM){
         res = -1;
         wave_error_printf("出现了不支持的协议 %s %d",__FILE__,__LINE__);
         goto end;
     }
+DEBUG_MARK;
     ciphertext.len = encrypteddata.u.ciphertext.ccm_ciphertext.len;
     nonce.len = 12;
     ciphertext.buf = (u8*)malloc(ciphertext.len);
@@ -3996,17 +4034,26 @@ cmh存储的是证书和cmh存储的一对钥匙 但是我只做了前者的茶�
     goto end;
 
 end:
-    encrypted_data_free(&encrypted_data);
+DEBUG_MARK;
+    encrypted_data_free(&encrypteddata);
+DEBUG_MARK;
     tobe_encrypted_free(&tobe_en);
+DEBUG_MARK;
+DEBUG_MARK;
     certificate_free(&cert);
+DEBUG_MARK;
     string_free(&encrypted_key);
+DEBUG_MARK;
     string_free(&ephe_x);
     string_free(&ephe_y);
+DEBUG_MARK;
     string_free(&tag);
     string_free(&prikey);
+DEBUG_MARK;
     string_free(&decrypted_key);
     string_free(&ciphertext);
     string_free(&nonce);
+DEBUG_MARK;
     string_free(&plaintext);
     return res;
 }
