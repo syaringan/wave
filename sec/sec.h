@@ -348,11 +348,11 @@ calcu_psid_length(unsigned char *psid)
     return num + 1;
 }
 
-static inline u32 psidn2h(char *psid, unsigned int len){
+static inline u32 psidn2h(unsigned char *psid, unsigned int len){
     int i = 0;
     u32 num = 0;
     for(i = 0; i < len; i++){
-        num += (*psid)*256;
+        num = num*256+(*psid);
         psid++;
     }
     return num;

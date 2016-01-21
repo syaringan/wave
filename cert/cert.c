@@ -10,7 +10,7 @@
 #include <sec/sec.h>
 #define INIT(n) memset(&n,0,sizeof(n))
 
-#define MAIN_DIR "/home/ljh/ljh-wave-1609.2/cert/"
+#define MAIN_DIR "/home/chen/ljh-wave-1609.2/cert/"
 #define VERI_PRIKEY_POSTFIX ".veri.pri"
 #define ENRY_PRIKEY_POSTFIX ".enry.pri"
 #define CA_PRIVATE_NAME "ca.pri"
@@ -187,13 +187,14 @@ static void fill_psid_priority_array(psid_priority_array* ppa){
     ppa->u.permissions_list.buf[1].max_priority = 0x1f;
 }
 static void fill_ssp(u8** buf,int len){
-    *buf = (u8*)malloc(3);
+    *buf = (u8*)malloc(4);
     if(*buf == NULL){
         error();
     }
     (*buf)[0] = 'l';
     (*buf)[1] = 'j';
     (*buf)[2] = 'h';
+	(*buf)[3] = '\0';
 }
 static void fill_psid_ssp_array(psid_ssp_array* psa){
     psa->type = ARRAY_TYPE_SPECIFIED;
@@ -205,12 +206,12 @@ static void fill_psid_ssp_array(psid_ssp_array* psa){
         return;
     }
     psa->u.permissions_list.buf[0].psid = 0x20;
-    psa->u.permissions_list.buf[0].service_specific_permissions.len = 3;
-    fill_ssp(&psa->u.permissions_list.buf[0].service_specific_permissions.buf,3);
+    psa->u.permissions_list.buf[0].service_specific_permissions.len = 4;
+    fill_ssp(&psa->u.permissions_list.buf[0].service_specific_permissions.buf,4);
 
     psa->u.permissions_list.buf[1].psid = 0x23;
-    psa->u.permissions_list.buf[1].service_specific_permissions.len= 3;
-    fill_ssp(&psa->u.permissions_list.buf[1].service_specific_permissions.buf,3);
+    psa->u.permissions_list.buf[1].service_specific_permissions.len= 4;
+    fill_ssp(&psa->u.permissions_list.buf[1].service_specific_permissions.buf,4);
 }
 static void fill_psid_priority_ssp_array(psid_priority_ssp_array* ppsa){
     ppsa->type = ARRAY_TYPE_SPECIFIED;
@@ -222,13 +223,13 @@ static void fill_psid_priority_ssp_array(psid_priority_ssp_array* ppsa){
     }
     ppsa->u.permissions_list.buf[0].psid = 0x20;
     ppsa->u.permissions_list.buf[0].max_priority = 0x1f;
-    ppsa->u.permissions_list.buf[0].service_specific_permissions.len = 3;
-    fill_ssp(&ppsa->u.permissions_list.buf[0].service_specific_permissions.buf,3);
+    ppsa->u.permissions_list.buf[0].service_specific_permissions.len = 4;
+    fill_ssp(&ppsa->u.permissions_list.buf[0].service_specific_permissions.buf,4);
 
     ppsa->u.permissions_list.buf[1].psid = 0x23;
     ppsa->u.permissions_list.buf[1].max_priority = 0x1f;
-    ppsa->u.permissions_list.buf[1].service_specific_permissions.len = 3;
-    fill_ssp(&ppsa->u.permissions_list.buf[1].service_specific_permissions.buf,3);
+    ppsa->u.permissions_list.buf[1].service_specific_permissions.len = 4;
+    fill_ssp(&ppsa->u.permissions_list.buf[1].service_specific_permissions.buf,4);
 }
 static void fill_root_ca(certificate* cert){
     root_ca_scope* scope;
@@ -619,8 +620,8 @@ static void generate_no_ca_cert(certificate *cert,char* name){
     strcat(pwd,name);
     fill_version_and_type(cert);
     fill_tobesigned_certificate(cert,pwd,&pri);
-    file_2_verify_pri("/home/ljh/ljh-wave-1609.2/cert/ca_cert/ca.veri.pri",&ca_pri);
-    file_2_cert(&ca_cert,"/home/ljh/ljh-wave-1609.2/cert/ca_cert/ca.cert");
+    file_2_verify_pri("/home/chen/ljh-wave-1609.2/cert/ca_cert/ca.veri.pri",&ca_pri);
+    file_2_cert(&ca_cert,"/home/chen/ljh-wave-1609.2/cert/ca_cert/ca.cert");
     certificate_printf(&ca_cert);
     cert_signed_cert(&ca_cert,&ca_pri,cert);
 
@@ -639,7 +640,7 @@ void generate_cert(){
     scanf("%c",&type);
     if(type == 'y'){
         generate_ca_cert(&cert);
-        strcpy(pwd,"/home/ljh/ljh-wave-1609.2/cert/ca_cert/ca.cert");
+        strcpy(pwd,"/home/chen/ljh-wave-1609.2/cert/ca_cert/ca.cert");
         cert_2_file(&cert,pwd);
         certificate_printf(&cert);
     }
@@ -647,7 +648,7 @@ void generate_cert(){
         printf("输入证书名字:");
         scanf("%s",name);
         generate_no_ca_cert(&cert,name);
-        strcpy(pwd,"/home/ljh/ljh-wave-1609.2/cert/issued_cert/");
+        strcpy(pwd,"/home/chen/ljh-wave-1609.2/cert/issued_cert/");
         strcat(pwd,name);
         strcat(pwd,".cert");
         cert_2_file(&cert,pwd);

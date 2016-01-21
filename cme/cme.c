@@ -129,7 +129,7 @@ void cme_permissions_cpy(struct cme_permissions* dst,struct cme_permissions* src
                 (dst->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.len = 
                                     (src->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.len;
                 if( ( (dst->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.buf = 
-                                (u8*)malloc( (src->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.len  ))){
+                                (u8*)malloc( (src->u.psid_priority_ssp_array.buf+i)->service_specific_permissions.len  ))==NULL){
                     wave_malloc_error();
                     goto fail;
                 }
@@ -524,6 +524,7 @@ static result cert_info_init(struct sec_db* sdb,struct cert_info* certinfo,struc
     cert_info_init_rb(certinfo);
     if(certificate_2_certid10(cert,&certinfo->certid10)){
         res = FAILURE;
+		DEBUG_MARK;
         goto end;
     }
     certinfo->revoked = is_certificate_revoked(sdb,cert);
@@ -849,6 +850,7 @@ result cme_certificate_info_request(struct sec_db* sdb,
         ret = FAILURE;
         goto fail;
     }
+
     if(trust_anchor != NULL){
         *trust_anchor = cert_info->trust_anchor;
     }

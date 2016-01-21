@@ -2901,6 +2901,7 @@ end:
 }
 //未测
 result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permissions,time32 life_time,string* signed_wsa){
+	DEBUG_MARK;
     if(!signed_wsa){
         wave_error_printf("返回指针为空，没有内容可以填充");
         return FAILURE;
@@ -2929,16 +2930,20 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
     INIT(td_location);
     INIT(sec_data);
 
+	
     if(get_current_location(&td_location)){
         wave_error_printf("获取当前地理位置失败");
         ret = FAILURE;
         goto fail;
     }
 
+	DEBUG_MARK;
     ret = pssme_cryptomaterial_handle(sdb, permissions, &td_location, &permission_indices, &cmh, &chain);
+	DEBUG_MARK;
     if(ret != SUCCESS)
         goto fail;
 
+	DEBUG_MARK;
     //填充tobesigned_wsa中的permission_indices
     sec_data.u.signed_wsa.unsigned_wsa.permission_indices.len = permission_indices.len;
     sec_data.u.signed_wsa.unsigned_wsa.permission_indices.buf = malloc(sizeof(u8)*permission_indices.len);
@@ -2948,10 +2953,13 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         goto fail;
     }
     memcpy(sec_data.u.signed_wsa.unsigned_wsa.permission_indices.buf, permission_indices.buf, permission_indices.len*sizeof(u8));
+	DEBUG_MARK;
     
     //设置use_location和use_generation_time flag
+	DEBUG_MARK;
     sec_data.u.signed_wsa.unsigned_wsa.tf = sec_data.u.signed_wsa.unsigned_wsa.tf & USE_GENERATION_TIME & USE_LOCATION;
 
+	DEBUG_MARK;
     //填充data
     sec_data.u.signed_wsa.unsigned_wsa.data.len = data->len;
     sec_data.u.signed_wsa.unsigned_wsa.data.buf = malloc(sizeof(u8)*data->len);
@@ -2962,6 +2970,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
     }
     memcpy(sec_data.u.signed_wsa.unsigned_wsa.data.buf, data->buf, data->len*sizeof(u8));
 
+	DEBUG_MARK;
     sec_data.u.signed_wsa.unsigned_wsa.generation_time.time = time(NULL);
     sec_data.u.signed_wsa.unsigned_wsa.generation_time.long_std_dev = 0xff;
 
@@ -2973,6 +2982,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
     sec_data.u.signed_wsa.unsigned_wsa.expire_time = life_time;
     sec_data.u.signed_wsa.unsigned_wsa.tf = sec_data.u.signed_wsa.unsigned_wsa.tf & EXPIRES;
 
+	DEBUG_MARK;
 
     //填充signature
     if(tobesigned_wsa_2_string(&sec_data.u.signed_wsa.unsigned_wsa, &encoded_tbs)){
@@ -2985,6 +2995,8 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         goto fail;
     }
     
+	DEBUG_MARK;
+	printf("version_and_type:%d\n", cert.version_and_type);
     switch(cert.version_and_type){
         case 2:
             algorithm = cert.unsigned_certificate.version_and_type.verification_key.algorithm;
@@ -2997,7 +3009,8 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
             ret = FAILURE;
             goto fail;
     }
-    if(algorithm != ECDSA_NISTP224_WITH_SHA224 || algorithm != ECDSA_NISTP256_WITH_SHA256){
+	printf("algorithm:%d\n", algorithm);
+    if(algorithm != ECDSA_NISTP224_WITH_SHA224 && algorithm != ECDSA_NISTP256_WITH_SHA256){
         wave_error_printf("这里的协议类型都不等于我们要求的这里有问题,我们这里暂时不支持其他的加密算法");
         ret = -1;
         goto fail;
@@ -3006,6 +3019,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         ret = -1;
         goto fail;        
     }
+	DEBUG_MARK;
     //create and encode a signedwsa
     sec_data.u.signed_wsa.signer.type = CERTIFICATE_CHAIN;
     sec_data.u.signed_wsa.signer.u.certificates.len = chain.len;
@@ -3015,6 +3029,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         ret = FAILURE;
         goto fail;
     }
+	DEBUG_MARK;
     int i = 0;
     for(i = 0; i < chain.len; i++)
         certificate_cpy(&sec_data.u.signed_wsa.signer.u.certificates.buf[i], &chain.certs[i]);
@@ -3027,6 +3042,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         goto fail;
     }
     memcpy(sec_data.u.signed_wsa.signature.u.ecdsa_signature.s.buf, signed_tbs.buf, signed_tbs.len);
+	DEBUG_MARK;
 
     //填充1609dot2结构体
     sec_data.protocol_version = 2;                                  
@@ -3036,6 +3052,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         ret = FAILURE;                                  
         goto fail;                                  
     }                                  
+	DEBUG_MARK;
     ret = SUCCESS;
 fail:                                  
     certificate_chain_free(&chain);                                  
@@ -3045,6 +3062,7 @@ fail:
     string_free(&encoded_tbs);
     string_free(&hashed_tbs);
     string_free(&signed_tbs);
+	DEBUG_MARK;
     return ret;
 }
 

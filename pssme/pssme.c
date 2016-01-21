@@ -64,7 +64,6 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
         
         string* permission_ind,cmh* cmh,struct certificate_chain* cert_chain){
     result ret = FAILURE;
-
     struct pssme_local_cert clist;
     struct cme_permissions current_cert_permissions;
     bool certificate_found;
@@ -74,7 +73,9 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
     three_d_location three_d;
     two_d_location two_d;
     int i = 0, j = 0, k = 0;
+    struct certificate_chain chain;
 
+	INIT(chain);
     INIT(current_cert_permissions);
     INIT(c);
     INIT(geo_permissions);
@@ -86,17 +87,24 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
     struct pssme_local_cert *p;//遍历用的临时变量
     //访问pssme_db，找到符合lsis要求的cmh
     lock_rdlock(&sdb->pssme_db.lock);
+	if(list_empty(&sdb->pssme_db.cert_db.local_cert.list)){
+		wave_error_printf("local cert list is empty!\n");
+	}
     list_for_each_entry(p, &sdb->pssme_db.cert_db.local_cert.list, list){
         if(se_array->len > p->lsis_array.len)
             continue;
+		printf("lsis: %d\n", p->lsis_array.lsis[0]);
+		printf(" local cert len:%d\n", p->lsis_array.len);
         for(i = 0; i < se_array->len; i++){
             for(j = 0; j < p->lsis_array.len; j++){
+				printf("lsis:%d %d\n", se_array->serviceinfos[i].lsis, p->lsis_array.lsis[j]);
                 if(se_array->serviceinfos[i].lsis == p->lsis_array.lsis[j])
                     break;
             }
             if(j == p->lsis_array.len)
                 break;
         }
+		printf("i:%d se_array_len:%d\n", i, se_array->len);
         //创建一个新的临时节点，记得释放这个链表
         if(i == se_array->len){
             struct pssme_local_cert *p_add = malloc(sizeof(struct pssme_local_cert));
@@ -113,7 +121,9 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
                 result ret = FAILURE;
                 goto fail;
             }
-            memcpy(p_add->lsis_array.lsis, p->lsis_array.lsis, sizeof(pssme_lsis)*p_add->lsis_array.len);
+			for(j = 0;j<p->lsis_array.len; j++){
+				p_add->lsis_array.lsis[j] = p->lsis_array.lsis[j];
+			}
             list_add(&p_add->list, &clist.list);
         }
     }
@@ -126,7 +136,7 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
 
     certificate_found = false;
     list_for_each_entry(p, &clist.list, list){
-        if(find_cert_by_cmh(sdb, &p->cmh, &c))
+        if(find_cert_by_cmh(sdb, p->cmh, &c))
             continue;
         //判断是否过期
         if(is_expired_by_cmh(sdb, p->cmh))
@@ -151,7 +161,7 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
         three_d.elevation[0] = 0;
         three_d.elevation[1] = 0;
 
-        if(three_d_location_in_region(&three_d, &geo_permissions))
+        if(!three_d_location_in_region(&three_d, &geo_permissions))
             continue;
         if(permission_ind != NULL){
             permission_ind->len = se_array->len;
@@ -180,12 +190,19 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
                     string tmp_ssp;
                     tmp_ssp.buf = current_cert_permissions.u.psid_priority_ssp_array.buf[k].service_specific_permissions.buf;
                     tmp_ssp.len = current_cert_permissions.u.psid_priority_ssp_array.buf[k].service_specific_permissions.len;
+					DEBUG_MARK;
+					printf("ssp len: 1%d 2%d\n", tmp_ssp.len, se_array->serviceinfos[j].ssp.len);
                     if(string_cmp(&se_array->serviceinfos[j].ssp, &tmp_ssp) != 0)
                         continue;
                     if(se_array->serviceinfos[j].max_priority > current_cert_permissions.u.psid_priority_ssp_array.buf[k].max_priority)
                         continue;
                     permission_ind->buf[j] = k+1;
+					break;
                 }
+				if(k == p->lsis_array.len){
+					wave_printf(MSG_WARNING, "permission not suite\n");
+					break;
+				}
             }
             if(j == se_array->len){
                 certificate_found = true;
@@ -197,9 +214,9 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
         ret = CERTIFICATE_NOT_FOUND;
         goto fail;
     }
-    struct certificate_chain chain;
     chain.len = 1;
-    chain.certs = &c;
+	chain.certs = malloc(sizeof(certificate));
+    certificate_cpy(&chain.certs[0], &c);
     ret = cme_construct_certificate_chain(sdb, ID_CERTIFICATE, NULL, &chain, false, max_chain_length, cert_chain, 
             NULL, NULL, NULL, NULL, NULL);
     if(ret == SUCCESS && cmh != NULL)
@@ -289,9 +306,9 @@ result pssme_secure_provider_serviceinfo(struct sec_db* sdb,pssme_lsis lsis,acti
                 wave_error_printf("内存分配失败");
                 return FAILURE;
             }
-            INIT(permissions);
-            permissions->permission.priority = priority;
+			INIT(*permissions);
             permissions->permission.psid = psid;
+            permissions->permission.priority = priority;
             string_cpy(&permissions->permission.ssp,ssp);
             list_add_tail(&permissions->list,&node->permissions.list);
             break;
@@ -451,6 +468,7 @@ result pssme_cryptomaterial_handle_storage(struct sec_db* sdb,cmh cmh,struct pss
    struct serviceinfo_array ser_array;
    pssme_lsis lsis;
    string identity;
+   struct pssme_local_cert *p = NULL;
    int i,j,k;
    if( (cert = (struct certificate*)malloc(sizeof(struct certificate))) == NULL){
         wave_error_printf("内存分配失败");
@@ -461,16 +479,17 @@ result pssme_cryptomaterial_handle_storage(struct sec_db* sdb,cmh cmh,struct pss
    INIT(ser_array);
    INIT(identity);
 
-   if(find_cert_by_cmh(sdb,&cmh, cert)){
+   if(find_cert_by_cmh(sdb,cmh, cert)){
+	   wave_error_printf("find cert by cmh fail!\n");
         goto fail;
    }
-   if( certificate_2_buf(cert,&identity)){
+   if( certificate_2_string(cert,&identity)){
         wave_error_printf("证书编码失败 ");
         goto fail;
    }
    //if( certificate_get_permissions(sdb,cert,permissions) == FAILURE)
    if( cme_certificate_info_request(sdb,ID_CERTIFICATE,&identity, NULL, &permissions,NULL,NULL,NULL,
-                                             NULL,NULL) )
+                                             NULL,NULL) != FOUND)
        goto fail;
    if(permissions.type != PSID_PRIORITY_SSP){
         wave_error_printf("permissions的type不等于PSID_PRIORITY_SSP,不能进行比较");
@@ -500,14 +519,33 @@ result pssme_cryptomaterial_handle_storage(struct sec_db* sdb,cmh cmh,struct pss
             wave_error_printf("lsis %d 没有相关的服务",lsis);
             goto fail;
         }
-        
    }
-    certificate_free(cert);
-    free(cert);
-    cme_permissions_free(&permissions);
-    serviceinfo_array_free(&ser_array);
-    string_free(&identity);
-    return SUCCESS;
+
+   //need to store cmh and lsis_array after judge
+   p = (struct pssme_local_cert*)malloc(sizeof(struct pssme_local_cert));
+   if(!p){
+	   wave_malloc_error();
+	   goto fail;
+   }
+   p->cmh = cmh;
+
+   p->lsis_array.len = lsises->len;
+   p->lsis_array.lsis = (pssme_lsis*)malloc(sizeof(pssme_lsis)*lsises->len);
+   if(!p->lsis_array.lsis){
+	   wave_malloc_error();
+	   goto fail;
+   }
+   for(i = 0; i<lsises->len;i++){
+	   p->lsis_array.lsis[i] = lsises->lsis[i];
+   }
+   list_add_tail(&p->list, &sdb->pssme_db.cert_db.local_cert.list);
+
+   certificate_free(cert);
+   free(cert);
+   cme_permissions_free(&permissions);
+   serviceinfo_array_free(&ser_array);
+   string_free(&identity);
+   return SUCCESS;
 fail:
     if(cert != NULL){
         certificate_free(cert);
