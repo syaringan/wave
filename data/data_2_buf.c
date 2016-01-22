@@ -1714,10 +1714,13 @@ u32 certificate_2_buf(const certificate *certificate,u8* buf,u32 len){
 
 	if(len < 14){
 		wave_error_printf("buf空间不够 %s %d",__FILE__,__LINE__);
-        sleep(3);
 		return NOT_ENOUGHT;
 	}
 	*mbuf = certificate->version_and_type;
+    if(certificate->version_and_type != 2){
+        wave_error_printf("version and type != 2 %s %d",__FILE__,__LINE__);
+        return -3;
+    }
 	mbuf++;
 	size--;
 	res++;

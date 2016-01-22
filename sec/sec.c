@@ -406,7 +406,6 @@ static int elliptic_curve_point_2_uncompressed(pk_algorithm algorithm,elliptic_c
     INIT(compress);
 
     if(point->type == UNCOMPRESSED){
-DEBUG_MARK;
         x->len = point->x.len;
         y->len = point->u.y.len;
         x->buf = (u8*)malloc(x->len);
@@ -441,8 +440,6 @@ DEBUG_MARK;
         }
     }
     else if(algorithm == ECIES_NISTP256){
-DEBUG_MARK;
-        printf("compress len :%d point->type:%d  x.len :%d y.len:%d\n",compress.len,point->type,x->len,y->len);
         if(crypto_ECIES_compress_key_2_uncompress(&compress,point->type,x,y)){
             res = -1;
             goto end;
@@ -453,7 +450,6 @@ DEBUG_MARK;
         res = -1;
         goto end;
     }
-DEBUG_MARK;
     goto end;
 end:
     if(res != 0){
@@ -1092,26 +1088,7 @@ result sec_signed_data(struct sec_db* sdb,cmh cmh,content_type type,string* data
         res = -1;
         goto end;
     }
-    /*
-    struct sec_data mmm;
-    int jj;
-    INIT(mmm);
-    for(jj=0;jj<signed_data->len;jj++){
-            printf("%02x ",signed_data->buf[jj]);
-            if((jj+1)%10 == 0)
-                printf("\n");
-        }
-    printf("\n");
-    if(string_2_sec_data(signed_data,&mmm)){
-        printf("string 2 sec data shibai %s %d\n",__FILE__,__LINE__);
-    }
-    else{
-        for(jj=0;jj<signed_data->len;jj++){
-            printf("%02x ",signed_data->buf[jj]);
-        }
-        printf("\n");
-    }
-    */
+  
     res = SUCCESS;
     goto end;
     
@@ -1126,8 +1103,6 @@ end:
     return res;
 }
 static inline int certificate_chain_add_cert(struct certificate_chain* certs,certificate* cert){
-            DEBUG_MARK;
-    printf("certs->len %d certs->certs:%p %s %d\n",certs->len,certs->certs,__FILE__,__LINE__);
     if(certs->len == 0){
         certs->certs = (struct certificate*)malloc(sizeof(struct certificate));
         if(certs->certs == NULL){
@@ -1143,9 +1118,7 @@ static inline int certificate_chain_add_cert(struct certificate_chain* certs,cer
         }
     }
     certs->len++;
-            DEBUG_MARK;
     certificate_cpy(certs->certs+certs->len-1,cert);
-            DEBUG_MARK;
     return 0;
 }
 
@@ -1279,54 +1252,29 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
         goto end;
     }
 
-            DEBUG_MARK;
     for(i=0;i<enc_certs.len;i++){
         rec_info = sdata.u.encrypted_data.recipients.buf+i;
 
-            DEBUG_MARK;
         if(certificate_2_hashedid8(enc_certs.certs+i,&rec_info->cert_id)){
             res = -1;
             goto end;
         }
 
-            DEBUG_MARK;
         point = &( (enc_certs.certs+i)->unsigned_certificate.flags_content.encryption_key.u.ecies_nistp256.public_key);
         if( elliptic_curve_point_2_uncompressed(ECIES_NISTP256,point,&x,&y)){
                 res = -1;
                 goto end;
         }
-        printf("point->type:%d  %s %d\n",point->type,__FILE__,__LINE__);
-            DEBUG_MARK;
         if(crypto_ECIES_encrypto_message(&ok,&x,&y, &ephe_x,&ephe_y, &encrypted_mess,&tag)){
            
             res = -1;
             goto end;
         }
-        /**************/
-        string prikey,ddddd_mess;
-        INIT(ddddd_mess);
-        prikey.len = 40;
-        prikey.buf = (u8*)malloc(prikey.len);
-        if(prikey.buf == NULL){
-            wave_malloc_error();
-            goto end;
-        }
-        FILE* fd;
-        fd = fopen("./cert/issued_cert/sde1.enry.pri","r");
-        prikey.len = fread(prikey.buf,1,prikey.len,fd);
-        printf("tag.len :%d prikey.len :%d\n",tag.len,prikey.len);
-        int mmmres = crypto_ECIES_decrypto_message(&encrypted_mess,&ephe_x,&ephe_y,&tag,&prikey,&ddddd_mess);
-        printf("mmmmres :%d\n",mmmres);
-        /**************/
-        
-            DEBUG_MARK;
         if(compressed == true){
-            DEBUG_MARK;
             if(crypto_ECIES_uncompress_key_2_compress_key(&ephe_x,&ephe_y,&compress_point,&rec_info->u.enc_key.v.type)){
                 res = -1;
                 goto end;
             }
-            printf("enc_key.v.type:%d\n",rec_info->u.enc_key.v.type);
             rec_info->u.enc_key.v.x.len = compress_point.len;
             rec_info->u.enc_key.v.x.buf = (u8*)malloc(compress_point.len);
             if(rec_info->u.enc_key.v.x.buf == NULL){
@@ -1336,7 +1284,6 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
             memcpy(rec_info->u.enc_key.v.x.buf,compress_point.buf,compress_point.len);
         }
         else{
-            DEBUG_MARK;
             rec_info->u.enc_key.v.x.len = ephe_x.len;
             rec_info->u.enc_key.v.u.y.len = ephe_y.len;
 
@@ -1353,7 +1300,6 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
             memcpy(rec_info->u.enc_key.v.x.buf,ephe_x.buf,ephe_x.len);
             memcpy(rec_info->u.enc_key.v.u.y.buf,ephe_y.buf,ephe_y.len);
         }
-            DEBUG_MARK;
         rec_info->u.enc_key.c.len = encrypted_mess.len;
         rec_info->u.enc_key.c.buf = (u8*)malloc(rec_info->u.enc_key.c.len);
         if(rec_info->u.enc_key.c.buf == NULL){
@@ -1361,7 +1307,6 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
             wave_malloc_error();
             goto end;
         }
-            DEBUG_MARK;
         memcpy(rec_info->u.enc_key.c.buf,encrypted_mess.buf,encrypted_mess.len);
         memcpy(rec_info->u.enc_key.t,tag.buf,tag.len);
         
@@ -1381,7 +1326,6 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
             res = -1;
             goto end;
         }
-            DEBUG_MARK;
         memcpy(tbencrypted.u.plain_text.buf,data->buf,data->len);
     }
     else if(type == SIGNED || type == SIGNED_PARTIAL_PAYLOAD || type == SIGNED_EXTERNAL_PAYLOAD){
@@ -1403,28 +1347,21 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
         res = -1;
         goto end;
     }
-            DEBUG_MARK;
     if(crypto_AES_128_CCM_encrypto_message(&plaintext,&ok,&nonce,&ciphertext)){
         res = -1;
         wave_error_printf("对成加密失败  %s %d",__FILE__,__LINE__);
         goto end;
     }
-            DEBUG_MARK;
     memcpy(sdata.u.encrypted_data.u.ciphertext.nonce,nonce.buf,nonce.len);
-            DEBUG_MARK;
     sdata.u.encrypted_data.u.ciphertext.ccm_ciphertext.len = ciphertext.len;
-            DEBUG_MARK;
     sdata.u.encrypted_data.u.ciphertext.ccm_ciphertext.buf = (u8*)malloc(ciphertext.len);
-            DEBUG_MARK;
     if(sdata.u.encrypted_data.u.ciphertext.ccm_ciphertext.buf == NULL){
         wave_malloc_error();
         res = -1;
         goto end;
     }
-            DEBUG_MARK;
     memcpy(sdata.u.encrypted_data.u.ciphertext.ccm_ciphertext.buf,ciphertext.buf,ciphertext.len);
 
-            DEBUG_MARK;
     if(encrypted_data != NULL){
         if(sec_data_2_string(&sdata,encrypted_data)){
             wave_error_printf("sec_data 编码失败了  %s %d",__FILE__,__LINE__);
@@ -1468,9 +1405,9 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
     result res;
     sec_data sdata;
     encrypted_data *enc_data;
-    struct signed_data *s_data;
+    struct signed_data *s_data = NULL;
     struct signer_identifier *signer;
-    string temp;
+    string temp,data_toprocess;
     enum content_type type;
     bool verified;
     psid m_psid;
@@ -1480,6 +1417,7 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
     INIT(sdata);
     INIT(temp);
     INIT(permissions);
+    INIT(data_toprocess);
 
     
     if(  string_2_sec_data(recieve_data,&sdata) <= 0){
@@ -1487,34 +1425,44 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
         res = INVALID_INPUT;
         goto end;
     }
+
+    data_toprocess.len = recieve_data->len - 1;
+    data_toprocess.buf = (u8*)malloc(data_toprocess.len);
+    if(data_toprocess.buf == NULL){
+        wave_malloc_error();
+        res = FAILURE;
+        goto end;
+    }
+    memcpy(data_toprocess.buf,recieve_data->buf+1,data_toprocess.len);
+
+
     if(content_type != NULL)
         *content_type = sdata.type;
     type = sdata.type;
-
+    
     if(sdata.protocol_version != CURRETN_VERSION){
         wave_error_printf("这个数据不是本版本的 %s %d",__FILE__,__LINE__);
         res = FAILURE;
         goto end;
     }
-    switch(type){
-        case ENCRYPTED:
-            DEBUG_MARK;
-            enc_data = &sdata.u.encrypted_data;
-            if( encrypted_data_2_string(enc_data,&temp)){
-                wave_error_printf("转化失败 %s %d",__FILE__,__LINE__);
-                res = FAILURE;
-            DEBUG_MARK;
-                goto end;
-            }
-            DEBUG_MARK;
-            //这里我觉得逻辑有错，我并没有按照协议的走，，如果出现bug请核对哈
-            res = sec_decrypt_data(sdb,&temp,cmh, inner_type,data);
-            DEBUG_MARK;
-            printf("sec_decrypt_data,res :%d\n",res);
-            if(res != SUCCESS){
-                goto end;
-            }
-            break;
+    if(type == ENCRYPTED){
+        string_free(&temp);
+        temp.len = data_toprocess.len - 1;
+        temp.buf = (u8*)malloc(temp.len);
+        if(temp.buf == NULL){
+            res = FAILURE;
+            goto end;
+        }
+        memcpy(temp.buf,data_toprocess.buf+1,temp.len);
+        string_free(&data_toprocess);
+        res = sec_decrypt_data(sdb,&temp,cmh, &type,&data_toprocess);
+        if(res != SUCCESS){
+            goto end;
+        }
+        if(inner_type != NULL)
+            *inner_type = type;
+    }
+    switch(type){ 
         case UNSECURED:
             if(data != NULL){
                 if(data->buf != NULL){
@@ -1522,20 +1470,39 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
                     res = FAILURE;
                     goto end;
                 }
-                data->buf = (u8*)malloc(sdata.u.data.len);
-                if(data->buf == NULL){
+                string_free(&temp);
+                temp.len = data_toprocess.len - 1;
+                temp.buf = (u8*)malloc(temp.len);
+                if(temp.buf == NULL){
                     res = FAILURE;
-                    wave_malloc_error();
                     goto end;
                 }
-                data->len = sdata.u.data.len;
-                memcpy(data->buf,sdata.u.data.buf,data->len);
+                memcpy(temp.buf,data_toprocess.buf+1,temp.len);
+                if( string_2_opaque(&temp,data)<=0){
+                    wave_error_printf("数据转化错误 %s %d\n",__FILE__,__LINE__);
+                    res = FAILURE;
+                    goto end;
+                }
             }
             goto end;
         case SIGNED: 
         case SIGNED_PARTIAL_PAYLOAD:
         case SIGNED_EXTERNAL_PAYLOAD:
-            s_data = &sdata.u.signed_data;
+            string_free(&temp);
+            temp.len = data_toprocess.len - 1;
+            temp.buf = (u8*)malloc(temp.len);
+            if(temp.buf == NULL){
+                res = FAILURE;
+                goto end;
+            }
+            memcpy(temp.buf,data_toprocess.buf+1,temp.len);
+            s_data = (struct signed_data*)malloc(sizeof(struct signed_data));
+            INIT(*s_data);
+            if(string_2_signed_data(&temp,s_data,type) <=0){
+                wave_error_printf("解码失败  %s %d",__FILE__,__LINE__);
+                res = FAILURE;
+                goto end;
+            }
             switch(type){
                 case SIGNED:
                     m_psid = s_data->unsigned_data.u.type_signed.psid;
@@ -1709,7 +1676,12 @@ result sec_secure_data_content_extration(struct sec_db* sdb,string* recieve_data
 end:
     sec_data_free(&sdata);
     string_free(&temp);
+    string_free(&data_toprocess);
     cme_permissions_free(&permissions);
+    if(s_data != NULL){
+        signed_data_free(s_data,type);
+        free(s_data);
+    }
     return res;
 }
 
@@ -3694,7 +3666,6 @@ bool static verify_signature(pk_algorithm algorithm,signature* sig,string *pubke
             goto end;
         }
         memcpy(r.buf,point->x.buf,r.len);
-        printf("r.len :%d algorithm :%d  %s %d\n",r.len,algorithm,__FILE__,__LINE__);
         res = verify_signature_no_fast(algorithm,pubkey_x,pubkey_y,&r,&s,mess);
         goto end;
     }
@@ -3934,25 +3905,20 @@ result sec_decrypt_data(struct sec_db* sdb,string* encrypted_data,cmh cmh,
     INIT(ciphertext);
     INIT(nonce);
     INIT(plaintext);
-
     if(string_2_encrypted_data(encrypted_data,&encrypteddata) <= 0){
         res = -1;
         goto end;
     }
-DEBUG_MARK;
     if( find_cert_prikey_by_cmh(sdb,cmh,&cert,&prikey)){
         wave_error_printf("查找失败 %s %d",__FILE__,__LINE__);
-DEBUG_MARK;
         res = -1;
         goto end;
     }
     if(certificate_2_hashedid8(&cert,&hashed)){
         res = -1;
-DEBUG_MARK;
         goto end;
     }
     for(i=0;i<encrypteddata.recipients.len;i++){
-DEBUG_MARK;
         recinfo = encrypteddata.recipients.buf+i;
         if(hashedid8_cmp(&recinfo->cert_id,&hashed) == 0){
             if(cert.unsigned_certificate.cf & ENCRYPTION_KEY){
@@ -3972,15 +3938,12 @@ DEBUG_MARK;
         res = -1;
         goto end;
     }
-DEBUG_MARK;
     encrypted_key.len = recinfo->u.enc_key.c.len;
     tag.len = 20;
-DEBUG_MARK;
     if( elliptic_curve_point_2_uncompressed(ECIES_NISTP256,&recinfo->u.enc_key.v,&ephe_x,&ephe_y)){
         res = -1;
         goto end;
     }
-DEBUG_MARK;
     encrypted_key.buf = (u8*)malloc(encrypted_key.len);
     tag.buf = (u8*)malloc(tag.len);
     if(encrypted_key.buf == NULL || tag.buf == NULL){
@@ -3988,22 +3951,18 @@ DEBUG_MARK;
         wave_malloc_error();
         goto end;
     }
-DEBUG_MARK;
     memcpy(encrypted_key.buf,recinfo->u.enc_key.c.buf,encrypted_key.len);
     memcpy(tag.buf,recinfo->u.enc_key.t,tag.len);
 
     if( crypto_ECIES_decrypto_message(&encrypted_key,&ephe_x,&ephe_y,&tag,&prikey,&decrypted_key)){
-DEBUG_MARK;
         res = -1;
         goto end;
     }
-DEBUG_MARK;
     if(encrypteddata.symm_algorithm != AES_128_CCM){
         res = -1;
         wave_error_printf("出现了不支持的协议 %s %d",__FILE__,__LINE__);
         goto end;
     }
-DEBUG_MARK;
     ciphertext.len = encrypteddata.u.ciphertext.ccm_ciphertext.len;
     nonce.len = 12;
     ciphertext.buf = (u8*)malloc(ciphertext.len);
@@ -4034,26 +3993,17 @@ DEBUG_MARK;
     goto end;
 
 end:
-DEBUG_MARK;
     encrypted_data_free(&encrypteddata);
-DEBUG_MARK;
     tobe_encrypted_free(&tobe_en);
-DEBUG_MARK;
-DEBUG_MARK;
     certificate_free(&cert);
-DEBUG_MARK;
     string_free(&encrypted_key);
-DEBUG_MARK;
     string_free(&ephe_x);
     string_free(&ephe_y);
-DEBUG_MARK;
     string_free(&tag);
     string_free(&prikey);
-DEBUG_MARK;
     string_free(&decrypted_key);
     string_free(&ciphertext);
     string_free(&nonce);
-DEBUG_MARK;
     string_free(&plaintext);
     return res;
 }

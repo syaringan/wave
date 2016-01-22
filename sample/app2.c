@@ -94,8 +94,7 @@ static void sec_data_parse(string *rec_data){
     int i;
     printf("type:%d  inner type : %d (0=UNSECURE,1=SIGNED,2=ENCRYPTED,9,10 = SIGNED_...)\n",type,inner_type);
     string_printf("data",&data);
-   // string_printf("signed_data",&signed_data);
-   printf("signed data len :%d\n",signed_data.len);
+    string_printf("signed_data",&signed_data);
     printf("psid:%d\n",psid);
     string_printf("spp",&ssp);
     if(set_generation_time == 1){
@@ -133,6 +132,7 @@ static void encrypted_data(string* cert){
     data.buf[1] = 'j';
     data.buf[2] = 'h';
     data.buf[3] = '\0';
+    string_printf("data:",&data);
     int type = UNSECURED;
     int compressed = 0;
     time64 overdue_crl_tolerance =(time64)3600*1000000;
@@ -153,26 +153,20 @@ static void encrypted_data(string* cert){
     else
          printf("sec_encrypted_data success\n");
     int len = msendto(fd,encrypted_data.buf,encrypted_data.len,OPP_PORT);
-    if(len != encrypted_data.len){
+    if(len){
         error();
         return;
     }
 
 }
 int main(){
-    cmh mcmh;
     cme_lsis mlsis;
     fd = getsocket(MY_PORT);
     if(fd <0 ){
         error();
         return -1;
     }
-    
-    if( cme_cmh_request(&mcmh)){
-        error();
-        return-1;
-    }
-    printf("cmh = %d\n",mcmh);
+   
     if( cme_lsis_request(&mlsis)){
         error();
         return -1;

@@ -676,7 +676,6 @@ static int do_sec_encrypted_data(struct sec_db* sdb,int fd)
     slen = 0;
     buf += 4;
 
-DEBUG_MARK;
     while(slen != len){
         len_r = read(fd,buf+slen,len-slen);
         if(len_r <= 0){
@@ -690,7 +689,6 @@ DEBUG_MARK;
     content_type type = *((int*)buf);
     buf += 4;
 
-DEBUG_MARK;
     string data;
     INIT(data);
     data.len = *((int*)buf);
@@ -717,27 +715,15 @@ DEBUG_MARK;
         return -1;
     }
     memset(certs.certs,0,sizeof(struct certificate)*certs.len);   
-DEBUG_MARK;
     int certs_data_len = *((int*)buf);
     buf += 4;
 
     int i,j;
     int cert_len;
     int count = 0;
-DEBUG_MARK;
     for(i=0;i<certs.len;i++){
-DEBUG_MARK;
-        printf("len : %d\n",certs_data_len-count);
-        int j;
-        for(j=0;j<certs_data_len;j++){
-            printf("%02x ",*(unsigned char*)(buf+j));
-            if((j+1)%10==0)
-               printf("\n"); 
-        }
-        printf("\n");
+        
         cert_len = buf_2_certificate(buf,certs_data_len-count,certs.certs+i);
-       // certificate_printf(certs.certs+i);
-        printf("cert_len :%d %s %d\n",cert_len,__FILE__,__LINE__);
         if(cert_len < 0){
             ERROR_PRINTF("buf_2_certificate失败");
             certs.len = i + 1;          //实际已填充的证书个数
@@ -750,24 +736,19 @@ DEBUG_MARK;
         count += cert_len;
     }
     
-DEBUG_MARK;
     bool compressed = *((int*)buf);
     buf += 4;
 
     time64 time = *((time64*)buf);
 
     free(buf_beg);
-DEBUG_MARK;
     string encrypted_data;
     struct certificate_chain failed_certs;
     INIT(encrypted_data);
     INIT(failed_certs);
 
-    printf("sec_encrypted_data begin %s %d\n",__FILE__,__LINE__);
-        //certificate_printf(certs.certs);
     int res = sec_encrypted_data(sdb,type,&data,&certs,compressed,time,
                                 &encrypted_data,&failed_certs);
-    printf("sec_encrypted_data over encrypted_data.len %d  %s %d\n",encrypted_data.len,__FILE__,__LINE__);
     certificate_chain_free(&certs);
     string_free(&data);
     if(res != 0){
@@ -849,6 +830,7 @@ DEBUG_MARK;
     }
 
     free(buf_beg);
+    printf("sec_encrypted_data success %s %d\n",__FILE__,__LINE__);
     return 0;
 }
 
@@ -951,17 +933,20 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
         }
         return -1;
     }
-    if((set_geneartion_time != 0 && set_geneartion_time != 1) ||
-        (set_expiry_time != 0 && set_expiry_time != 1) ||
-        (set_generation_location != 0 && set_generation_location != 1)){
-        ERROR_PRINTF("返回参数错误");
-        string_free(&data);
-        string_free(&signed_data);
-        string_free(&ssp);
-        certificate_free(&send_cert);
-        return -1;
+    /*这里不做参数检查  
+    if(type != ENCRYPTED){
+        if((set_geneartion_time != 0 && set_geneartion_time != 1) ||
+            (set_expiry_time != 0 && set_expiry_time != 1) ||
+            (set_generation_location != 0 && set_generation_location != 1)){
+            ERROR_PRINTF("返回参数错误");
+            string_free(&data);
+            string_free(&signed_data);
+            string_free(&ssp);
+            certificate_free(&send_cert);
+            return -1;
+        }
     }
-
+    */
     //将send_cert转换为数据流，并计算数据长度，之后将certificate释放
     int send_cert_len = 1024;
     char* cert_buf;
@@ -983,8 +968,12 @@ static int do_sec_secure_data_content_extration(struct sec_db* sdb,int fd)
             cert_buf = (char*)realloc(cert_buf,send_cert_len);
         }
     }
-    certificate_free(&send_cert);
-    send_cert_len = res;
+    if(res == -3){
+        send_cert_len = 0;
+    }else{
+        certificate_free(&send_cert);
+        send_cert_len = res;
+    }
 
     len = sizeof(int)*13 + sizeof(psid) + sizeof(time64)*2 + 3 + data.len + signed_data.len + ssp.len + send_cert_len;
     buf = (char*)malloc(len);

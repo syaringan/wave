@@ -336,9 +336,9 @@ int crypto_ECIES_get_key(string *prikey,string *pubkey_x,string* pubkey_y){
 
     if(ECIES_get_key(prikey->buf,&prikey->len,pubkey_x->buf,&pubkey_x->len,pubkey_y->buf,&pubkey_y->len))
         goto fail;
-    string_printf("1 x",pubkey_x);
-    string_printf("1 y",pubkey_y);
-    string_printf("1 pri",prikey);
+//    string_printf("1 x",pubkey_x);
+  //  string_printf("1 y",pubkey_y);
+  //  string_printf("1 pri",prikey);
     return 0;
 fail:
     if(prikey->buf != NULL)
@@ -500,13 +500,13 @@ int crypto_AES_128_CCM_encrypto_message(string *plaintext,string* sym_key,string
     ciphertext->len = plaintext->len + 16;
     ciphertext->buf = (u8*)malloc(ciphertext->len);
     if(ciphertext->buf == NULL){
-	wave_malloc_error();
-	goto fail;
+	    wave_malloc_error();
+	    goto fail;
     }
 
     if(AES_128_CCM_encrypto_message(plaintext->buf,plaintext->len,sym_key->buf,sym_key->len,nonce->buf,nonce->len,
 			ciphertext->buf,&ciphertext->len))
-	goto fail;
+	    goto fail;
     return 0;
 fail:
     if(ciphertext->buf != NULL)
@@ -517,7 +517,7 @@ fail:
 int crypto_AES_128_CCM_decrypto_message(string *ciphertext,string* sym_key,string* nonce,string *plaintext){
     check_args_string(plaintext);
 
-    plaintext->len = ciphertext->len;
+    plaintext->len = ciphertext->len+1;
     plaintext->buf = (u8*)malloc(plaintext->len);
 
     if(plaintext->buf == NULL){
@@ -526,8 +526,8 @@ int crypto_AES_128_CCM_decrypto_message(string *ciphertext,string* sym_key,strin
     }
     if( AES_128_CCM_decrypto_message(ciphertext->buf,ciphertext->len,sym_key->buf,sym_key->len,nonce->buf,nonce->len,
 				plaintext->buf,&plaintext->len))
-	goto fail;
-    return -1;
+	    goto fail;
+    return 0;
 fail:
     if(plaintext->buf != NULL)
 	free(plaintext);

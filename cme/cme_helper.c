@@ -90,7 +90,6 @@ int find_cert_by_cmh(struct sec_db *sdb, cmh cmh, struct certificate *cert){
         lock_rdlock(&sdb->cme_db.lock);
         p = ckc_find(sdb->cme_db.cmhs.alloc_cmhs.cmh_key_cert ,&cmh);
         if(!p){
-			DEBUG_MARK;
             lock_unlock(&sdb->cme_db.lock);
             return -1;
         }
@@ -251,9 +250,7 @@ int certificate_2_hashedid8(struct certificate *cert,hashedid8* hash8){
     INIT(mcert);
 
 
-            DEBUG_MARK;
     if(certificate_cpy(&mcert,cert)){
-            DEBUG_MARK;
         goto fail;
     }
     fix_certificate_2_compressed(&mcert);
@@ -594,7 +591,6 @@ int get_permission_from_certificate(certificate *cert,
                             cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].max_priority;
                     
                         permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len = cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.len;
-						DEBUG_MARK;
 						printf("cert ssp len:%d\n", cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.len);
 
                         permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.buf = 

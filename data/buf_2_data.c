@@ -3403,6 +3403,26 @@ u32 buf_2_signed_wsa(  u8* buf,  u32 len,signed_wsa *signed_wsa){
 	return len-size;
 }
 
+u32 buf_2_opaque(u8* buf, u32 len,u8** mbuf, u32* mlen){
+    u32 bitnum; 
+    u32 size = len;
+    u32 data_len;
+    bitnum = head_bit_num(buf);
+	data_len = variablelength_data_num(buf,bitnum);
+    if(size < data_len+bitnum){
+        wave_error_printf("填充数据不够 %s %d",__FILE__,__LINE__);
+        return -1;
+    }
+    buf += bitnum;
+    size -= bitnum;
+    *mbuf = (u8*)malloc(data_len);//填充opaque
+    if(*mbuf == NULL){
+        return -1;
+	}
+    memcpy(*mbuf,buf,data_len);
+    *mlen = data_len;
+    return data_len + bitnum;
+}
 /**
  *	将buf里面的字节流，转化成一个sec_data结构体，对于这个结构体指针，
  *	 这个接口可以认为这个指针指向了一个分配好的内存
@@ -3415,6 +3435,7 @@ u32 buf_2_signed_wsa(  u8* buf,  u32 len,signed_wsa *signed_wsa){
 u32 buf_2_sec_data(  u8* buf,  u32 len, sec_data* sec_data){
     u8* mbuf = buf;
     u32 size = len;
+    u32 bitnum;
     int res = 0;
 
     //检查长度是否满足最低要求
@@ -3438,15 +3459,19 @@ u32 buf_2_sec_data(  u8* buf,  u32 len, sec_data* sec_data){
     switch(sec_data->type){
         case UNSECURED:
 			//应该先用一字节编码,表明所用数据的字节长度，然后再分配内存
-			sec_data->u.data.len = get8(mbuf);
-			mbuf += 1;
-            size -= 1;
+            bitnum = head_bit_num(mbuf);
+			sec_data->u.data.len = variablelength_data_num(mbuf,bitnum);
+            if(size < sec_data->u.data.len*sizeof(u8)+bitnum){
+                wave_error_printf("填充数据不够 %s %d",__FILE__,__LINE__);
+                return -1;
+            }
+            mbuf += bitnum;
+            size -= bitnum;
             sec_data->u.data.buf = (u8*)malloc(sizeof(u8)*sec_data->u.data.len);//填充opaque
             if(sec_data->u.data.buf == NULL){
                 return -1;
 			}
-
-            sec_data->u.data.buf = mbuf;//单个数据的大小位u8，所以不需要大小端转换函数
+            memcpy(sec_data->u.data.buf,mbuf,sec_data->u.data.len);
             mbuf += sec_data->u.data.len;			//已经结束了，mbuf指针没有必要再移位了
             size -= sec_data->u.data.len;
             return len-size;

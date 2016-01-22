@@ -25,6 +25,7 @@ u32 sec_data_2_buf(sec_data* sec_data, u8* buf, u32 len);
  */
 u32 buf_2_sec_data(u8* buf,u32 len, sec_data* sec);
 u32 buf_2_certificate(u8* buf,u32 len,certificate* cert);
+u32 buf_2_opaque(u8* buf,u32 len,u8** mbuf,u32* mlen);
 /**
  *释放该数据结构内部的指针
  */
@@ -87,6 +88,8 @@ int certificate_request_2_string(certificate_request* cert_req,string* data);
 
 int tobe_encrypted_2_string(tobe_encrypted* tbencrypted,string* data);
 int string_2_tobe_encrypted(string *data,tobe_encrypted* tbencrypted);
+
+int string_2_opaque(string* data,string* opaque);
 
 int tobesigned_certificate_2_string(tobesigned_certificate* cert,string* data,u8 verision_and_type);
 int tobesigned_wsa_2_string(tobesigned_wsa* wsa,string* data);

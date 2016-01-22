@@ -596,7 +596,6 @@ int sec_signed_data(cmh cmh,int type,char* data,int data_len,char* exter_data,in
 		ERROR_PRINTF("参数错误");
         return -1;
 	}
-    printf("psid: %04x\n",psid);
 	int len = 4 + sizeof(app_tag) + sizeof(int)*14 + sizeof(cmh) + sizeof(psid) + sizeof(time64)*2
 				+ 3 + data_len + exter_len + ssp_len;
 	char* buf = (char*)malloc(len);
@@ -795,7 +794,6 @@ int sec_encrypted_data(int type,char* data,int data_len,char* certs,int certs_le
 		ERROR_PRINTF("参数错误");
         return -1;
 	}
-    printf("certs_len %d,certs_data_len :%d\n",certs_len,certs_data_len);
 	int len = 4 + sizeof(app_tag) + sizeof(int)*5 + sizeof(time64) + data_len + certs_data_len;
     app_tag tag = SEC_ENCRYPTED_DATA;
 	char* buf = (char*)malloc(len);
@@ -905,7 +903,6 @@ int sec_encrypted_data(int type,char* data,int data_len,char* certs,int certs_le
 
 	slen = *((int*)buf);
 	if(encrypted_len != NULL){
-        printf("slen:%d %s %d\n",slen,__FILE__,__LINE__);
 		if(*encrypted_len < slen){
 			ERROR_PRINTF("分配空间不足");
 			free(buf_beg);
@@ -1167,7 +1164,6 @@ int sec_secure_data_content_extration(char* recieve_data,int recieve_len,cmh cmh
 	
 	free(buf_beg);
 	close(fd);
-    printf("sec_secure_extration success %s %d\n",__FILE__,__LINE__);
     return 0;
 }
 
@@ -1422,7 +1418,6 @@ int sec_signed_data_verification(cme_lsis lsis,psid psid,int  type,
     }
 
     if(send_cert != NULL && cert_len != NULL){
-        printf("slen:%d\n",slen);
         memcpy(send_cert,buf,slen);
     }
 

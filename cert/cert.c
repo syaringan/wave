@@ -461,6 +461,18 @@ static void test_encrypted(string* x,string* y,string *pri){
     string_printf("yy",&yy);
     string_printf("encryptd_mess",&encrypted_mess);
     string_printf("tag",&tag);
+
+    FILE *fd;
+    fd = fopen("encrypted_mess","w");
+    fwrite(encrypted_mess.buf,1,encrypted_mess.len,fd);
+    fd = fopen("xx","w");
+    fwrite(xx.buf,1,xx.len,fd);
+    fd = fopen("yy","w");
+    fwrite(yy.buf,1,yy.len,fd);
+    fd = fopen("tag","w");
+    fwrite(tag.buf,1,tag.len,fd);
+
+
     if(res != 0){
         error();
         return;
@@ -483,22 +495,7 @@ static void fill_encrypted_publickey(certificate* cert,string* pri){
     cert->unsigned_certificate.flags_content.encryption_key.u.ecies_nistp256.supported_symm_alg = AES_128_CCM;
     point = &cert->unsigned_certificate.flags_content.encryption_key.u.ecies_nistp256.public_key;
 
-    get_enrypted_key(algorithm,&x,&y,pri);
-    /********/
-    FILE *fd;
-    fd = fopen("./x","w");
-    fwrite(x.buf,1,x.len,fd);
-    fd = fopen("./y","w");
-    fwrite(y.buf,1,y.len,fd);
-    fd = fopen("./p","w");
-    fwrite(pri->buf,1,pri->len,fd);
-
-
-    string_printf("pub x",&x);
-    string_printf("pub y",&y);
-    string_printf("pri ",pri);
-    test_encrypted(&x,&y,pri);
-    /********/
+    get_enrypted_key(algorithm,&x,&y,pri); 
     point->type = UNCOMPRESSED;
     point->x.len = x.len;
     point->u.y.len = y.len;
@@ -707,4 +704,77 @@ void generate_cert(){
         cert_2_file(&cert,pwd);
         certificate_printf(&cert);
     }
+}
+static void string_malloc(string* ptr,int len){
+    ptr->len = len;
+    ptr->buf = (u8*)malloc(len);
+    if(ptr->buf ==NULL)
+        error();
+}
+static void test(){
+    string x,y,xx,yy,tag,mess,en_mess,pri,m;
+    INIT(x);
+    INIT(y);
+    INIT(xx);
+    INIT(yy);
+    INIT(tag);
+    INIT(mess);
+    INIT(en_mess);
+    INIT(pri);
+    INIT(m);
+
+    mess.len = 10;
+    mess.buf = "helloword";
+
+    int res = crypto_ECIES_get_key(&pri,&x,&y);
+    string_printf("p",&pri);
+    string_printf("x",&x);
+    string_printf("y",&y);
+    printf("res :%d\n",res);
+
+    FILE *fd;
+    fd = fopen("./x","w");
+    fwrite(x.buf,1,x.len,fd);
+    fd = fopen("./y","w");
+    fwrite(y.buf,1,y.len,fd);
+    fd = fopen("./p","w");
+    fwrite(pri.buf,1,pri.len,fd);
+  
+   
+    
+    res = crypto_ECIES_encrypto_message(&mess,&x,&y,&xx,&yy,&en_mess,&tag);
+   // string_malloc(&xx,32);
+   // string_malloc(&yy,32);
+   // string_malloc(&tag,20);
+   // string_malloc(&en_mess,20);
+    //res = ECIES_encrypto_message(mess.buf,mess.len,x.buf,x.len,y.buf,y.len,xx.buf,&xx.len,yy.buf,&yy.len,en_mess.buf,&en_mess.len,tag.buf,&tag.len);
+    string_printf("tag",&tag);
+    string_printf("xx",&xx);
+    string_printf("yy",&yy);
+    string_printf("en_mess",&en_mess);
+    printf("res :%d\n",res);
+    
+   
+    fd = fopen("encrypted_mess","w");
+    fwrite(en_mess.buf,1,en_mess.len,fd);
+    fd = fopen("xx","w");
+    fwrite(xx.buf,1,xx.len,fd);
+    fd = fopen("yy","w");
+    fwrite(yy.buf,1,yy.len,fd);
+    fd = fopen("tag","w");
+    fwrite(tag.buf,1,tag.len,fd);
+
+
+    res = crypto_ECIES_decrypto_message(&en_mess,&xx,&yy,&tag,&pri,&m);
+    //string_malloc(&m,11);
+    //string_printf("m",&m);
+    //res = ECIES_decrypto_message(en_mess.buf,en_mess.len,xx.buf,xx.len,yy.buf,yy.len,tag.buf,tag.len,pri.buf,pri.len,m.buf,&m.len);
+    string_printf("m",&m);
+    printf("%s\n",m.buf);
+    printf("res :%d\n",res);
+
+}
+int main(){
+    generate_cert();
+    //test();
 }

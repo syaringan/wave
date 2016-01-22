@@ -153,7 +153,6 @@ int equal(struct rb_head *a,void* value){
     struct cmh_key_cert *ckca;
     cmh mvalue = *((cmh*)value);
     ckca =  rb_entry(a,struct cmh_key_cert,rb);
-	printf("cmh:%u mcmh %u\n",ckca->cmh,mvalue);
     if(ckca->cmh < mvalue)
         return -1;
     if(ckca->cmh == mvalue)

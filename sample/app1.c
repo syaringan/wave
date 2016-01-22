@@ -42,7 +42,7 @@ static void string_printf(char* name,struct string* data){
     }
     printf("\n");
 }
-static void getcert_and_key(struct string *cert,struct string *pri){
+static void getcert_and_key(struct string *cert,struct string *pri,struct string *en_pri){
     FILE *fd;
     fd = fopen("../cert/issued_cert/sde1.cert","r");
     if(fd == NULL){
@@ -79,6 +79,24 @@ static void getcert_and_key(struct string *cert,struct string *pri){
         return;
     }
     fclose(fd);
+    
+    fd = fopen("../cert/issued_cert/sde1.enry.pri","r");
+    if(fd == NULL){
+        error();
+        return;
+    }
+    en_pri->len = 100;
+    en_pri->buf = (char*)malloc(en_pri->len);
+    if(en_pri->buf == NULL){
+        error();
+        return ;
+    }
+    en_pri->len = fread(en_pri->buf,1,en_pri->len,fd);
+    if(en_pri->len <= 0){
+        error();
+        return;
+    }
+    fclose(fd);
 }
 static int generated_signed_data(cmh cmh,struct string* sdata){
     sdata->len = 1024;
@@ -97,7 +115,6 @@ static int generated_signed_data(cmh cmh,struct string* sdata){
     time64 generate_time,expiry_time;
     generate_time = time(NULL) * 1000 * (time64)1000;
     expiry_time = generate_time + (time64)1*60*1000*1000; 
-    printf("expiry_time:%llu\n",expiry_time);
     unsigned char glsd ;
     glsd = 0x10;
 
@@ -112,7 +129,7 @@ static int generated_signed_data(cmh cmh,struct string* sdata){
     int cert_chain_len = 2,max_cert_len = 4;
     int fs_type = YES_UNCOMPRESSED; 
     
-    if(sec_signed_data(cmh,type,"123",3,NULL,0,psid,"ljh",3,1,generate_time,glsd,1,latitude,longtitude,elevation,
+    if(sec_signed_data(cmh,type,"123",3,NULL,0,psid,"ljh",4,1,generate_time,glsd,1,latitude,longtitude,elevation,
                 1,expiry_time,signer_type,cert_chain_len,max_cert_len,fs_type,1,
                 
                 sdata->buf,&sdata->len,NULL)){
@@ -158,8 +175,7 @@ static void sec_data_parse(struct string *rec_data,cmh mcmh){
     int i;
     printf("type:%d  inner type : %d (0=UNSECURE,1=SIGNED,2=ENCRYPTED,9,10 = SIGNED_...)\n",type,inner_type);
     string_printf("data",&data);
-   // string_printf("signed_data",&signed_data);
-   printf("signed data len :%d\n",signed_data.len);
+    string_printf("signed_data",&signed_data);
     printf("psid:%d\n",psid);
     string_printf("spp",&ssp);
     if(set_generation_time == 1){
@@ -185,22 +201,22 @@ static void sec_data_parse(struct string *rec_data,cmh mcmh){
 
 }
 int main(){
-    cmh mcmh;
-    struct string mcert,mpri;
+    cmh mcmh,encrypted_mcmh;
+    struct string mcert,mpri,en_pri;
     struct string signed_data;
     fd = getsocket(MY_PORT);
     if(fd <0 ){
         error();
         return -1;
     }
-    getcert_and_key(&mcert,&mpri);
-    
-    if( cme_cmh_request(&mcmh)){
+    getcert_and_key(&mcert,&mpri,&en_pri);
+    if( cme_cmh_request(&mcmh) || cme_cmh_request(&encrypted_mcmh)){
         error();
         return-1;
     }
-    printf("cmh = %d\n",mcmh);
-    if( cme_store_cert_key(mcmh,mcert.buf,mcert.len,mpri.buf,mpri.len)){
+    printf("cmh = %d  encrypted cmh = %d\n",mcmh,encrypted_mcmh);
+    if( cme_store_cert_key(mcmh,mcert.buf,mcert.len,mpri.buf,mpri.len) ||
+            cme_store_cert_key(encrypted_mcmh,mcert.buf,mcert.len,en_pri.buf,en_pri.len)){
         error();
         return -1;
     }
@@ -225,7 +241,6 @@ int main(){
         return;
     }
     encrypteddata.len = mrecvfrom(fd,encrypteddata.buf,encrypteddata.len,OPP_PORT);
-    string_printf("encryptd data",&encrypteddata);
-    sec_data_parse(&encrypteddata,mcmh);    
+    sec_data_parse(&encrypteddata,encrypted_mcmh);    
 
 }

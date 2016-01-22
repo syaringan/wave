@@ -660,7 +660,15 @@ int string_2_tobe_encrypted_certificate_request_error(string* data,
 	res = buf_2_tobe_encrypted_certificate_request_error(data->buf,data->len,cert_requ);
 	return res;
 }
-
+int string_2_opaque(string* data,string* opaque){
+    if(data->buf == NULL || opaque == NULL || opaque->buf != NULL){
+        wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);
+		return -1;
+    }
+    int res;
+    res = buf_2_opaque(data->buf,data->len,&opaque->buf,&opaque->len);
+    return res;
+}
 int string_2_tobe_encrypted_certificate_response(string* data,tobe_encrypted_certificate_response* cert_resp){
 	if(data->buf == NULL){
 		wave_error_printf("输入参数有误，请检查 %s %d",__FILE__,__LINE__);

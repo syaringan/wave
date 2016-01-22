@@ -3269,7 +3269,7 @@ int ECIES_decrypto_message(char* encrypto_mess_buf, int encrypto_mess_len,
 							d0, new StringSink(dm)));
 
 
-	    if( ((int)dm.length()>= decrypto_mess_len[0]) || ( (int)dm.length()!= encrypto_mess_len ) )
+	    if( ((int)dm.length() > decrypto_mess_len[0]) || ( (int)dm.length()!= encrypto_mess_len ) )
 		return -1;
 
 	    StringToChar(dm, decrypto_mess_buf);
