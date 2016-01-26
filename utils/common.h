@@ -91,7 +91,7 @@ typedef enum result{
     NO_RELEVANT_CRL_PROVIDED = 82,
 }result;
 
-
+#define UNSECURED_SERVICE_IN_SIGNED_WSA 0x80000000UL
 
 typedef enum app_tag{
     CME_LSIS_REQUEST,

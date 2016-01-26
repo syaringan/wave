@@ -16,16 +16,6 @@
 
 static struct sec_db sec_db;
 
-u32 psidn_2_h(unsigned char *psid, unsigned int len){
-    int i = 0;
-    u32 num = 0;
-    for(i = 0; i < len; i++){
-        num = num*256+(*psid);
-        psid++;
-    }
-    return num;
-}
-
 static void get_cert_and_key(string *cert, string *pri){
 	FILE *fd;
 	fd = fopen("./cert/issued_cert/wsa1.cert", "r");
@@ -177,7 +167,7 @@ static void* wme_loop(void* sdb){
     struct permission per;
     string unsigned_wsa;//接收到的wsa数据部分
     serviceinfo_array permissions;//需要填充的permission数组
-    time32 life_time;
+    time32 life_time = 0;;
 
     string signed_wsa;
     /*
@@ -196,6 +186,22 @@ static void* wme_loop(void* sdb){
     struct time32_array last_crl_time;
     struct time32_array next_crl_time;
 	certificate cert;
+
+	INIT(permissions);
+	INIT(unsigned_wsa);
+	INIT(signed_wsa);
+	INIT(s_head);
+	INIT(s_wsa);
+	INIT(unverified_wsa);
+	INIT(results);
+	INIT(wsa_data);
+	INIT(ssp_array);
+	INIT(generation_time);
+	INIT(expiry_time);
+	INIT(location);
+	INIT(last_crl_time);
+	INIT(next_crl_time);
+	INIT(cert);
 
 	int fd = dot2_init_netlink(nlh, msg);
 	if(fd < 0){
@@ -216,19 +222,13 @@ static void* wme_loop(void* sdb){
 			goto out_fail;
 		}
 		recv_data_len = NLMSG_PAYLOAD(nlh, 0);
-		//memcpy(rbuf, NLMSG_DATA(nlh), recv_data_len);
 		nlh->nlmsg_pid = getpid();
 		nlh->nlmsg_len = NLMSG_SPACE(MAX_PAYLOAD*4);
 
 		//解析报文
 		char *shift = NLMSG_DATA(nlh);
 		//1为签名
-		if(*shift = 1){
-			INIT(permissions);
-			INIT(unsigned_wsa);
-			INIT(signed_wsa);
-			INIT(s_head);
-			INIT(s_wsa);
+		if(*shift == SIGN){
 
 			memcpy(&s_head, shift, sizeof(struct wme_tobe_signed_wsa));
 			life_time = s_head.lifetime;
@@ -251,11 +251,9 @@ static void* wme_loop(void* sdb){
 
 				memcpy(&permissions.serviceinfos[permissions.len].max_priority, &per.priority, 1);
 
-				permissions.serviceinfos[permissions.len].psid = psidn_2_h(shift, per.psid_len);
+				permissions.serviceinfos[permissions.len].psid = psidn2h(shift, per.psid_len);
 				shift += per.psid_len;
 				if(per.ssp_len > 0){
-					DEBUG_MARK;
-					printf("ssp len:%d\n", per.ssp_len);
 					permissions.serviceinfos[permissions.len].ssp.len = per.ssp_len;
 					permissions.serviceinfos[permissions.len].ssp.buf = malloc(per.ssp_len);
 					if(!permissions.serviceinfos[permissions.len].ssp.buf){
@@ -284,7 +282,6 @@ static void* wme_loop(void* sdb){
 				return;
 			}
 			ret = sec_signed_wsa(&sec_db, &unsigned_wsa, &permissions, life_time, &signed_wsa);
-			// memset((char*)NLMSG_DATA(nlh), 0, MAX_PAYLOAD);
 			if(ret == SUCCESS){
 				struct wme_signed_wsa_request *swsa = (struct wme_signed_wsa_request*)NLMSG_DATA(nlh);
 				wave_printf(MSG_INFO, "signe wsa successful\n");
@@ -295,7 +292,7 @@ static void* wme_loop(void* sdb){
 				swsa->swsa.change_count = s_head.change_count;
 				swsa->swsa.channel = s_head.channel;
 				swsa->swsa.result_code = DOT2_SIGN_SUCCESS;
-				memcpy((char*)swsa+sizeof(*swsa), signed_wsa.buf, signed_wsa.len);
+				memcpy((char*)&swsa->swsa+sizeof(struct dot3_signed_wsa), signed_wsa.buf, signed_wsa.len);
 			}
 			else{
 				struct wme_signed_wsa_request *swsa = (struct wme_signed_wsa_request*)NLMSG_DATA(nlh);
@@ -314,20 +311,10 @@ static void* wme_loop(void* sdb){
 			}
 		}
 		//验证
-		else if(*shift == 2){
+		else if(*shift == VERIFY){
 			memcpy(&v_head, shift, sizeof(struct dot2_tobe_verified_wsa));
 			shift += sizeof(struct dot2_tobe_verified_wsa);
 
-			INIT(unverified_wsa);
-			INIT(results);
-			INIT(wsa_data);
-			INIT(ssp_array);
-			INIT(generation_time);
-			INIT(expiry_time);
-			INIT(location);
-			INIT(last_crl_time);
-			INIT(next_crl_time);
-			INIT(cert);
 
 			unverified_wsa.len = v_head.wsa_len;
 			unverified_wsa.buf = malloc(v_head.wsa_len);
@@ -348,24 +335,17 @@ static void* wme_loop(void* sdb){
 				vwsa->rwsa.pid = getpid();
 				memcpy(vwsa->rwsa.src_mac, v_head.src_mac, 6);
 				vwsa->rwsa.rcpi = v_head.rcpi;
-				vwsa->rwsa.result_code[0] = DOT2_SUCCESS;
-				vwsa->rwsa.result_code[1] = DOT2_SUCCESS;
-				for(i = 0; i < results.len; i++){
-					if(results.result[i] == UNSECURED){
-						vwsa->rwsa.result_code[1] = DOT2_UNSECURED;
-						break;
-					}
-				}
+				vwsa->rwsa.result_code = DOT2_SUCCESS;
 				vwsa->rwsa.wsa_len = wsa_data.len; 
 				vwsa->rwsa.gen_time = generation_time.time;
 				vwsa->rwsa.expire_time = expiry_time;
 				vwsa->rwsa.ssp_len = 0;
-				vwsa->rwsa.next_crl_time_len = next_crl_time.len*sizeof(time32);
+				vwsa->rwsa.next_crl_time_len = next_crl_time.len*sizeof(time32)*2;
 
 				//memcpy(sbuf, &v_wsa, sizeof(struct verified_wsa));
-				memcpy((char*)vwsa+sizeof(*vwsa), wsa_data.buf, wsa_data.len);
+				memcpy((char*)&vwsa->rwsa+sizeof(struct verified_wsa), wsa_data.buf, wsa_data.len);
 
-				char *ssp_shift = (char*)vwsa + sizeof(*vwsa) + wsa_data.len;
+				char *ssp_shift = (char*)&vwsa->rwsa + sizeof(struct verified_wsa) + wsa_data.len;
 				for(i = 0; i < ssp_array.len; i++){
 					if(ssp_array.ssps[i].len != 0){
 						memcpy(ssp_shift, ssp_array.ssps[i].buf, ssp_array.ssps[i].len);
@@ -379,10 +359,9 @@ static void* wme_loop(void* sdb){
 					}
 				}
 
-				memcpy(ssp_shift, next_crl_time.times, sizeof(time32)*next_crl_time.len);
-				//memcpy(NLMSG_DATA(nlh), sbuf, sizeof(struct verified_wsa)+v_wsa.wsa_len+v_wsa.ssp_len+v_wsa.next_crl_time_len);
+				memcpy(ssp_shift, next_crl_time.times, sizeof(time32)*next_crl_time.len*2);
 			}
-			else if(ret == INVALID_INPUT){
+			else if(ret != FAILURE){
 				struct wme_verified_wsa_request *vwsa = (struct wme_verified_wsa_request*)NLMSG_DATA(nlh);
 				wave_printf(MSG_INFO,"verify fail, invalid input!\n");
 				vwsa->type = DOT2_WSA;
@@ -390,42 +369,23 @@ static void* wme_loop(void* sdb){
 				vwsa->rwsa.pid = getpid();
 				memcpy(vwsa->rwsa.src_mac, v_head.src_mac, 6);
 				vwsa->rwsa.rcpi = v_head.rcpi;
-				vwsa->rwsa.result_code[0] = DOT2_INVALID_INPUT;
-				vwsa->rwsa.result_code[1] = DOT2_INVALID_INPUT;
-				vwsa->rwsa.wsa_len = 0; 
-				vwsa->rwsa.gen_time = 0;
-				vwsa->rwsa.expire_time = 0;
+				vwsa->rwsa.result_code = DOT2_INVALID_INPUT;
+				vwsa->rwsa.wsa_len = wsa_data.len; 
+				vwsa->rwsa.gen_time = ~0;
+				vwsa->rwsa.expire_time = ~0;
 				vwsa->rwsa.ssp_len = 0;
 				vwsa->rwsa.next_crl_time_len = 0;
 
-				//memcpy(sbuf, &v_wsa, sizeof(struct verified_wsa));
-				//memcpy(NLMSG_DATA(nlh), sbuf, sizeof(struct verified_wsa));
-			}
-			else{
-				struct wme_verified_wsa_request *vwsa = (struct wme_verified_wsa_request*)NLMSG_DATA(nlh);
-				wave_printf(MSG_INFO,"verify fail, other failure\n");
-				vwsa->type = DOT2_WSA;
-				vwsa->operat = GET_ATTR;
-
-				vwsa->rwsa.pid = getpid();
-				memcpy(vwsa->rwsa.src_mac, v_head.src_mac, 6);
-				vwsa->rwsa.rcpi = v_head.rcpi;
-				vwsa->rwsa.result_code[0] = DOT2_OTHER_FALURE;
-				vwsa->rwsa.result_code[1] = DOT2_OTHER_FALURE;
 				for(i = 0; i < results.len; i++){
-					if(results.result[i] == UNSECURED){
-						vwsa->rwsa.result_code[1] = DOT2_UNSECURED;
+					if(results.result[i] == NOT_SECURED){
+						vwsa->rwsa.result_code |= UNSECURED_SERVICE_IN_SIGNED_WSA;
 						break;
 					}
 				}
-				vwsa->rwsa.wsa_len = wsa_data.len; 
-				vwsa->rwsa.gen_time = generation_time.time;
-				vwsa->rwsa.expire_time = expiry_time;
-				vwsa->rwsa.ssp_len = 0;
-				vwsa->rwsa.next_crl_time_len = next_crl_time.len*sizeof(time32);
-
-				memcpy((char*)vwsa+sizeof(*vwsa), wsa_data.buf, wsa_data.len);
+				memcpy((char*)&vwsa->rwsa+sizeof(struct verified_wsa), wsa_data.buf, wsa_data.len);
 			}
+			else
+				goto out_fail;
 			if(sendmsg(fd, msg, 0) < 0){
 				wave_error_printf("发送消息给内核失败了");
 				goto out_fail;
@@ -504,33 +464,33 @@ static int inline init_wme_pthread_attr_t(pthread_attr_t* attr){
 	return 0;
 }
 struct sec_db* init_sec_db(){
-    if( pssme_db_init(&sec_db.pssme_db)){
-        wave_error_printf("pssme_db init 失败  %s %d",__FILE__,__LINE__);
-        return NULL;
-    }
-    if( file_2_pdb(&sec_db.pssme_db,PSSME_DB_CONFIG)){
-        wave_printf(MSG_WARNING,"没有配置文件,或者配置文件格式不对，这里我们生成一个空的pssme_db");
-        pssme_db_free(&sec_db.pssme_db);
-        if( pssme_db_empty_init(&sec_db.pssme_db)){
-            wave_error_printf("pssme_db_empty init 失败  %s %d",__FILE__,__LINE__);
-            return NULL;
-        }
-    }
-    wave_printf(MSG_INFO,"初始化完成 pssme_db");
-    if( cme_db_init(&sec_db.cme_db) ){
-        wave_error_printf("cme_db_init 失败  %s %d",__FILE__,__LINE__);
-        return NULL;
-    }
-    if( file_2_cme_db(&sec_db.cme_db,CME_DB_CONFIG)){
-        wave_printf(MSG_WARNING,"没有配置文件，或者配置文件格式部队  这里我们生成一个空的cme_db");
-        cme_db_free(&sec_db.cme_db);
-        if( cme_db_empty_init(&sec_db.cme_db)){
-            wave_error_printf("cme_db_empty init 失败  %s %d",__FILE__,__LINE__);
-            return NULL;
-        }
-    }
-    wave_printf(MSG_INFO,"初始化完成 cme_db");
-    return &sec_db;
+	if( pssme_db_init(&sec_db.pssme_db)){
+		wave_error_printf("pssme_db init 失败  %s %d",__FILE__,__LINE__);
+		return NULL;
+	}
+	if( file_2_pdb(&sec_db.pssme_db,PSSME_DB_CONFIG)){
+		wave_printf(MSG_WARNING,"没有配置文件,或者配置文件格式不对，这里我们生成一个空的pssme_db");
+		pssme_db_free(&sec_db.pssme_db);
+		if( pssme_db_empty_init(&sec_db.pssme_db)){
+			wave_error_printf("pssme_db_empty init 失败  %s %d",__FILE__,__LINE__);
+			return NULL;
+		}
+	}
+	wave_printf(MSG_INFO,"初始化完成 pssme_db");
+	if( cme_db_init(&sec_db.cme_db) ){
+		wave_error_printf("cme_db_init 失败  %s %d",__FILE__,__LINE__);
+		return NULL;
+	}
+	if( file_2_cme_db(&sec_db.cme_db,CME_DB_CONFIG)){
+		wave_printf(MSG_WARNING,"没有配置文件，或者配置文件格式部队  这里我们生成一个空的cme_db");
+		cme_db_free(&sec_db.cme_db);
+		if( cme_db_empty_init(&sec_db.cme_db)){
+			wave_error_printf("cme_db_empty init 失败  %s %d",__FILE__,__LINE__);
+			return NULL;
+		}
+	}
+	wave_printf(MSG_INFO,"初始化完成 cme_db");
+	return &sec_db;
 
 }
 

@@ -594,8 +594,7 @@ int get_permission_from_certificate(certificate *cert,
                             cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].max_priority;
                     
                         permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len = cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.len;
-						DEBUG_MARK;
-						printf("cert ssp len:%d\n", cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.len);
+					//	printf("cert ssp len:%d\n", cert->unsigned_certificate.scope.u.wsa_scope.permissions.u.permissions_list.buf[i].service_specific_permissions.len);
 
                         permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.buf = 
                             malloc(sizeof(u8)*permission->u.psid_priority_ssp_array.buf[i].service_specific_permissions.len);
