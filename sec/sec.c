@@ -1191,8 +1191,8 @@ result sec_encrypted_data(struct sec_db* sdb,content_type type,string* data,stru
         else{
             time(&now);
             if(next_crl_time < now - overdue_crl_tolerance/US_TO_S){
-                wave_printf(MSG_WARNING,"crl没有获得，crl_next_time:%d  now:%d  over:%lld\n",
-                        next_crl_time,now,overdue_crl_tolerance/US_TO_S);
+                wave_printf(MSG_WARNING,"crl没有获得，crl_next_time:%d  now:%d  over:%lld  %s %d\n",
+                        next_crl_time,now,overdue_crl_tolerance/US_TO_S,__FILE__,__LINE__);
                 res = FAIL_ON_SOME_CERTIFICATES;
                 if(certificate_chain_add_cert(failed_certs,temp_cert)){
                     res = -1;
@@ -1913,8 +1913,8 @@ next:
     time(&now);
     for(i=0;i<times.len;i++){
         if ( *(times.times+i) < now-overdue_crl_tolerance/US_TO_S ){
-             wave_printf(MSG_DEBUG,"next_expected_crl :%us  now :%us  overdue_crl_tolerance :%llus",
-                                *(times.times+i),now,overdue_crl_tolerance/US_TO_S);
+             wave_printf(MSG_DEBUG,"next_expected_crl :%us  now :%us  overdue_crl_tolerance :%llus %s %d",
+                                *(times.times+i),now,overdue_crl_tolerance/US_TO_S,__FILE__,__LINE__);
             res = OVERDUE_CRL;
             goto end;
         }

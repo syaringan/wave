@@ -490,7 +490,7 @@ static result get_crl_time_by_certificate(struct sec_db* sdb,certificate* cert,t
     lock_unlock(&cdb->lock);
     ***************************/
     /*******现在测试阶段，这个直必须很大，不然通不过******/
-     if(last_crl_time != NULL)
+    if(last_crl_time != NULL)
         *last_crl_time = 0;
     if(next_crl_time != NULL)
         *next_crl_time = 2147483647;
@@ -1571,7 +1571,6 @@ result cme_construct_certificate_chain(struct sec_db* sdb,
 		string_cpy(&sign_id, identifier);
 	}
 construct_chain:
-	DEBUG_MARK;
 	if(i != 0){
 		sign_id.len = 8;
 		if(sign_id.buf != NULL){
@@ -1590,7 +1589,6 @@ construct_chain:
 	string_free(&cert_encoded);
 	INIT(cert_encoded);
 
-	DEBUG_MARK;
 	if(certificate == NULL){
 		ret = cme_certificate_info_request(sdb, ID_HASHEDID8, &sign_id, &cert_encoded, &(permissions_array->cme_permissions[i]), 
 				&(regions->regions[i]), &(last_crl_times_array->times[i]), &(next_crl_times_array->times[i]), 
@@ -1652,31 +1650,23 @@ construct_chain:
 	}
 	certificate_cpy(certificate_chain->certs+i, certificate);
 
-	DEBUG_MARK;
 	i++;
-	printf("i=:%d\n", i);
 	if(i >= max_chain_len){
 		ret = CHAINE_TOO_LONG;
 		goto fail;
 	}
 
-	DEBUG_MARK;
 	if(terminate_at_root == false){
-	DEBUG_MARK;
 		if(trust_anchor == false){
-	DEBUG_MARK;
 			goto construct_chain;
 		}
 	}
 	else{
-	DEBUG_MARK;
 		if(certificate->unsigned_certificate.holder_type != ROOT_CA){
 			goto construct_chain;
 		}
-	DEBUG_MARK;
 	}
 
-	DEBUG_MARK;
 	if(mcertificate_chain != NULL && mcertificate_chain->certs == NULL){
 		mcertificate_chain->len = i;
 		mcertificate_chain->certs = (struct certificate*)malloc(sizeof(struct certificate) * i);
@@ -1692,7 +1682,6 @@ construct_chain:
 	}
 
 	if(mpermissions_array != NULL){
-	DEBUG_MARK;
 		mpermissions_array->len = i;
 		mpermissions_array->cme_permissions = (struct cme_permissions*)malloc(sizeof(struct cme_permissions) * i);
 		if(mpermissions_array->cme_permissions == NULL){
@@ -1730,20 +1719,14 @@ construct_chain:
 	}
 	//dot3's crl time is 64 bit,so malloc use 2*i
 	if(mnext_crl_times_array != NULL){
-		int k=0;
-		time64 *tmp_time;
 		mnext_crl_times_array->len = i;
-		mnext_crl_times_array->times = (time32*)malloc(sizeof(time32) *2*i);
+		mnext_crl_times_array->times = (time32*)malloc(sizeof(time32) * i);
 		if(mnext_crl_times_array->times == NULL){
 			wave_malloc_error();
 			ret = FAILURE;
 			goto fail;
 		}
-		tmp_time = (time64*)mnext_crl_times_array->times;
-//		memcpy(mnext_crl_times_array->times,next_crl_times_array->times,sizeof(time32) * i);
-		for(k = 0; k<mnext_crl_times_array->len;k++){
-			tmp_time[k] = next_crl_times_array->times[k];
-		}	
+		memcpy(mnext_crl_times_array->times,next_crl_times_array->times,sizeof(time32) * i);
 				
 	}
 	if(mverified_array != NULL){
