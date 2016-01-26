@@ -87,24 +87,21 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
     struct pssme_local_cert *p;//遍历用的临时变量
     //访问pssme_db，找到符合lsis要求的cmh
     lock_rdlock(&sdb->pssme_db.lock);
-	if(list_empty(&sdb->pssme_db.cert_db.local_cert.list)){
-		wave_error_printf("local cert list is empty!\n");
-	}
     list_for_each_entry(p, &sdb->pssme_db.cert_db.local_cert.list, list){
         if(se_array->len > p->lsis_array.len)
             continue;
-		printf("lsis: %d\n", p->lsis_array.lsis[0]);
-		printf(" local cert len:%d\n", p->lsis_array.len);
+		//printf("lsis: %d\n", p->lsis_array.lsis[0]);
+		//printf(" local cert len:%d\n", p->lsis_array.len);
         for(i = 0; i < se_array->len; i++){
             for(j = 0; j < p->lsis_array.len; j++){
-				printf("lsis:%d %d\n", se_array->serviceinfos[i].lsis, p->lsis_array.lsis[j]);
+		//		printf("lsis:%d %d\n", se_array->serviceinfos[i].lsis, p->lsis_array.lsis[j]);
                 if(se_array->serviceinfos[i].lsis == p->lsis_array.lsis[j])
                     break;
             }
             if(j == p->lsis_array.len)
                 break;
         }
-		printf("i:%d se_array_len:%d\n", i, se_array->len);
+		//printf("i:%d se_array_len:%d\n", i, se_array->len);
         //创建一个新的临时节点，记得释放这个链表
         if(i == se_array->len){
             struct pssme_local_cert *p_add = malloc(sizeof(struct pssme_local_cert));
@@ -179,7 +176,7 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
             memset(permission_ind->buf, 0, sizeof(u8)*se_array->len);
             for(j = 0; j < se_array->len; j++){
                 if(se_array->serviceinfos[j].lsis == 0){
-                    permission_ind->buf[j] == 0;
+                    permission_ind->buf[j] = 0;
                     continue;
                 }
                 for(k = 0; k < p->lsis_array.len; k++){
@@ -190,8 +187,7 @@ result pssme_cryptomaterial_handle(struct sec_db* sdb,serviceinfo_array* se_arra
                     string tmp_ssp;
                     tmp_ssp.buf = current_cert_permissions.u.psid_priority_ssp_array.buf[k].service_specific_permissions.buf;
                     tmp_ssp.len = current_cert_permissions.u.psid_priority_ssp_array.buf[k].service_specific_permissions.len;
-					DEBUG_MARK;
-					printf("ssp len: 1%d 2%d\n", tmp_ssp.len, se_array->serviceinfos[j].ssp.len);
+					//printf("ssp len: 1%d 2%d\n", tmp_ssp.len, se_array->serviceinfos[j].ssp.len);
                     if(string_cmp(&se_array->serviceinfos[j].ssp, &tmp_ssp) != 0)
                         continue;
                     if(se_array->serviceinfos[j].max_priority > current_cert_permissions.u.psid_priority_ssp_array.buf[k].max_priority)
@@ -437,7 +433,8 @@ result pssme_outoforder(struct sec_db* sdb,u64 generation_time,certificate* cert
             break;
     }
     if(&node->list != head){
-        if(node->recent_time < generation_time){
+        if(node->recent_time <= generation_time){
+			node->recent_time = generation_time;
             lock_unlock(&pdb->lock);
             return SUCCESS;
         }

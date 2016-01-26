@@ -12,7 +12,8 @@
 #include <time.h>
 #include <math.h>
 #include "../crypto/crypto.h"
-#include "./utils/normal_distribution.h"
+#include "../utils/normal_distribution.h"
+#include "../utils/expiretime.h"
 #define INIT(m) memset(&m,0,sizeof(m))
 #define LOG_STD_DEV_BASE 1.134666
 
@@ -258,6 +259,8 @@ static int extract_service_info(string *wsa, struct dot2_service_info_array *ser
         wave_error_printf("分配内存失败");
         goto end;
     }
+	memset(serv_info, 0, sizeof(struct service_info)*32);
+	memset(ch_info, 0, sizeof(struct channel_info)*32);
 
     if(!ser_infos){
         wave_error_printf("空指针，没有内容可以extract");
@@ -275,11 +278,10 @@ static int extract_service_info(string *wsa, struct dot2_service_info_array *ser
         goto end;
     }
     
-    struct service_info *ser_tmp  = NULL;
     char *tmp = NULL;
     unsigned char psid_len = 0;
-    for(ser_tmp = &serv_info[0]; ser_tmp->serv != NULL; ser_tmp++)
-        ser_info_len++;
+	while(serv_info[ser_info_len].serv != NULL)
+		ser_info_len++;
     
     ser_infos->len = ser_info_len;
     ser_infos->service_infos = malloc(sizeof(struct dot2_service_info)*ser_info_len);
@@ -287,13 +289,14 @@ static int extract_service_info(string *wsa, struct dot2_service_info_array *ser
         wave_error_printf("内存分配失败");
         goto end;
     }
+	//printf("ser_info_len:%d\n", ser_info_len);
     for(i = 0; i < ser_info_len; i++){
-        tmp = serv_info[i].serv;
+        tmp = (char*)serv_info[i].serv;
         tmp++;
         psid_len = calcu_psid_length(tmp);
         ser_infos->service_infos[i].psid = psidn2h(tmp, psid_len);
-
-        memcpy(&ser_infos->service_infos[i].priority, tmp, 1);
+		tmp += psid_len;
+		ser_infos->service_infos[i].priority = *tmp;
     }
     ret = 0;
 end:
@@ -2899,9 +2902,7 @@ end:
     tobe_encrypted_certificate_request_error_free(&cert_resp);
     return res;
 }
-//未测
 result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permissions,time32 life_time,string* signed_wsa){
-	DEBUG_MARK;
     if(!signed_wsa){
         wave_error_printf("返回指针为空，没有内容可以填充");
         return FAILURE;
@@ -2920,6 +2921,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
     string privatekey, encoded_tbs, hashed_tbs, signed_tbs;
     pk_algorithm algorithm = PK_ALGOTITHM_NOT_SET;//这里让他等于一个不可能的指
 
+	INIT(cmh);
     INIT(signed_tbs);
     INIT(encoded_tbs);
     INIT(hashed_tbs);
@@ -2937,13 +2939,10 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         goto fail;
     }
 
-	DEBUG_MARK;
     ret = pssme_cryptomaterial_handle(sdb, permissions, &td_location, &permission_indices, &cmh, &chain);
-	DEBUG_MARK;
     if(ret != SUCCESS)
         goto fail;
 
-	DEBUG_MARK;
     //填充tobesigned_wsa中的permission_indices
     sec_data.u.signed_wsa.unsigned_wsa.permission_indices.len = permission_indices.len;
     sec_data.u.signed_wsa.unsigned_wsa.permission_indices.buf = malloc(sizeof(u8)*permission_indices.len);
@@ -2953,13 +2952,10 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         goto fail;
     }
     memcpy(sec_data.u.signed_wsa.unsigned_wsa.permission_indices.buf, permission_indices.buf, permission_indices.len*sizeof(u8));
-	DEBUG_MARK;
     
     //设置use_location和use_generation_time flag
-	DEBUG_MARK;
     sec_data.u.signed_wsa.unsigned_wsa.tf = sec_data.u.signed_wsa.unsigned_wsa.tf & USE_GENERATION_TIME & USE_LOCATION;
 
-	DEBUG_MARK;
     //填充data
     sec_data.u.signed_wsa.unsigned_wsa.data.len = data->len;
     sec_data.u.signed_wsa.unsigned_wsa.data.buf = malloc(sizeof(u8)*data->len);
@@ -2970,8 +2966,7 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
     }
     memcpy(sec_data.u.signed_wsa.unsigned_wsa.data.buf, data->buf, data->len*sizeof(u8));
 
-	DEBUG_MARK;
-    sec_data.u.signed_wsa.unsigned_wsa.generation_time.time = time(NULL);
+    sec_data.u.signed_wsa.unsigned_wsa.generation_time.time = (time64)time(NULL)*US_TO_S;
     sec_data.u.signed_wsa.unsigned_wsa.generation_time.long_std_dev = 0xff;
 
     sec_data.u.signed_wsa.unsigned_wsa.generation_location.latitude = td_location.latitude;
@@ -2979,10 +2974,9 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
     sec_data.u.signed_wsa.unsigned_wsa.generation_location.elevation[0] = 0;
     sec_data.u.signed_wsa.unsigned_wsa.generation_location.elevation[1] = 0;
 
-    sec_data.u.signed_wsa.unsigned_wsa.expire_time = life_time;
+    sec_data.u.signed_wsa.unsigned_wsa.expire_time = (time64)wsa_exptime(life_time);
     sec_data.u.signed_wsa.unsigned_wsa.tf = sec_data.u.signed_wsa.unsigned_wsa.tf & EXPIRES;
 
-	DEBUG_MARK;
 
     //填充signature
     if(tobesigned_wsa_2_string(&sec_data.u.signed_wsa.unsigned_wsa, &encoded_tbs)){
@@ -2995,8 +2989,6 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         goto fail;
     }
     
-	DEBUG_MARK;
-	printf("version_and_type:%d\n", cert.version_and_type);
     switch(cert.version_and_type){
         case 2:
             algorithm = cert.unsigned_certificate.version_and_type.verification_key.algorithm;
@@ -3009,7 +3001,6 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
             ret = FAILURE;
             goto fail;
     }
-	printf("algorithm:%d\n", algorithm);
     if(algorithm != ECDSA_NISTP224_WITH_SHA224 && algorithm != ECDSA_NISTP256_WITH_SHA256){
         wave_error_printf("这里的协议类型都不等于我们要求的这里有问题,我们这里暂时不支持其他的加密算法");
         ret = -1;
@@ -3019,7 +3010,6 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         ret = -1;
         goto fail;        
     }
-	DEBUG_MARK;
     //create and encode a signedwsa
     sec_data.u.signed_wsa.signer.type = CERTIFICATE_CHAIN;
     sec_data.u.signed_wsa.signer.u.certificates.len = chain.len;
@@ -3029,7 +3019,6 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         ret = FAILURE;
         goto fail;
     }
-	DEBUG_MARK;
     int i = 0;
     for(i = 0; i < chain.len; i++)
         certificate_cpy(&sec_data.u.signed_wsa.signer.u.certificates.buf[i], &chain.certs[i]);
@@ -3042,7 +3031,6 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         goto fail;
     }
     memcpy(sec_data.u.signed_wsa.signature.u.ecdsa_signature.s.buf, signed_tbs.buf, signed_tbs.len);
-	DEBUG_MARK;
 
     //填充1609dot2结构体
     sec_data.protocol_version = 2;                                  
@@ -3052,7 +3040,6 @@ result sec_signed_wsa(struct sec_db* sdb,string* data,serviceinfo_array* permiss
         ret = FAILURE;                                  
         goto fail;                                  
     }                                  
-	DEBUG_MARK;
     ret = SUCCESS;
 fail:                                  
     certificate_chain_free(&chain);                                  
@@ -3062,7 +3049,6 @@ fail:
     string_free(&encoded_tbs);
     string_free(&hashed_tbs);
     string_free(&signed_tbs);
-	DEBUG_MARK;
     return ret;
 }
 
@@ -3093,7 +3079,7 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
     int len = 0;
     int i = 0;
     int j = 0;
-    int k = 0;
+   // int k = 0;
 
     INIT(chain);
     INIT(tmp_chain);
@@ -3124,16 +3110,25 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
         ret = FAILURE;
         goto end;
     }
-    results->result = malloc(sizeof(result)*len);
+    results->result = calloc(len,sizeof(result));
     if(!results->result){
         wave_error_printf("内存分配失败");
         ret = FAILURE;
         goto end;
     }
+
+	/*if(sec_data.protocol_version!=2)
+		printf("warning!protocol version != 2");
+	if(sec_data.type != SIGNED_WSA)
+		printf("warning!type != signed wsa");
+	if(sec_data.u.signed_wsa.signer.type != CERTIFICATE_CHAIN)
+		printf("warning!signer type != CERTIFICATE chain");
+	if(sec_data.u.signed_wsa.unsigned_wsa.generation_time.time > sec_data.u.signed_wsa.unsigned_wsa.expire_time)
+		printf("warning!time error%d %d", sec_data.u.signed_wsa.unsigned_wsa.generation_time.time, sec_data.u.signed_wsa.unsigned_wsa.expire_time);*/
+
     if(sec_data.protocol_version != 2 || sec_data.type != SIGNED_WSA || sec_data.u.signed_wsa.signer.type != CERTIFICATE_CHAIN
                 || sec_data.u.signed_wsa.unsigned_wsa.generation_time.time > sec_data.u.signed_wsa.unsigned_wsa.expire_time){
         ret = INVALID_INPUT;
-        goto end;
     }
 
     //这个wsa_data是不是这个值，后面再讨论以下
@@ -3152,6 +3147,8 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
         }
         memcpy(wsa_data->buf, sec_data.u.signed_wsa.unsigned_wsa.data.buf, wsa_data->len*sizeof(u8));
     }
+	if(ret == INVALID_INPUT)
+		goto end;
     
     if(generation_time != NULL){
         generation_time->time = sec_data.u.signed_wsa.unsigned_wsa.generation_time.time;
@@ -3180,26 +3177,28 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
 
     
     for(i = 0; i < len; ++i){
-        if(permission_indices.buf[i] == 0)
-            results->result[i] == UNSECURED;
+		if(permission_indices.buf[i] == 0){
+            results->result[i] = NOT_SECURED;
+		}
         else
-            results->result[i] == UNDEFINED;
+            results->result[i] = UNDEFINED;
     }
 
     //提取出signed_wsa中的certificates.
     tmp_chain.len = sec_data.u.signed_wsa.signer.u.certificates.len;
-    tmp_chain.certs = malloc(sizeof(certificate)*tmp_chain.len);
+    tmp_chain.certs = malloc(sizeof(struct certificate)*tmp_chain.len);
     if(!tmp_chain.certs){
         wave_error_printf("分配内存失败");
         ret = FAILURE;
         goto end;
     }
-    for(i = 0; i < tmp_chain.len; i++)
+    for(i = 0; i < tmp_chain.len; i++){
         if(certificate_cpy(&tmp_chain.certs[i], &sec_data.u.signed_wsa.signer.u.certificates.buf[i])){
             wave_error_printf("证书copy失败");
             ret = FAILURE;
             goto end;
         }
+	}
     ret = cme_construct_certificate_chain(sdb, ID_CERTIFICATE, NULL, &tmp_chain, false, 8, &chain, &cme_permissions, &regions,
             last_crl_time, next_crl_time, &verified);
 
@@ -3221,18 +3220,19 @@ result sec_signed_wsa_verification(struct sec_db* sdb,
         ret = EXPIRY_DATE_TOO_LATE;
 
     //判断generation latitude和generation latitude是否在geoScopes[0]范围内
-    if(three_d_location_in_region(&location, &regions.regions[0]))
-        ret = WSA_GENERATED_OUTSIDE_CERTIFICATED_VALIDITY_REGION;
+	if(location != NULL)
+		if(!three_d_location_in_region(location, &regions.regions[0]))
+			ret = WSA_GENERATED_OUTSIDE_CERTIFICATED_VALIDITY_REGION;
 
     if(chain.certs[0].unsigned_certificate.holder_type != WSA)
         ret = UNSUPPORTED_SIGNER_TYPE;
 
     if(ret != SUCCESS)
         goto end;
-
     //extract serviceinfo
     if(extract_service_info(wsa_data, &ser_info_array)){
         wave_error_printf("service info解析失败");
+		ret = FAILURE;
         goto end;
     }
     if(ser_info_array.len != permission_indices.len){
@@ -3425,6 +3425,7 @@ result sec_check_certificate_chain_consistency(
         }
         if(i+1 < cert_chain->len){
             if(cert_chain->certs[i].unsigned_certificate.expiration > cert_chain->certs[i+1].unsigned_certificate.expiration){
+//				printf("expiration : %d %d\n",cert_chain->certs[i].unsigned_certificate.expiration, cert_chain->certs[i+1].unsigned_certificate.expiration);
                 ret = INCONSISTENT_EXPIRY_TIMES;
                 return ret;
             }

@@ -46,17 +46,17 @@ typedef enum{
 
 typedef enum{
 	// these two indicate success cases
-	DOT2_SUCCESS,
-	DOT2_UNSECURED,
+	DOT2_SUCCESS = SUCCESS,
+	DOT2_UNSECURED = NOT_SECURED,
 	// failure cases
-	DOT2_INVALID_INPUT,
-	DOT2_UNDEFINED,
-	DOT2_NOT_MOST_RECENT_WSA,
-	DOT2_FUTURE_CERT_AT_GENTIME,
-	DOT2_EXPIRED_CERT_AT_GENTIME,
-	DOT2_EXPIRE_DATE_TOO_EARLY,
-	DOT2_EXPIRE_DATA_TOO_LATE,
-	DOT2_OTHER_FALURE,
+	DOT2_INVALID_INPUT = INVALID_INPUT,
+	DOT2_UNDEFINED = UNDEFINED,
+	DOT2_NOT_MOST_RECENT_WSA = NOT_MOST_RECENT_WSA,
+	DOT2_FUTURE_CERT_AT_GENTIME = FUTURE_CERTIFICATE_AT_GENERATION_TIME,
+	DOT2_EXPIRED_CERT_AT_GENTIME = EXPIER_CERTIFICATE_AT_GENERATION_TIME,
+	DOT2_EXPIRE_DATE_TOO_EARLY = EXPIRY_DATE_TOO_EARLY,
+	DOT2_EXPIRE_DATA_TOO_LATE = EXPIRY_DATE_TOO_LATE,
+	DOT2_OTHER_FALURE = 99, // may need to be changed, can not collide whth common.h
 }dot2_user_avail_result_code;
 
 typedef enum result_code{
@@ -174,7 +174,7 @@ struct verified_wsa {
 	u8   src_mac[6];
 	s8   rcpi;
 	dot2_user_avail_result_code 
-	     result_code[2];
+	     result_code;
 	u32  wsa_len;
 	u64  gen_time;
 	u64  expire_time; // life time
