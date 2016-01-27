@@ -340,7 +340,7 @@ static void* wme_loop(void* sdb){
 				vwsa->rwsa.gen_time = generation_time.time;
 				vwsa->rwsa.expire_time = expiry_time;
 				vwsa->rwsa.ssp_len = 0;
-				vwsa->rwsa.next_crl_time_len = next_crl_time.len*sizeof(time32)*2;
+				vwsa->rwsa.next_crl_time_len = sizeof(time32);
 
 				//memcpy(sbuf, &v_wsa, sizeof(struct verified_wsa));
 				memcpy((char*)&vwsa->rwsa+sizeof(struct verified_wsa), wsa_data.buf, wsa_data.len);
@@ -359,7 +359,7 @@ static void* wme_loop(void* sdb){
 					}
 				}
 
-				memcpy(ssp_shift, next_crl_time.times, sizeof(time32)*next_crl_time.len*2);
+				memcpy(ssp_shift, next_crl_time.times, sizeof(time32));
 			}
 			else if(ret != FAILURE){
 				struct wme_verified_wsa_request *vwsa = (struct wme_verified_wsa_request*)NLMSG_DATA(nlh);

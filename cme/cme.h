@@ -36,12 +36,13 @@ struct time32_array{
 };
 
 
-void time32_array_free(struct time32_array *array);
+void time32_array_free(struct time32_array *ptr);
 
 struct cme_permissions_array{
     struct cme_permissions* cme_permissions;
     u32 len;
 };
+
 
 void cme_permissions_array_free(struct cme_permissions_array* 
                 permission_array);

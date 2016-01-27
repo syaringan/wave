@@ -19,6 +19,7 @@ void time32_array_free(struct time32_array *ptr){
     ptr->times = NULL;
     ptr->len = 0;
 }
+
 void cme_permissions_free(struct cme_permissions* permissions){
     switch(permissions->type){
         case PSID:
